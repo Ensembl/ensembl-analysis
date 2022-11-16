@@ -57,7 +57,7 @@ sub default_options {
         %{ $self->SUPER::default_options() },
 
         pipeline_name     => $ENV{pipeline_name},
-        base_uniprot_ftp  => $ENV{'BASE_UNIPROT_FTP'} || 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase',
+        base_uniprot_ftp  => $ENV{'BASE_UNIPROT_FTP'} || 'https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase',
         base_uniprot_url  => $ENV{'BASE_UNIPROT_URL'} || 'http://www.uniprot.org/uniprot/?query=',
         uniprot_vert_file => $ENV{'UNIPROT_VERT_FILE'} || 'uniprot_vertebrata',
         uniprot_file      => $ENV{'UNIPROT_FILE'} || 'uniprot',

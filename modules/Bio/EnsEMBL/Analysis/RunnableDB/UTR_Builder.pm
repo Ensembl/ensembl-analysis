@@ -1294,7 +1294,7 @@ sub get_cdna_id_from_protein_id {
   Arg [1]    : none
   Description: Read GenBank sequence file linking NP proteins to a specific NM cDNA
                to use as "known" UTR evidence 
-               Source : ftp://ftp.ncbi.nlm.nih.gov/refseq/<SPECIES>/mRNA_Prot/<species>.protein.gpff.gz
+               Source : https://ftp.ncbi.nlm.nih.gov/refseq/<SPECIES>/mRNA_Prot/<species>.protein.gpff.gz
   Returns    : nothing
 
 =cut

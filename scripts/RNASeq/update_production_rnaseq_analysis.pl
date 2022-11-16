@@ -199,7 +199,7 @@ while (my $line = <RF>) {
     $sth->bind_param(1, $logic_name);
     $sth->execute();
     my ($bamfile) = $sth->fetchrow_array();
-    $description = sprintf('%s %i bp RNAseq reads from a %s. Data were obtained from %s and aligned to the %s assembly using BWA. Download this BAM file from the <a href="ftp://ftp.ensembl.org/pub/data_files/%s/%s/rnaseq/">Ensembl FTP</a> (file:<a href="ftp://ftp.ensembl.org/pub/data_files/%s/%s/rnaseq/%s.bam">%s.bam</a>).', $paired{$is_paired}, $length, $common_name, $institute, $version, $species_path, $version, $species_path, $version, $bamfile, $bamfile);
+    $description = sprintf('%s %i bp RNAseq reads from a %s. Data were obtained from %s and aligned to the %s assembly using BWA. Download this BAM file from the <a href="https://ftp.ensembl.org/pub/data_files/%s/%s/rnaseq/">Ensembl FTP</a> (file:<a href="https://ftp.ensembl.org/pub/data_files/%s/%s/rnaseq/%s.bam">%s.bam</a>).', $paired{$is_paired}, $length, $common_name, $institute, $version, $species_path, $version, $species_path, $version, $bamfile, $bamfile);
     my ($tissue) = $logic_name =~ /[a-z]+_bwa_(\S+)/;
     $tissue =~ s/_/ /g;
 

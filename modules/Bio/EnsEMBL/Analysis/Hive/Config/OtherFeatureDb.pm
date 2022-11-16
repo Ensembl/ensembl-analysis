@@ -59,6 +59,7 @@ sub default_options {
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '',                                  # e.g. mus_musculus
     'production_name'           => '',                                  # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'output_path'               => '',                                  # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'             => '',                                  # Name (as it appears in the assembly report file)
     'assembly_accession'        => '',                                  # Versioned GCA assembly accession, e.g. GCA_001857705.1
@@ -71,10 +72,10 @@ sub default_options {
     # Pipe and ref db info
 ########################
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
-    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_pipe_' . $self->o('release_number'),
+    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_core_' . $self->o('release_number'),
 
-    otherfeatures_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_otherfeatures_'.$self->o('release_number'),
+    otherfeatures_db_name => $self->o('dbowner').'_'.$self->o('dbname_accession').'_otherfeatures_'.$self->o('release_number'),
     'otherfeatures_db_host'   => $self->o('databases_host'),
     'otherfeatures_db_port'   => $self->o('databases_port'),
 
@@ -189,7 +190,7 @@ sub pipeline_analyses {
           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
           'DELETE FROM meta WHERE meta_key LIKE "sample.%"',
           'DELETE FROM meta WHERE meta_key IN'.
-            ' ("repeat.analysis", "genebuild.last_geneset_update","genebuild.method","genebuild.projection_source_db","genebuild.start_date")',
+            ' ("repeat.analysis", "genebuild.last_geneset_update","genebuild.method","genebuild.projection_source_db","genebuild.start_date","genebuild.method_display")',
           'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
         ],
       },
@@ -221,8 +222,8 @@ sub pipeline_analyses {
         read_only_user => $self->o('user_r'),
         dbowner => $self->o('dbowner'),
         release_number => $self->o('release_number'),
-        production_name => $self->o('production_name'),
-        cmd => q(if [[ -n `mysql -h #databases_host# -P #databases_port# -u #read_only_user# -NB -e "SHOW DATABASES LIKE '#dbowner#_#production_name#_#prefix#_#release_number#'"` ]]; then exit 0; else exit 42;fi),
+        dbname_accession => $self->o('dbname_accession'),
+        cmd => q(if [[ -n `mysql -h #databases_host# -P #databases_port# -u #read_only_user# -NB -e "SHOW DATABASES LIKE '#dbowner#_#dbname_accession#_#prefix#_#release_number#'"` ]]; then exit 0; else exit 42;fi),
 
         return_codes_2_branches => {'42' => 2},
       },
@@ -242,9 +243,9 @@ sub pipeline_analyses {
         read_only_user => $self->o('user_r'),
         dbowner => $self->o('dbowner'),
         release_number => $self->o('release_number'),
-        production_name => $self->o('production_name'),
+        dbname_accession => $self->o('dbname_accession'),
         min_threshold => $self->o('min_threshold_genes'),,
-        cmd => q(if [[ `mysql -h #databases_host# -P #databases_port# -u #read_only_user# #dbowner#_#production_name#_#prefix#_#release_number# -NB -e "SELECT COUNT(*) FROM gene"` -gt #min_threshold# ]]; then exit 0; else exit 42;fi),
+        cmd => q(if [[ `mysql -h #databases_host# -P #databases_port# -u #read_only_user# #dbowner#_#dbname_accession#_#prefix#_#release_number# -NB -e "SELECT COUNT(*) FROM gene"` -gt #min_threshold# ]]; then exit 0; else exit 42;fi),
 
         return_codes_2_branches => {'42' => 2},
       },
@@ -260,7 +261,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
       -parameters => {
         target_db => {
-          -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_#prefix#_' . $self->o('release_number'),
+          -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_#prefix#_' . $self->o('release_number'),
           -host   => $self->o('databases_host'),
           -port   => $self->o('databases_port'),
           -user   => $self->o('user'),
@@ -286,7 +287,7 @@ sub pipeline_analyses {
         logic_name => '#logic_name#',
         biotype => '#biotype#',
         source_db           => {
-          -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_#prefix#_' . $self->o('release_number'),
+          -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_#prefix#_' . $self->o('release_number'),
           -host   => $self->o('databases_host'),
           -port   => $self->o('databases_port'),
           -user   => $self->o('user'),
@@ -298,7 +299,7 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -batch_size => 30,
-      -hive_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -351,7 +352,7 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'perl '.$self->o('add_analyses_script').' -host #host# -port #port# -dbname #dbname#',
-        dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_#prefix#_' . $self->o('release_number'),
+        dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_#prefix#_' . $self->o('release_number'),
         host   => $self->o('databases_host'),
         port   => $self->o('databases_port'),
       },

@@ -49,13 +49,13 @@ sub default_options {
     dna_db_host               => '', # host for dna db
     pipe_db_port              => '', # port for pipeline host
     dna_db_port               => '', # port for dna db host
-    repbase_logic_name        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     release_number            => '' || $self->o('ensembl_release'),
     species_name              => '', # e.g. mus_musculus
     production_name           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     taxon_id                  => '', # should be in the assembly report file
     output_path               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    wgs_id                    => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
+    wgs_id                    => '', # Can be found in assembly report file on https://ftp.ncbi.nlm.nih.gov/genomes/genbank/
     assembly_name             => '', # Name (as it appears in the assembly report file)
     assembly_accession        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     stable_id_prefix          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
@@ -65,10 +65,7 @@ sub default_options {
     # Keys for custom loading, only set/modify if that's what you're doing
     load_toplevel_only        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     custom_toplevel_file_path => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
-    use_repeatmodeler_to_mask => '0', # Setting this will include the repeatmodeler library in the masking process
 
-    red_logic_name                   => 'repeatdetector', # logic name for the Red repeat finding analysis
-    replace_repbase_with_red_to_mask => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
 
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
@@ -82,8 +79,8 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-    pipe_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_load_assembly_pipe_'.$self->o('release_number'),
-    dna_db_name  => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    pipe_db_name => $self->o('dbowner').'_'.$self->o('dbname_accession').'_load_assembly_pipe_'.$self->o('release_number'),
+    dna_db_name  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
 
     reference_db_name   => $self->o('dna_db_name'),
     reference_db_host   => $self->o('dna_db_host'),
@@ -98,8 +95,6 @@ sub default_options {
     taxonomy_db_host   => $self->o('production_db_host'),
     taxonomy_db_port   => $self->o('production_db_port'),
     taxonomy_db_name   => 'ncbi_taxonomy',
-
-    projection_source_db_name => '', # This is generally a pre-existing db, like the current human/mouse core for example
 
     databases_to_delete => ['reference_db'],#, 'projection_realign_db'
 
@@ -116,8 +111,6 @@ sub default_options {
     primary_assembly_dir_name => 'Primary_Assembly',
     contigs_source            => 'ena',
 
-    full_repbase_logic_name  => "repeatmask_repbase_".$self->o('repbase_logic_name'),
-    repeatmodeler_logic_name => 'repeatmask_repeatmodeler',
 
     ensembl_analysis_script => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     sequence_dump_script    => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
@@ -136,7 +129,7 @@ sub default_options {
 ########################################################
 # URLs for retrieving the INSDC contigs and RefSeq files
 ########################################################
-    ncbi_base_ftp           => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
+    ncbi_base_ftp           => 'https://ftp.ncbi.nlm.nih.gov/genomes/all',
     insdc_base_ftp          => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
     assembly_ftp_path       => $self->o('insdc_base_ftp'),
 
@@ -334,17 +327,11 @@ sub pipeline_analyses {
           '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
 	  '(1, "genebuild.method", "full_genebuild"),'.
 	  '(1, "genebuild.method_display", "Ensembl Genebuild"),'.
-          '(1, "genebuild.projection_source_db", "'.$self->o('projection_source_db_name').'"),'.
           '(1, "assembly.provider_name", "'.$self->o('assembly_provider_name').'"),'.
           '(1, "assembly.provider_url", "'.$self->o('assembly_provider_url').'"),'.
           '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
           '(1, "annotation.provider_url", "'.$self->o('annotation_provider_url').'"),'.
-          '(1, "species.production_name", "'.$self->o('production_name').'"),'.
-          ($self->o('replace_repbase_with_red_to_mask') ? '(1, "repeat.analysis", "'.$self->o('red_logic_name').'"),' :
-            '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),').
-          ($self->o('use_repeatmodeler_to_mask') ? '(1, "repeat.analysis", "'.$self->o('repeatmodeler_logic_name').'"),': '').
-          '(1, "repeat.analysis", "dust"),'.
-          '(1, "repeat.analysis", "trf")',
+          '(1, "species.production_name", "'.$self->o('production_name').'")',
         ],
       },
       -rc_name    => 'default',
@@ -472,12 +459,10 @@ sub pipeline_analyses {
           'genebuild.id' => $self->o('genebuilder_id'),
 	  'genebuild.method' => 'full_genebuild',
 	  'genebuild.method_display' => 'Ensembl Genebuild', 
-          'genebuild.projection_source_db' => $self->o('projection_source_db_name'),
           'assembly.provider_name' => $self->o('assembly_provider_name'),
           'assembly.provider_url' => $self->o('assembly_provider_url'),
           'annotation.provider_name' => $self->o('annotation_provider_name'),
           'annotation.provider_url' => $self->o('annotation_provider_url'),
-          'repeat.analysis' => [$self->o('full_repbase_logic_name'), 'dust', 'trf'],
           'species.production_name' => $self->o('production_name'),
           'species.taxonomy_id' => $self->o('taxon_id'),
         }

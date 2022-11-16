@@ -103,17 +103,17 @@ sub download_files {
   my $exit;
   say "Updating RFAM descriptions file ... using Sanger FTP site (consider using EBI mirror)";
   system ("mkdir -p ".$output_path) unless -e $output_path;
-  $exit =  system ("wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.cm.gz  -O ".$output_path."/Rfam.cm.gz");
-  $self->throw("Error with obtaining Rfam covariance model file from ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.cm.gz\n") if $exit > 0;
+  $exit =  system ("wget https://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.cm.gz  -O ".$output_path."/Rfam.cm.gz");
+  $self->throw("Error with obtaining Rfam covariance model file from https://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.cm.gz\n") if $exit > 0;
   $exit =   system ("gunzip -f ".$output_path."/Rfam.cm.gz");
   $self->throw("Error decompressing Rfam.tar.gz\n") if $exit > 0;
-  $exit =  system ("wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.seed.gz  -O ".$output_path."/Rfam.seed.gz");
-  $self->throw("Error with obtaining Rfam.seed file from ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.seed.gz\n") if $exit > 0;
+  $exit =  system ("wget https://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.seed.gz  -O ".$output_path."/Rfam.seed.gz");
+  $self->throw("Error with obtaining Rfam.seed file from https://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.seed.gz\n") if $exit > 0;
 # Commented out code if for making the fasta file for Rfam 12 and up
-#  $exit =   system ("wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/fasta_files/RF*.fa.gz -O ".$output_path."/Rfam.fasta.gz");
-#  $self->throw("Error with obtaining Rfam fasta files from ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/fasta_files/RF*.fa.gz\n") if $exit > 0;
-  $exit =   system ("wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.fasta.gz -O ".$output_path."/Rfam.fasta.gz");
-  die ("Error with obtaining Rfam.fasta file from ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0//Rfam.fasta.gz\n") if $exit > 0;
+#  $exit =   system ("wget https://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/fasta_files/RF*.fa.gz -O ".$output_path."/Rfam.fasta.gz");
+#  $self->throw("Error with obtaining Rfam fasta files from https://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/fasta_files/RF*.fa.gz\n") if $exit > 0;
+  $exit =   system ("wget https://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.fasta.gz -O ".$output_path."/Rfam.fasta.gz");
+  die ("Error with obtaining Rfam.fasta file from https://ftp.ebi.ac.uk/pub/databases/Rfam/11.0//Rfam.fasta.gz\n") if $exit > 0;
   $exit =   system ("gunzip -f ".$output_path."/Rfam.seed.gz");
   $self->throw("Error decompressing Rfam.seed.gz\n") if $exit > 0;
   $exit =   system ("gunzip -f ".$output_path."/Rfam.fasta.gz");

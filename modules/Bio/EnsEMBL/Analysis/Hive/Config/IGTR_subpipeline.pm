@@ -56,6 +56,7 @@ sub default_options {
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
 
     # need for IGTR part:
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
@@ -70,8 +71,8 @@ sub default_options {
 # These values can be replaced in the analysis_base table if they're not known yet
 # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
-    'pipe_db_name'                  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
-    'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    'pipe_db_name'                  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pipe_'.$self->o('release_number'),
+    'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
 
     'ig_tr_db_host'                => $self->o('databases_host'),
     'ig_tr_db_port'                => $self->o('databases_port'),
@@ -123,7 +124,7 @@ sub default_options {
 ########################
 
     'ig_tr_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_igtr_'.$self->o('release_number'),
       -host   => $self->o('ig_tr_db_host'),
       -port   => $self->o('ig_tr_db_port'),
       -user   => $self->o('user'),

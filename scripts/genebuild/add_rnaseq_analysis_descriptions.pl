@@ -196,7 +196,7 @@ sub get_values {
 
   my %description = (
 		     'rnaseq_gene' => "Annotation generated from ".$sample_name." RNA-seq data",
-		     'rnaseq_bam'  => 'Alignments of '.$sample_name.' RNA-seq data. This BAM file can be downloaded from the <a href="ftp://ftp.ensembl.org/pub/data_files/">Ensembl FTP site</a>',
+		     'rnaseq_bam'  => 'Alignments of '.$sample_name.' RNA-seq data. This BAM file can be downloaded from the <a href="https://ftp.ensembl.org/pub/data_files/">Ensembl FTP site</a>',
 		     'rnaseq_ise'  => "Spliced-read support for ".$sample_name,
 		     'rnaseq_daf'  => "Spliced-read support for ".$sample_name,
          'isoseq'      => ucfirst($sample_name).' PacBio long reads from <a rel="external" href="https://www.ebi.ac.uk/ena">ENA</a> aligned to the genome using <a rel="external" href="https://doi.org/10.1093/bioinformatics/bty191">Minimap2</a>',

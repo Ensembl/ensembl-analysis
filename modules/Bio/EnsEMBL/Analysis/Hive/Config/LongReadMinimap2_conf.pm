@@ -40,7 +40,7 @@ sub default_options {
 'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
 'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
 'minimap2_batch_size'    => '5000',
-'rnaseq_ftp_base'        => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
+'rnaseq_ftp_base'        => 'https://ftp.sra.ebi.ac.uk/vol1/fastq/',
 'long_read_columns'      => ['sample','filename'],
 'skip_long_read'         => 0,
 

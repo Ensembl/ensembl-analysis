@@ -61,6 +61,7 @@ sub default_options {
     release_number                   => '' || $ENV{ENSEMBL_RELEASE},
     species_name                     => '', # e.g. mus_musculus
     production_name                  => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession                 => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     taxon_id                         => '', # should be in the assembly report file
     species_taxon_id                 => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
     genus_taxon_id                   => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
@@ -68,7 +69,7 @@ sub default_options {
     sanity_set                       => '', #sanity checks
     ig_tr_fasta_file                 => '', # file containing ig and tr proteins to be used during the IGTR subpipeline. This would come from the clade settings defined in "create_annotation_configs.pl" (ie 'fish_ig_tr.fa')
     output_path                      => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    wgs_id                           => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
+    wgs_id                           => '', # Can be found in assembly report file on https://ftp.ncbi.nlm.nih.gov/genomes/genbank/
     assembly_name                    => '', # Name (as it appears in the assembly report file)
     assembly_accession               => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     assembly_refseq_accession        => '', # Versioned GCF accession, e.g. GCF_001857705.1
@@ -84,8 +85,6 @@ sub default_options {
 
     repbase_logic_name               => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     repbase_library                  => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
-    replace_repbase_with_red_to_mask => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
-    use_repeatmodeler_to_mask        => '0', # Setting this will include the repeatmodeler library in the masking process
     repeatmodeler_library            => '', # This should be the path to a custom repeat library, leave blank if none exists
 
     stable_id_start                  => '0', # When mapping is not required this is usually set to 0
@@ -140,8 +139,8 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-    pipe_db_name                  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
-    dna_db_name                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    pipe_db_name                  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pipe_'.$self->o('release_number'),
+    dna_db_name                   => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
 
     reference_db_name            => $self->o('dna_db_name'),
     reference_db_host            => $self->o('dna_db_host'),
@@ -254,6 +253,9 @@ sub default_options {
     full_repbase_logic_name  => "repeatmask_repbase_".$self->o('repbase_logic_name'),
     red_logic_name           => 'repeatdetector', # logic name for the Red repeat finding analysis
     repeatmodeler_logic_name => 'repeatmask_repeatmodeler',
+    first_choice_repeat => $self->o('full_repbase_logic_name'),
+    second_choice_repeat => $self->o('repeatmodeler_logic_name'),
+    third_choice_repeat => $self->o('red_logic_name'),
 
     ensembl_analysis_script => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     loading_report_script   => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
@@ -292,7 +294,7 @@ sub default_options {
     },
 
     refseq_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_refseq_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_refseq_'.$self->o('release_number'),
       -host   => $self->o('refseq_db_host'),
       -port   => $self->o('refseq_db_port'),
       -user   => $self->o('user'),
@@ -319,7 +321,7 @@ sub default_options {
     },
 
     selected_projection_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_sel_proj_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_sel_proj_'.$self->o('release_number'),
       -host   => $self->o('projection_db_host'),
       -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
@@ -328,7 +330,7 @@ sub default_options {
     },
 
     genblast_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_genblast_'.$self->o('release_number'),
       -host   => $self->o('genblast_db_host'),
       -port   => $self->o('genblast_db_port'),
       -user   => $self->o('user'),
@@ -337,7 +339,7 @@ sub default_options {
     },
 
     genblast_nr_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_nr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_genblast_nr_'.$self->o('release_number'),
       -host   => $self->o('genblast_nr_db_host'),
       -port   => $self->o('genblast_nr_db_port'),
       -user   => $self->o('user'),
@@ -346,7 +348,7 @@ sub default_options {
     },
 
     cdna_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_cdna_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_cdna_'.$self->o('release_number'),
       -host   => $self->o('cdna_db_host'),
       -port   => $self->o('cdna_db_port'),
       -user   => $self->o('user'),
@@ -355,7 +357,7 @@ sub default_options {
     },
 
     best_targeted_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_bt_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_bt_'.$self->o('release_number'),
       -host   => $self->o('best_targeted_db_host'),
       -port   => $self->o('best_targeted_db_port'),
       -user   => $self->o('user'),
@@ -364,7 +366,7 @@ sub default_options {
     },
 
     ig_tr_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_igtr_'.$self->o('release_number'),
       -host   => $self->o('ig_tr_db_host'),
       -port   => $self->o('ig_tr_db_port'),
       -user   => $self->o('user'),
@@ -373,7 +375,7 @@ sub default_options {
     },
 
     ncrna_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_ncrna_'.$self->o('release_number'),
       -host   => $self->o('ncrna_db_host'),
       -port   => $self->o('ncrna_db_port'),
       -user   => $self->o('user'),
@@ -382,7 +384,7 @@ sub default_options {
     },
 
     rnaseq_refine_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_refine_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_refine_db_host'),
       -port   => $self->o('rnaseq_refine_db_port'),
       -user   => $self->o('user'),
@@ -391,7 +393,7 @@ sub default_options {
     },
 
     rnaseq_blast_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_scallop_blast_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_scallop_blast_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_blast_db_host'),
       -port   => $self->o('rnaseq_blast_db_port'),
       -user   => $self->o('user'),
@@ -400,7 +402,7 @@ sub default_options {
     },
 
     rnaseq_for_layer_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_layer_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_rnaseq_layer_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_for_layer_db_host'),
       -port   => $self->o('rnaseq_for_layer_db_port'),
       -user   => $self->o('user'),
@@ -409,7 +411,7 @@ sub default_options {
     },
 
     rnaseq_for_layer_nr_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnalayer_nr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_rnalayer_nr_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_for_layer_nr_db_host'),
       -port   => $self->o('rnaseq_for_layer_nr_db_port'),
       -user   => $self->o('user'),
@@ -418,7 +420,7 @@ sub default_options {
     },
 
     pcp_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_'.$self->o('release_number'),
       -host   => $self->o('pcp_db_host'),
       -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),
@@ -427,7 +429,7 @@ sub default_options {
     },
 
     pcp_nr_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_nr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_nr_'.$self->o('release_number'),
       -host   => $self->o('pcp_db_host'),
       -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),
@@ -436,7 +438,7 @@ sub default_options {
     },
 
     long_read_final_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_lrfinal_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_lrfinal_'.$self->o('release_number'),
       -host => $self->o('long_read_final_db_host'),
       -port => $self->o('long_read_final_db_port'),
       -user => $self->o('user'),
@@ -445,7 +447,7 @@ sub default_options {
     },
 
     genblast_rnaseq_support_nr_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gb_rnaseq_nr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_gb_rnaseq_nr_'.$self->o('release_number'),
       -host   => $self->o('genblast_rnaseq_support_db_host'),
       -port   => $self->o('genblast_rnaseq_support_db_port'),
       -user   => $self->o('user'),
@@ -454,7 +456,7 @@ sub default_options {
     },
 
     final_geneset_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_final_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_final_'.$self->o('release_number'),
       -host   => $self->o('final_geneset_db_host'),
       -port   => $self->o('final_geneset_db_port'),
       -user   => $self->o('user'),
@@ -463,7 +465,7 @@ sub default_options {
     },
 
     rnaseq_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_rnaseq_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_db_host'),
       -port   => $self->o('rnaseq_db_port'),
       -user   => $self->o('user'),
@@ -472,7 +474,7 @@ sub default_options {
     },
 
     otherfeatures_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_otherfeatures_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_otherfeatures_'.$self->o('release_number'),
       -host   => $self->o('otherfeatures_db_host'),
       -port   => $self->o('otherfeatures_db_port'),
       -user   => $self->o('user'),
@@ -525,16 +527,6 @@ sub pipeline_create_commands {
 sub pipeline_wide_parameters {
   my ($self) = @_;
 
-  # set the logic names for repeat masking
-  my $wide_repeat_logic_names;
-  if ($self->o('use_repeatmodeler_to_mask')) {
-    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'];
-  } elsif ($self->o('replace_repbase_with_red_to_mask')) {
-    $wide_repeat_logic_names = [$self->o('red_logic_name'),'dust'];
-  } else {
-    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),'dust'];
-  }
-
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     skip_projection => $self->o('skip_projection'),
@@ -543,10 +535,7 @@ sub pipeline_wide_parameters {
     skip_long_read => $self->o('skip_long_read'),
     skip_lastz => $self->o('skip_lastz'),
     skip_repeatmodeler => $self->o('skip_repeatmodeler'),
-    wide_repeat_logic_names => $wide_repeat_logic_names,
     skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
-    repeatmasker_slice_size   => $self->o('repeatmasker_slice_size'),
-    batch_target_size => $self->o('batch_target_size'),
   }
 }
 
@@ -558,7 +547,7 @@ sub pipeline_analyses {
   my $db_name_template = "%s_%s_%s_%s";
   my ($load_assembly_pipe_db, $load_assembly_pipe_url, $load_assembly_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'load_assembly_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'load_assembly_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -566,7 +555,7 @@ sub pipeline_analyses {
     );
   my ($repeat_masking_pipe_db, $repeat_masking_pipe_url, $repeat_masking_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'repeat_masking_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'repeat_masking_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -574,7 +563,7 @@ sub pipeline_analyses {
     );
   my ($refseq_import_pipe_db, $refseq_import_pipe_url, $refseq_import_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'refseq_import_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'refseq_import_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -582,7 +571,7 @@ sub pipeline_analyses {
     );
   my ($lastz_pipe_db, $lastz_pipe_url, $lastz_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'lastz_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'lastz_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -590,7 +579,7 @@ sub pipeline_analyses {
     );
   my ($projection_pipe_db, $projection_pipe_url, $projection_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'projection_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'projection_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -598,7 +587,7 @@ sub pipeline_analyses {
     );
   my ($homology_pipe_db, $homology_pipe_url, $homology_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'homology_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'homology_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -606,7 +595,7 @@ sub pipeline_analyses {
     );
   my ($best_targeted_pipe_db, $best_targeted_pipe_url, $best_targeted_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'best_targeted_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'best_targeted_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -614,7 +603,7 @@ sub pipeline_analyses {
     );
   my ($igtr_pipe_db, $igtr_pipe_url, $igtr_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'igtr_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'igtr_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -622,7 +611,7 @@ sub pipeline_analyses {
     );
   my ($short_ncrna_pipe_db, $short_ncrna_pipe_url, $short_ncrna_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'short_ncrna_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'short_ncrna_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -630,7 +619,7 @@ sub pipeline_analyses {
     );
   my ($rnaseq_pipe_db, $rnaseq_pipe_url, $rnaseq_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'rnaseq_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'rnaseq_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -638,7 +627,7 @@ sub pipeline_analyses {
     );
   my ($long_read_pipe_db, $long_read_pipe_url, $long_read_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'long_read_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'long_read_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -646,7 +635,7 @@ sub pipeline_analyses {
     );
   my ($homology_rnaseq_pipe_db, $homology_rnaseq_pipe_url, $homology_rnaseq_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'homology_rnaseq_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'homology_rnaseq_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -654,7 +643,7 @@ sub pipeline_analyses {
     );
   my ($transcript_selection_pipe_db, $transcript_selection_pipe_url, $transcript_finalisation_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'set_finalisation_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'set_finalisation_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -662,7 +651,7 @@ sub pipeline_analyses {
     );
   my ($core_db_finalisation_pipe_db, $core_db_finalisation_pipe_url, $core_db_finalisation_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'db_finalisation_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'db_finalisation_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -670,7 +659,7 @@ sub pipeline_analyses {
     );
   my ($otherfeatures_db_pipe_db, $otherfeatures_db_pipe_url, $otherfeatures_db_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'otherfeatures_db_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'otherfeatures_db_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -678,7 +667,7 @@ sub pipeline_analyses {
     );
   my ($rnaseq_db_pipe_db, $rnaseq_db_pipe_url, $rnaseq_db_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'rnaseq_db_pipe', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('dbname_accession'), 'rnaseq_db_pipe', $self->o('release_number')),
       $self->o('pipe_db_host'),
       $self->o('pipe_db_port'),
       $self->o('pipe_db_user'),
@@ -784,10 +773,10 @@ sub pipeline_analyses {
           user_r => $self->o('user_r'),
           dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          repbase_logic_name => $self->o('repbase_logic_name'),
           release_number => $self->o('release_number'),
           species_name => $self->o('species_name'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           taxon_id => $self->o('taxon_id'),
           wgs_id => $self->o('wgs_id'),
           assembly_name => $self->o('assembly_name'),
@@ -796,9 +785,6 @@ sub pipeline_analyses {
           species_url => $self->o('species_url'),
           load_toplevel_only => $self->o('load_toplevel_only'),
           custom_toplevel_file_path => $self->o('custom_toplevel_file_path'),
-          use_repeatmodeler_to_mask => $self->o('use_repeatmodeler_to_mask'),
-          replace_repbase_with_red_to_mask => $self->o('replace_repbase_with_red_to_mask'),
-          projection_source_db_name => $self->o('projection_source_db_name'),
         },
       },
       -rc_name      => 'default',
@@ -886,6 +872,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           assembly_name => $self->o('assembly_name'),
           assembly_refseq_accession => $self->o('assembly_refseq_accession'),
         },
@@ -941,15 +928,14 @@ sub pipeline_analyses {
           dna_db_port => $self->o('dna_db_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           repbase_logic_name => $self->o('repbase_logic_name'),
           repbase_library => $self->o('repbase_library'),
           species_name => $self->o('species_name'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           skip_repeatmodeler => $self->o('skip_repeatmodeler'),
-          replace_repbase_with_red_to_mask => $self->o('replace_repbase_with_red_to_mask'),
           red_logic_name => $self->o('red_logic_name'),
           repeatmodeler_library => $self->o('repeatmodeler_library'),
-          use_repeatmodeler_to_mask => $self->o('use_repeatmodeler_to_mask'),
 	  skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
 	  batch_target_size => $self->o('batch_target_size'),
 	  repeatmasker_slice_size => $self->o('repeatmasker_slice_size'),
@@ -1057,6 +1043,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           skip_projection => $self->o('skip_projection'),
@@ -1166,38 +1153,38 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -flow_into => {
-        1 =>['repeat_masker_coverage'],
+        1 =>['create_repeatmasking_coverage_jobs'],
       },
     },
 
 
     {
-      -logic_name => 'repeat_masker_coverage',
+      -logic_name => 'create_repeatmasking_coverage_jobs',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        column_names => ['repeat_logic_name', 'assembly_name'],
+        inputlist => [[$self->o('first_choice_repeat'), '#assembly_name#'], [$self->o('second_choice_repeat'), '#assembly_name#'], [$self->o('third_choice_repeat'), '#assembly_name#']],
+      },
+      -rc_name => 'default',
+      -max_retry_count => 0,
+      -flow_into => {
+        2 => ['repeatmasking_coverage'],
+      }
+    },
+
+
+    {
+      -logic_name => 'repeatmasking_coverage',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
       -parameters => {
         source_db => $self->o('reference_db'),
-        repeat_logic_names => '#wide_repeat_logic_names#',
+        repeat_logic_names => ['#repeat_logic_name#', 'dust'],
         coord_system_version => '#assembly_name#',
         email => $self->o('email_address'),
       },
       -rc_name => '10GB',
-      -flow_into => {
-        1 =>['repeatmodeler_coverage'],
-      },
     },
 
-
-    {
-      -logic_name => 'repeatmodeler_coverage',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
-      -parameters => {
-        source_db => $self->o('reference_db'),
-        repeat_logic_names => [$self->o('repeatmodeler_logic_name')],
-        coord_system_version => '#assembly_name#',
-        email => $self->o('email_address'),
-      },
-      -rc_name => '4GB',
-    },
 
     {
       -logic_name => 'skip_lastz',
@@ -1245,6 +1232,7 @@ sub pipeline_analyses {
           dna_db_port => $self->o('dna_db_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           registry_file => $self->o('registry_file'),
           projection_source_db_name => $self->o('projection_source_db_name'),
@@ -1329,6 +1317,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           projection_source_db_name => $self->o('projection_source_db_name'),
           uniprot_set => $self->o('uniprot_set'),
           sanity_set => $self->o('sanity_set'),
@@ -1390,6 +1379,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
           uniprot_set => $self->o('uniprot_set'),
@@ -1452,9 +1442,10 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
-          wide_repeat_logic_names => '#wide_repeat_logic_names#',
+          repeat_logic_names => [$self->o('first_choice_repeat'), 'dust'],
           transcript_selection_url => $transcript_selection_pipe_url,
           use_genome_flatfile => $self->o('use_genome_flatfile'),
         },
@@ -1511,6 +1502,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           uniprot_set => $self->o('uniprot_set'),
           sanity_set => $self->o('sanity_set'),
@@ -1594,6 +1586,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
           sanity_set => $self->o('sanity_set'),
@@ -1679,6 +1672,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           uniprot_set => $self->o('uniprot_set'),
           sanity_set => $self->o('sanity_set'),
@@ -1733,6 +1727,7 @@ sub pipeline_analyses {
           release_number => $self->o('release_number'),
           assembly_name => $self->o('assembly_name'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
           uniprot_set => $self->o('uniprot_set'),
@@ -1821,6 +1816,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           long_read_summary_file => $self->o('long_read_summary_file'),
           long_read_summary_file_genus => $self->o('long_read_summary_file_genus'),
@@ -1884,6 +1880,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           uniprot_set => $self->o('uniprot_set'),
           sanity_set => $self->o('sanity_set'),
@@ -1937,12 +1934,15 @@ sub pipeline_analyses {
       -logic_name => 'skip_otherfeatures_db',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [[ -n "#assembly_refseq_accession#" ]] || [[ #skip_long_read# -eq 0 ]] || [[ $(#cdna_query#) -gt #cdna_threshold# ]]; then exit 0; else exit 42;fi',
+        cmd => 'if [[ -n "#assembly_refseq_accession#" ]] || [[ -n #long_read_query# ]] || [[ $(#cdna_query#) -gt #cdna_threshold# ]]; then exit 0; else exit 42;fi',
         return_codes_2_branches => {'42' => 2},
         cdna_query => 'mysql -h #expr(#cdna_db#->{-host})expr# -P #expr(#cdna_db#->{-port})expr# -u #expr(#cdna_db#->{-user})expr# -p#expr(#cdna_db#->{-pass})expr# #expr(#cdna_db#->{-dbname})expr# -NB -e "SELECT COUNT(*) FROM gene"',
         cdna_threshold => $self->o('cdna_threshold'),
         cdna_db => $self->o('cdna_db'),
-      },
+	long_read_query => `mysql -h #expr(#long_read_final_db#->{-host})expr#  -P #expr(#long_read_final_db#->{-port})expr# -u #expr(#long_read_final_db#->{-user})expr# -NB -e "SHOW DATABASES LIKE '#expr(#long_read_final_db#->{-dbname})expr#'"`,
+        long_read_final_db => $self->o('long_read_final_db'),
+       },
+
       -rc_name => 'default',
       -flow_into  => {
         1 => ['create_otherfeatures_db_pipeline_job'],
@@ -1983,6 +1983,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           registry_host => $self->o('registry_host'),
           registry_port => $self->o('registry_port'),
@@ -2059,6 +2060,7 @@ sub pipeline_analyses {
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
+          dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           registry_host => $self->o('registry_host'),
           registry_port => $self->o('registry_port'),

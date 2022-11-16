@@ -66,8 +66,19 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_st
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    canonical => 0,
+  }
+}
+
+
 sub fetch_input {
   my($self) = @_;
+
   $self->create_analysis;
   my $input_ids = $self->param('iid');
 
@@ -195,10 +206,11 @@ sub run {
      my $successfully_projected = 0;
      my $preliminary_transcripts = [];
      eval {
-      local $SIG{ALRM} = sub { die "alarm clock restart" };
+      local $SIG{ALRM} = sub { die "alarm clock restart\n" };
       alarm $timer; #schedule alarm in '$timer' seconds
 
       foreach my $chain (@{$source_transcript->{_genomic_align_block_chains}}) {
+        sleep 3;
         my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->new(
                                                                                      -genomic_align_blocks => $chain,
                                                                                      -from_slice    => $source_transcript->slice,
@@ -239,7 +251,7 @@ sub run {
       alarm 0; #reset alarm
     }; # end eval
 
-    if($@ && $@ !~ /alarm clock restart/) {
+    if($@ && $@ eq "alarm clock restart\n") {
       say "Projection failed for transcript ".$source_transcript->dbID." because of time limit on timer param";
     }
 

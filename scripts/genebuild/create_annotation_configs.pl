@@ -37,7 +37,7 @@ my $config_only = 0;
 my $custom_load = 0;
 my $early_load = 0;
 
-my $total_running_workers_max = 200;
+my $total_running_workers_max = 2000;
 my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
@@ -128,6 +128,11 @@ while(<IN>) {
     }
 }
 close IN || throw("Could not close $config_file");
+
+# If replace_repbase_with_red_to_mask is true then force first_choice_repeat to be red logic name
+if (exists $general_hash->{'replace_repbase_with_red_to_mask'} and $general_hash->{'replace_repbase_with_red_to_mask'} and !exists $general_hash->{first_choice_repeat}) {
+  $general_hash->{first_choice_repeat} = $general_hash->{red_logic_name} || 'repeatdetector';
+}
 
  my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
   -host    => $assembly_registry_host,
@@ -455,6 +460,7 @@ sub parse_assembly_report {
   }
 
 # create production name - must be unique, no more than trinomial, and include GCA
+# Add dbname_accession which replace production_name in the dbname and is just the GCA MySQL friendly
   my $underscore_count = $species_name =~ tr/_//;
   $species_name =~ /(^[^_]+_[^_]+)_*.*/;
   my $binomial_name = $1;
@@ -462,6 +468,7 @@ sub parse_assembly_report {
   $accession_append =~ s/\./v/g;
   $accession_append =~ s/_//g;
   $assembly_hash->{'production_name'} = $binomial_name.'_'.$accession_append;
+  $assembly_hash->{'dbname_accession'} = $accession_append;
 
   $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;

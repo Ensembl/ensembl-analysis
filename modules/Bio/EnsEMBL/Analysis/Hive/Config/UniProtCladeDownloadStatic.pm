@@ -750,7 +750,7 @@ sub _master_config {
 
 
              selenocysteine => {
-               query_url => 'https://legacy.uniprot.org/uniprot/?query=annotation%3A%28type%3Anon_std+selenocysteine%29+AND+taxonomy%3A#taxon_id#+AND+fragment%3Ano&format=fasta&include=yes',
+               query_url => 'taxonomy_id%3A#taxon_id#%20AND%20%28existence%3A1%20OR%20existence%3A2%29%20AND%20ft_non_std%3Aselenocysteine%20AND%20fragment%3Afalse&format=fasta&includeIsoform=true',
                file_name => '#taxon_id#_seleno.fa',
                dest_dir   => '#output_path#',
              },

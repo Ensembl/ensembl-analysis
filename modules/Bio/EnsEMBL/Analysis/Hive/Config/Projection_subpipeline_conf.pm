@@ -44,6 +44,7 @@ sub default_options {
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'release_number'            => '' || $self->o('ensembl_release'),
     'user_r'                    => '', # read only db user
     'user'                      => '', # write db user
@@ -63,7 +64,8 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-
+     dna_db_name  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
+	
     'projection_source_db_name'         => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_host'         => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
@@ -71,13 +73,13 @@ sub default_options {
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
-    'pipe_db_name'  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
+    'pipe_db_name'  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pipe_'.$self->o('release_number'),
 
-    'projection_lastz_db_name'     => $self->o('dbowner').'_'.$self->o('production_name').'_lastz_pipe_'.$self->o('release_number'),
+    'projection_lastz_db_name'     => $self->o('dbowner').'_'.$self->o('dbname_accession').'_lastz_pipe_'.$self->o('release_number'),
     'projection_lastz_db_host'     => $self->o('pipe_db_host'),
     'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
-    'dna_db_name'   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    'dna_db_name'   => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
     genome_dumps => catdir( $self->o('output_path'), 'genome_dumps' ),
     use_genome_flatfile => 1,
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
@@ -119,8 +121,17 @@ sub default_options {
 # db info
 ########################
 
+    reference_db => {
+      -dbname => $self->o('dna_db', '-dbname'),
+      -host   => $self->o('dna_db', '-host'),
+      -port   => $self->o('dna_db', '-port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
     'projection_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_proj_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_proj_'.$self->o('release_number'),
       -host   => $self->o('projection_db_host'),
       -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
@@ -147,7 +158,7 @@ sub default_options {
     },
 
     'selected_projection_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_sel_proj_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_sel_proj_'.$self->o('release_number'),
       -host   => $self->o('selected_projection_db_host'),
       -port   => $self->o('selected_projection_db_port'),
       -user   => $self->o('user'),
@@ -255,7 +266,7 @@ sub pipeline_analyses {
       },
       -rc_name        => 'project_transcripts',
       -batch_size     => 100,
-      -hive_capacity  => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_low'),
     },
 
     {
@@ -289,7 +300,7 @@ sub pipeline_analyses {
       },
       -rc_name        => 'project_transcripts_himem',
       -batch_size     => 100,
-      -hive_capacity  => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_low'),
       -can_be_empty   => 1,
     },
 
@@ -299,7 +310,6 @@ sub pipeline_analyses {
       -parameters           => {},
       -rc_name              => 'default',
       -can_be_empty         => 1,
-      -failed_job_tolerance => 100,
     },
 
     {
@@ -324,7 +334,6 @@ sub pipeline_analyses {
       -logic_name => 'cesar',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
       -parameters => {
-        'output_path'           => $self->o('output_path')."/cesar_projection/",
         'source_dna_db'         => $self->default_options()->{'projection_source_db'},
         'target_dna_db'         => $self->o('dna_db'),
         'source_db'             => $self->o('projection_source_db'),
@@ -337,9 +346,8 @@ sub pipeline_analyses {
         'stops2introns'         => 1,
       },
       -rc_name              => '3GB',
-      -analysis_capacity    => 50,
+      -hive_capacity => $self->o('hc_low'),
       -max_retry_count      => 1,
-      -failed_job_tolerance => 5,
       -flow_into => {
         15 => ['cesar_15'],
         30 => ['cesar_30'],
@@ -351,7 +359,6 @@ sub pipeline_analyses {
       -logic_name => 'cesar_15',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
       -parameters => {
-        'output_path'           => $self->o('output_path')."/cesar_projection/",
         'source_dna_db'         => $self->default_options()->{'projection_source_db'},
         'target_dna_db'         => $self->o('dna_db'),
         'source_db'             => $self->o('projection_source_db'),
@@ -364,10 +371,9 @@ sub pipeline_analyses {
         'stops2introns'         => 1,
       },
       -rc_name              => '15GB',
-      -analysis_capacity    => 50,
+      -hive_capacity => $self->o('hc_low'),
       -max_retry_count      => 1,
       -can_be_empty         => 1,
-      -failed_job_tolerance => 5,
       -flow_into => {
         -1 => ['cesar_30'],
       },
@@ -377,7 +383,6 @@ sub pipeline_analyses {
       -logic_name => 'cesar_30',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
       -parameters => {
-        'output_path'           => $self->o('output_path')."/cesar_projection/",
         'source_dna_db'         => $self->default_options()->{'projection_source_db'},
         'target_dna_db'         => $self->o('dna_db'),
         'source_db'             => $self->o('projection_source_db'),
@@ -390,10 +395,9 @@ sub pipeline_analyses {
         'stops2introns'         => 1,
       },
       -rc_name              => '30GB',
-      -analysis_capacity    => 50,
+      -hive_capacity => $self->o('hc_low'),
       -max_retry_count      => 1,
       -can_be_empty         => 1,
-      -failed_job_tolerance => 10,
       -flow_into => {
         -1 => ['cesar_failed_projection'],
       },
@@ -404,7 +408,6 @@ sub pipeline_analyses {
       -module               => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
       -parameters           => {},
       -rc_name              => 'default',
-      -failed_job_tolerance => 100,
       -can_be_empty         => 1,
     },
 
@@ -484,12 +487,27 @@ sub pipeline_analyses {
       -logic_name => 'select_projected_genes',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectProjectedGenes',
       -parameters => {
-        wga_db   => $self->o('projection_db'),
-        cesar_db   => $self->o('projection_db'),
+        wga_db    => $self->o('projection_db'),
+        cesar_db  => $self->o('projection_db'),
         output_db => $self->o('selected_projection_db'),
-        dna_db => $self->o('dna_db'),
+        dna_db    => $self->o('dna_db'),
       },
       -rc_name    => '4GB',
+      -flow_into  => {
+        '1'  => ['insert_production_source_db_meta_key'],
+      },
+    },
+
+    {
+      -logic_name => 'insert_production_source_db_meta_key',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('reference_db'),
+        sql => [
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.projection_source_db","'.$self->o('projection_source_db_name').'")',
+        ],
+      },
+      -rc_name    => 'default',
       -flow_into  => {
         '1'  => ['notification_pipeline_is_done'],
       },

@@ -47,10 +47,12 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
+    repeat_logic_names => [],
     alt_as_scaffolds => 0,
     patch_only => 0,
     lfs_stripe => 0,
     lfs_options => undef,
+    mask => 0,
   }
 }
 
@@ -103,6 +105,11 @@ sub fetch_input {
   unless($self->param('enscode_root_dir')) {
     $self->throw("enscode_dir not passed into parameters hash. You need to specify where your code checkout is");
   }
+  if ($self->param('mask') and !@{$self->param('repeat_logic_names')}) {
+    my $db = $self->get_database_by_name('target_db');
+    my @repeat_logic_names = grep {$_ ne 'trf'} @{$db->get_MetaContainer->list_value_by_key('repeat.analysis')};
+    $self->param('repeat_logic_names', \@repeat_logic_names);
+  }
 
   return 1;
 }
@@ -124,15 +131,6 @@ sub run {
   my $self = shift;
 
   my $db_info = $self->param('target_db');
-  my $repeat_logic_names = $self->param('repeat_logic_names');
-  my $repeat_string;
-  if(scalar(@{$repeat_logic_names})) {
-    $repeat_string .= ' -mask -softmask ';
-    foreach my $repeat_logic_name (@{$repeat_logic_names}) {
-      $repeat_string .= ' -mask_repeat '.$repeat_logic_name;
-    }
-  }
-
   my $cmd = 'perl '.catfile($self->param('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'sequence_dump.pl').
             ' -dbuser '.$db_info->{-user}.
             ' -dbport '.$db_info->{-port}.
@@ -144,7 +142,14 @@ sub run {
             ' -nonref'.
             ' -filename '.catfile($self->param('output_path'), $self->param('species_name').'_softmasked_toplevel.fa');
 
-  $cmd .= $repeat_string if ($repeat_string);
+  my $repeat_logic_names = $self->param('repeat_logic_names');
+  if(scalar(@{$repeat_logic_names})) {
+    $cmd .= ' -mask -softmask';
+    foreach my $repeat_logic_name (@{$repeat_logic_names}) {
+      $cmd .= ' -mask_repeat '.$repeat_logic_name;
+    }
+  }
+
   $cmd .= ' -dbpass '.$db_info->{-pass} if ($db_info->{-pass});
   $cmd .= ' -alt_as_scaffolds ' if ($self->param('alt_as_scaffolds'));
 
@@ -152,16 +157,16 @@ sub run {
     $cmd .= " -patch_only ";
   }
 
-  say "Running command:\n".$cmd;
+  $self->say_with_header($cmd);
+  $self->output([$cmd]);
 
-  execute_with_wait($cmd);
 }
 
 
 =head2 write_output
 
  Arg [1]    : None
- Description: Nothing to do store in the database
+ Description: Writing the fasta file
  Returntype : None
  Exceptions : None
 
@@ -170,7 +175,9 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  return 1;
+  foreach my $cmd (@{$self->output}) {
+    execute_with_wait($cmd);
+  }
 }
 
 1;

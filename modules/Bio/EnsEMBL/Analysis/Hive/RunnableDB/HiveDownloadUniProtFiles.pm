@@ -32,7 +32,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    base_url => 'https://rest.uniprot.org/uniprotkb/stream?&query=',
+    base_url => 'https://rest.uniprot.org/uniprotkb/stream?query=',
     format => 'fasta',
   }
 }
@@ -154,7 +154,7 @@ sub build_query {
   my $taxonomy_string = "";
   my $exclude_string = "";
   my $compress = "yes";
-  my $fragment_string = "+AND+fragment:no";
+  my $fragment_string = "+AND+fragment%3Afalse";
   my $mito = "+NOT+organelle%3Amitochondrion";
   my $format = $self->param('format');
 
@@ -172,7 +172,7 @@ sub build_query {
 
   if(exists($query_params->{'fragment'})) {
     if($query_params->{'fragment'}) {
-      $fragment_string = "+AND+fragment:yes";
+      $fragment_string = "+AND+fragment%3Atrue";
     }
   }
 

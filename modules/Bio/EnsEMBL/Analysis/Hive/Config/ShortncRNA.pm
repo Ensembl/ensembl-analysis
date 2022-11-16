@@ -58,6 +58,7 @@ sub default_options {
     release_number            => '' || $self->o('ensembl_release'),
     species_name              => '', # e.g. mus_musculus
     production_name           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     taxon_id                  => '', # should be in the assembly report file
     uniprot_set               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     sanity_set                => '', # sanity checks
@@ -88,12 +89,12 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-    pipe_db_name                  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
-    dna_db_name                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    pipe_db_name                  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pipe_'.$self->o('release_number'),
+    dna_db_name                   => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
 
     ncrna_db_host                => $self->o('databases_host'),
     ncrna_db_port                => $self->o('databases_port'),
-    ncrna_db_name                  => $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number'),
+    ncrna_db_name                  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_ncrna_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     ensembl_release              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database

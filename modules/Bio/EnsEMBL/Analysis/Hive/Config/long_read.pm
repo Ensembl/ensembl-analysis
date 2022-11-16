@@ -60,6 +60,7 @@ sub default_options {
     'release_number' => '' || $self->o('ensembl_release'),
     'species_name'    => '',                                                                                                          # e.g. mus_musculus
     'production_name' => '',                                                                                                          # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'output_path'     => '',                                                                                                          # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'uniprot_version' => 'uniprot_2021_04',                                                                                           # What UniProt data dir to use for various analyses
 
@@ -143,7 +144,7 @@ sub default_options {
     # db info
     ########################
     long_read_initial_db => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrinitial_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_lrinitial_' . $self->o('release_number'),
       -host   => $self->o('long_read_initial_db_host'),
       -port   => $self->o('long_read_initial_db_port'),
       -user   => $self->o('user'),
@@ -152,7 +153,7 @@ sub default_options {
     },
 
     long_read_collapse_db => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrcollapse_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_lrcollapse_' . $self->o('release_number'),
       -host   => $self->o('long_read_collapse_db_host'),
       -port   => $self->o('long_read_collapse_db_port'),
       -user   => $self->o('user'),
@@ -161,7 +162,7 @@ sub default_options {
     },
 
     long_read_final_db => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrfinal_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_lrfinal_' . $self->o('release_number'),
       -host   => $self->o('long_read_final_db_host'),
       -port   => $self->o('long_read_final_db_port'),
       -user   => $self->o('user'),
@@ -319,7 +320,7 @@ sub pipeline_analyses {
         module                       => 'Minimap2',
       },
       -rc_name   => '15GB',
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         -1 => { 'minimap2_himem' => { 'input_file' => '#input_file#', 'iid' => '#iid#' } },
       },
@@ -339,7 +340,7 @@ sub pipeline_analyses {
         logic_name                   => 'minimap2',
         module                       => 'Minimap2',
       },
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '25GB',
     },
 
@@ -402,7 +403,7 @@ sub pipeline_analyses {
         use_strand     => 1,
       },
       -batch_size => 100,
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name    => '5GB',
       -flow_into  => {
         2 => { 'collapse_transcripts' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
@@ -425,7 +426,7 @@ sub pipeline_analyses {
         -1 => { 'collapse_transcripts_20GB' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
       },
       -batch_size        => 100,
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -444,7 +445,7 @@ sub pipeline_analyses {
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
       -rc_name   => 'blast',
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         -1 => ['blast_10G'],
       },
@@ -465,7 +466,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => 'blast10GB',
     },
 
@@ -485,7 +486,7 @@ sub pipeline_analyses {
         -1 => { 'failed_collapse' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
       },
       -batch_size        => 10,
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -498,7 +499,7 @@ sub pipeline_analyses {
         biotypes   => [ "isoseq", "cdna" ],
         copy_only  => 1,
       },
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name   => '10GB',
       -flow_into => {
         1 => { 'blast' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },

@@ -60,10 +60,11 @@ sub default_options {
     'release_number' => '' || $self->o('ensembl_release'),
     'species_name'    => '',     # e.g. mus_musculus
     'production_name' => '',     # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
 
     'taxon_id'    => '',         # should be in the assembly report file
     use_genome_flatfile => 1,
-    wide_repeat_logic_names => [],
+    repeat_logic_names => [],
 
     'output_path'   => '',                                               # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     targetted_path  => catdir( $self->o('output_path'), 'targetted' ),
@@ -99,8 +100,8 @@ sub default_options {
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
-    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_pipe_' . $self->o('release_number'),
+    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_core_' . $self->o('release_number'),
 
     'cdna_db_host'   => $self->o('databases_host'),
     'cdna_db_port'   => $self->o('databases_port'),
@@ -143,7 +144,7 @@ sub default_options {
     ########################
 
     'cdna_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_cdna_' . $self->o('release_number'),
       -host   => $self->o('cdna_db_host'),
       -port   => $self->o('cdna_db_port'),
       -user   => $self->o('user'),
@@ -152,7 +153,7 @@ sub default_options {
     },
 
     'cdna2genome_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna2genome_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_cdna2genome_' . $self->o('release_number'),
       -host   => $self->o('cdna2genome_db_host'),
       -port   => $self->o('cdna2genome_db_port'),
       -user   => $self->o('user'),
@@ -161,7 +162,7 @@ sub default_options {
     },
 
     'genewise_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_genewise_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_genewise_' . $self->o('release_number'),
       -host   => $self->o('genewise_db_host'),
       -port   => $self->o('genewise_db_port'),
       -user   => $self->o('user'),
@@ -170,7 +171,7 @@ sub default_options {
     },
 
     'best_targeted_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_bt_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_bt_' . $self->o('release_number'),
       -host   => $self->o('best_targeted_db_host'),
       -port   => $self->o('best_targeted_db_port'),
       -user   => $self->o('user'),
@@ -211,7 +212,7 @@ sub pipeline_wide_parameters {
     %{$self->SUPER::pipeline_wide_parameters},
     use_genome_flatfile => $self->o('use_genome_flatfile'),
     genome_file => $self->o('faidx_genome_file'),
-    wide_repeat_logic_names => $self->o('wide_repeat_logic_names'),
+    wide_repeat_logic_names => $self->o('repeat_logic_names'),
   }
 }
 
@@ -322,6 +323,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
       -rc_name => '3GB',
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         -1 => ['targetted_exonerate_retry'],
       },
@@ -342,6 +344,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
       -rc_name => '10GB',
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -390,6 +393,7 @@ sub pipeline_analyses {
         OPTIONS           => '-T 20',                                                # set threshold to 14 for more sensitive search
       },
       -rc_name => '3GB',
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -438,6 +442,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise' ) },
       },
       -rc_name => '3GB',
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         MEMLIMIT => ['targetted_genewise_gtag_6GB'],
       },
@@ -458,6 +463,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise' ) },
       },
       -rc_name => '6GB',
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -475,6 +481,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate' ) },
       },
       -rc_name => '3GB',
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         MEMLIMIT => ['targetted_exo_6GB'],
       },
@@ -495,6 +502,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate' ) },
       },
       -rc_name => '6GB',
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -567,6 +575,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => 0,
       },
       -batch_size => 100,
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into  => {
         -1 => ['exonerate_retry'],
       },
@@ -593,6 +602,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => 0,
       },
       -batch_size           => 100,
+      -hive_capacity => $self->o('hc_normal'),
       -failed_job_tolerance => 100,
       -can_be_empty         => 1,
     },
@@ -712,6 +722,7 @@ sub pipeline_analyses {
         SOFT_MASKED_REPEATS        => '#wide_repeat_logic_names#',
       },
       -batch_size => 10,
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into  => {
         '-1' => ['cdna2genome_himem'],
       },
@@ -736,6 +747,7 @@ sub pipeline_analyses {
         repeat_libraries           => '#wide_repeat_logic_names#',
       },
       -batch_size => 10,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {

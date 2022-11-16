@@ -71,6 +71,7 @@ sub default_options {
     'protein_entry_loc_file' => 'entry_loc',
     'species_name'        => '',                                                                                      # e.g. mus_musculus
     'production_name'     => '',                                                                                      # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'taxon_id'            => '',                                                                                      # should be in the assembly report file
     'genus_taxon_id'      => $self->o('taxon_id'),
     'sanity_set'          => '',
@@ -89,8 +90,8 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_scallop_pipe_' . $self->o('release_number'),
-    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_scallop_pipe_' . $self->o('release_number'),
+    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_core_' . $self->o('release_number'),
 
     'reference_db_name'   => $self->o('dna_db_name'),
     'reference_db_host'   => $self->o('dna_db_host'),
@@ -98,11 +99,11 @@ sub default_options {
 
     'rnaseq_for_layer_db_host'   => $self->o('databases_host'),
     'rnaseq_for_layer_db_port'   => $self->o('databases_port'),
-    'rnaseq_for_layer_db_name'   => $self->o('dbowner') . '_' . $self->o('production_name') . '_star_rs_layer_' . $self->o('release_number'),
+    'rnaseq_for_layer_db_name'   => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_star_rs_layer_' . $self->o('release_number'),
 
     'rnaseq_for_layer_nr_db_host'   => $self->o('databases_host'),
     'rnaseq_for_layer_nr_db_port'   => $self->o('databases_port'),
-    'rnaseq_for_layer_nr_db_name'   => $self->o('dbowner') . '_' . $self->o('production_name') . '_star_rs_layer_nr_' . $self->o('release_number'),
+    'rnaseq_for_layer_nr_db_name'   => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_star_rs_layer_nr_' . $self->o('release_number'),
 
     'scallop_initial_db_host'   => $self->o('databases_host'),
     'scallop_initial_db_port'   => $self->o('databases_port'),
@@ -112,7 +113,7 @@ sub default_options {
     
     'pcp_db_host' => $self->o('databases_host'),
     'pcp_db_port' => $self->o('databases_port'),
-    'pcp_db_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+    'pcp_db_name' => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release' => $ENV{ENSEMBL_RELEASE},    # this is the current release version on staging to be able to get the correct database
@@ -175,7 +176,7 @@ sub default_options {
     'merge_dir' => catdir( $self->o('rnaseq_dir'),  'merge' ),
     'pcp_dir' => catdir( $self->o('rnaseq_dir'),  'pcp' ),
 
-    'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
+    'rnaseq_ftp_base' => 'https://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
     # Regular expression to allow FastQ files to be correctly paired,
     # for example: file_1.fastq and file_2.fastq could be paired using
@@ -237,7 +238,7 @@ sub default_options {
     },
 
     'scallop_initial_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_scallop_initial_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_scallop_initial_' . $self->o('release_number'),
       -host   => $self->o('scallop_initial_db_host'),
       -port   => $self->o('scallop_initial_db_port'),
       -user   => $self->o('user'),
@@ -246,7 +247,7 @@ sub default_options {
     },
 
     'scallop_blast_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_scallop_blast_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_scallop_blast_' . $self->o('release_number'),
       -host   => $self->o('scallop_blast_db_host'),
       -port   => $self->o('scallop_blast_db_port'),
       -user   => $self->o('user'),
@@ -255,7 +256,7 @@ sub default_options {
     },
 
     'pcp_db'=> {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_'.$self->o('release_number'),
       -host   => $self->o('pcp_db_host'),
       -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),
@@ -264,7 +265,7 @@ sub default_options {
     },
 
     'pcp_nr_db'=> {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_nr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_nr_'.$self->o('release_number'),
       -host   => $self->o('pcp_db_host'),
       -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),
@@ -441,6 +442,7 @@ sub pipeline_analyses {
         read_length_table => $self->o('read_length_table'),
         _input_id_name => 'filename',
       },
+      -max_retry_count => 0,
     },
 
     {
@@ -631,8 +633,7 @@ sub pipeline_analyses {
       -rc_name    => 'default',
       -priority => -2,
       -flow_into => {
-        '2->A' => ['create_tissue_jobs'],
-        'A->1' => ['merged_bam_file'],
+        2 => ['create_tissue_jobs'],
       },
     },
     {
@@ -685,8 +686,9 @@ sub pipeline_analyses {
       },
       -rc_name    => '3GB_rnaseq_multithread',
       -priority => -2,
+      -max_retry_count => 0,
       -flow_into => {
-        1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=bam_file'],
+        1 => ['create_analyses_type_job'],
       },
     },
     {
@@ -705,69 +707,6 @@ sub pipeline_analyses {
     },
     {
       -logic_name => 'create_rnaseq_tissue_analyses',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
-      -rc_name    => 'default',
-      -parameters => {
-        source_type => 'list',
-        target_db => $self->o('scallop_blast_db'),
-      },
-      -priority => -2,
-    },
-    {
-      -logic_name => 'merged_bam_file',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
-      -parameters => {
-        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BamMergeStatic', $self->o('rnaseq_merge_type'))},
-        # target_db is the database where we will write the files in the data_file table
-        # You can use store_datafile => 0, if you don't want to store the output file
-        target_db => $self->o('scallop_blast_db'),
-        assembly_name => $self->o('assembly_name'),
-        rnaseq_data_provider => $self->o('rnaseq_data_provider'),
-        disconnect_jobs => 1,
-        species => $self->o('species_name'),
-        output_dir => $self->o('merge_dir'),
-        input_dir => $self->o('merge_dir'),
-        samtools => $self->o('samtools_path'),
-        picard_lib_jar => $self->o('picard_lib_jar'),
-        use_threads => $self->o('rnaseq_merge_threads'),
-      },
-      -rc_name    => '5GB_merge_multithread',
-      -priority => -2,
-      -flow_into => {
-        1 => ['fan_merge_analyses'],
-      },
-    },
-
-   {
-      -logic_name => 'fan_merge_analyses',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'if [[ $(cut -f1 '.$self->o('rnaseq_summary_file')." | sort -u | wc -l) == 1 ]]; then exit 42; else exit 0;fi",
-        return_codes_2_branches => {'42' => 2},
-      },
-      -rc_name    => 'default',
-      -priority => -2,
-      -flow_into  => {
-  1 => ['create_merge_analyses_type_job'],
-      },
-    },
-
-    {
-      -logic_name => 'create_merge_analyses_type_job',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -rc_name    => 'default',
-      -parameters => {
-        inputlist => ['daf'],
-        column_names => ['type'],
-        species => $self->o('species_name'),
-      },
-      -priority => -2,
-      -flow_into => {
-        2 => {'create_rnaseq_merge_analyses' => {analyses => [{'-logic_name' => '#species#_merged_rnaseq_#type#'}]}},
-      },
-    },
-    {
-      -logic_name => 'create_rnaseq_merge_analyses',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
       -rc_name    => 'default',
       -parameters => {
@@ -868,6 +807,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40',
       },
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         '-1' => ['blast_scallop_longseq'],
         '2'  => ['blast_scallop_longseq'],
@@ -890,6 +830,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40',
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '10GB_multithread',
     },
 
@@ -966,6 +907,7 @@ sub pipeline_analyses {
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
           'gene_db_checks' )->{ $self->o('sanity_set') }->{'rnaseq_blast'},
       },
+      -rc_name   => '2GB',
       -flow_into => {
         1 => ['create_rnaseq_layer_nr_db_star'],
       },
@@ -980,7 +922,7 @@ sub pipeline_analyses {
         create_type => 'copy',
       },
       -max_retry_count => 0,
-      -rc_name   => 'default',
+      -rc_name   => '2GB',
       -flow_into => {
         '1' => ['create_rnaseq_layer_nr_slices_star'],
       },
@@ -1014,6 +956,7 @@ sub pipeline_analyses {
         target_db   => $self->o('rnaseq_for_layer_nr_db'),
         target_type => 'generic',
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '5GB',
     },
 
@@ -1201,6 +1144,7 @@ sub pipeline_analyses {
         target_db   => $self->o('pcp_nr_db'),
         target_type => 'generic',
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '5GB',
     },
 

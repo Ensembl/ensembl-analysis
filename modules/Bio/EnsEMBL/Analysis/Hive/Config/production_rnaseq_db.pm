@@ -61,6 +61,7 @@ sub default_options {
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'taxon_id'                  => '', # should be in the assembly report file
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'             => '', # Name (as it appears in the assembly report file)
@@ -79,15 +80,15 @@ sub default_options {
     ########################
     'rnaseq_db_host'               => $self->o('databases_host'),
     'rnaseq_db_port'               => $self->o('databases_port'),
-    'rnaseq_db_name'               => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_'.$self->o('release_number'),
+    'rnaseq_db_name'               => $self->o('dbowner').'_'.$self->o('dbname_accession').'_rnaseq_'.$self->o('release_number'),
 
     'rnaseq_refine_db_host'         => $self->o('databases_host'),
     'rnaseq_refine_db_port'         => $self->o('databases_port'),
-    'rnaseq_refine_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
+    'rnaseq_refine_db_name'         => $self->o('dbowner').'_'.$self->o('dbname_accession').'_refine_'.$self->o('release_number'),
 
     'rnaseq_blast_db_host'         => $self->o('databases_host'),
     'rnaseq_blast_db_port'         => $self->o('databases_port'),
-    'rnaseq_blast_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_scallop_blast_'.$self->o('release_number'),
+    'rnaseq_blast_db_name'         => $self->o('dbowner').'_'.$self->o('dbname_accession').'_scallop_blast_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
@@ -197,6 +198,15 @@ sub pipeline_create_commands {
 }
 
 
+sub pipeline_wide_parameters {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::pipeline_wide_parameters},
+    production_ftp_dir => $self->o('production_ftp_dir'),	
+  }
+}
+
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
@@ -245,7 +255,7 @@ sub pipeline_analyses {
       -rc_name => 'default',
       -flow_into  => {
         '2->A' => ['delete_merge_genes'],
-        'A->1' => ['create_delete_merge_files_jobs'],
+        'A->1' => ['prepare_rnaseq_meta_data'],
       },
     },
 
@@ -262,48 +272,7 @@ sub pipeline_analyses {
           ' -idfile #id_file#'
       },
       -rc_name => 'default',
-      -hive_capacity => 200,
-    },
-
-    {
-      -logic_name => 'create_delete_merge_files_jobs',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -parameters => {
-        db_conn => $self->o('rnaseq_db'),
-        inputquery => 'SELECT name FROM data_file JOIN analysis USING(analysis_id) WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
-        column_names => ['file'],
-      },
-      -rc_name => 'default',
-      -flow_into  => {
-        '2->A' => ['delete_merge_files'],
-        'A->1' => ['clean_tables_merged_data'],
-      },
-    },
-
-    {
-      -logic_name => 'delete_merge_files',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'if [[ -e "'.$self->o('merge_dir').'/#file#.bam" ]]; then rm '.$self->o('merge_dir').'/#file#.bam*; fi',
-      },
-      -rc_name => 'default',
-    },
-
-    {
-      -logic_name => 'clean_tables_merged_data',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('rnaseq_db'),
-        sql => [
-          'DELETE FROM data_file WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name LIKE "%merged_rnaseq%")',
-          'DELETE FROM analysis WHERE logic_name LIKE "%merged_rnaseq%"',
-        ],
-      },
-      -rc_name    => 'default',
-
-      -flow_into => {
-        1 => ['prepare_rnaseq_meta_data'],
-      },
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -626,7 +595,7 @@ sub pipeline_analyses {
       -logic_name => 'create_species_ftp_dir',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	      cmd => "sudo -u genebuild mkdir -p " . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/',
+	      cmd => 'sudo -u genebuild mkdir -p ' . catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), 'rnaseq'),
                      },
       -rc_name    => '2GB',
       -flow_into => {
@@ -650,8 +619,7 @@ sub pipeline_analyses {
      -logic_name => 'set_dir_permission',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
      -parameters => {
-       cmd => "sudo -u genebuild chmod -R g+w " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/; sudo -u genebuild chmod -R g+w " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/".$self->o('assembly_accession'),
-     },
+       cmd => "sudo -u genebuild find " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/ -user genebuild -exec chmod g+w {} \\;"},
      -rc_name    => '2GB',
      -flow_into => {
 	1 => ['delete_data_files'],

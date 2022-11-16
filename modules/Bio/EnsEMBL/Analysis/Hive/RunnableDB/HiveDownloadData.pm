@@ -89,7 +89,8 @@ sub param_defaults {
  Description: Check the different parameters and check the url. It will select the client to use
               based on the 'download_method' parameter.
  Returntype : None
- Exceptions : Throws if 'download_method' is not set
+ Exceptions : Throws if using Perl 5.24
+              Throws if 'download_method' is not set
               Throws if 'output_dir' is not set
               Throws if 'url' is not set
 
@@ -98,6 +99,9 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  if ($] =~ '^5.024') {
+    $self->throw("Perl 5.24 doesn't work with this module. If you manage to make it work, please submit a pull-request");
+  }
   my $download_method = $self->param_required('download_method');
   my $output_dir = $self->param_required('output_dir');
   if (!-d $output_dir) {
@@ -143,15 +147,20 @@ sub run {
 
   my $client = $self->param('client');
   my $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
-  $self->check_file($file);
-  $file = $self->uncompress($file) if ($self->param('uncompress'));
-  if ($self->param('create_faidx')) {
-    my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
-                   -program => $self->param('samtools'),
-                   );
-    $samtools->index_genome($file);
+  if ($file) {
+    $self->check_file($file);
+    $file = $self->uncompress($file) if ($self->param('uncompress'));
+    if ($self->param('create_faidx')) {
+      my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                     -program => $self->param('samtools'),
+                     );
+      $samtools->index_genome($file);
+    }
+    $self->output([$file]);
   }
-  $self->output([$file]);
+  else {
+    $self->throw($client->error());
+  }
 }
 
 

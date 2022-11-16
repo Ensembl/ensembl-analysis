@@ -58,6 +58,7 @@ sub default_options {
 
     'release_number' => '' || $self->o('ensembl_release'),
     'production_name' => '',     # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
 
     'output_path' => '',         # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
 
@@ -76,8 +77,8 @@ sub default_options {
     'reference_db_host'   => $self->o('dna_db_host'),
     'reference_db_port'   => $self->o('dna_db_port'),
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
-    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_pipe_' . $self->o('release_number'),
+    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_core_' . $self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release' => $ENV{ENSEMBL_RELEASE},    # this is the current release version on staging to be able to get the correct database
@@ -101,7 +102,7 @@ sub default_options {
     },
 
     'refseq_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_refseq_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_refseq_' . $self->o('release_number'),
       -host   => $self->o('refseq_db_host'),
       -port   => $self->o('refseq_db_port'),
       -user   => $self->o('user'),
@@ -112,7 +113,7 @@ sub default_options {
     ########################################################
     # URLs for retrieving the INSDC contigs and RefSeq files
     ########################################################
-    'ncbi_base_ftp' => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
+    'ncbi_base_ftp' => 'https://ftp.ncbi.nlm.nih.gov/genomes/all',
     'refseq_base_ftp'        => $self->o('ncbi_base_ftp') . '/#expr(substr(#assembly_refseq_accession#, 0, 3))expr#/#expr(substr(#assembly_refseq_accession#, 4, 3))expr#/#expr(substr(#assembly_refseq_accession#, 7, 3))expr#/#expr(substr(#assembly_refseq_accession#, 10, 3))expr#/#assembly_refseq_accession#_#assembly_name#',
     'refseq_import_ftp_path' => $self->o('refseq_base_ftp') . '/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
     'refseq_report_ftp_path' => $self->o('refseq_base_ftp') . '/#assembly_refseq_accession#_#assembly_name#_assembly_report.txt',
