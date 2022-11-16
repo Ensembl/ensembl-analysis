@@ -423,6 +423,8 @@ sub get_best_gene {
     my $first_best;
     my %scores;
     # make sure that you're using the correct protein and pep for cdna2genome
+    # Exonerate doesn't like ambiguity codes and $pep is not used anymore
+    $pep =~ tr/BJZ/XXX/;
     my $target = Bio::Seq->new( -display_id => $protein, -seq => $pep);
     foreach my $biotype (@$biotypes) {
       if (defined $hash{$protein}{$biotype}) {
