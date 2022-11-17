@@ -86,9 +86,7 @@ sub fetch_input {
   my $assembly_accession = $self->param('assembly_accession');
   my $output_dir = catdir($output_dir_base,$assembly_accession);
   my $genome_files_dir = catdir($output_dir,'genome_files');
-  my $short_read_dir = catdir($output_dir,'short_read_fastq');
-  my $long_read_dir = catdir($output_dir,'long_read_fastq');
-  push(@$dirs_to_create,($output_dir,$genome_files_dir,$short_read_dir,$long_read_dir));
+  push(@$dirs_to_create,($output_dir,$genome_files_dir));
 
   foreach my $dir (@$dirs_to_create) {
     my $result = system('mkdir -p '.$dir);
@@ -193,8 +191,6 @@ sub fetch_input {
   }
   $core_db_details->{'-dbname'} = $core_dbname;
 
-  my $rnaseq_summary_file          = catfile($short_read_dir, $production_name.'.csv');
-  my $long_read_summary_file       = catfile($long_read_dir, $production_name.'_long_read.csv');
 
   my $toplevel_genome_file = catfile($output_dir,$species_name."_toplevel.fa");
   my $reheadered_toplevel_genome_file = catfile($output_dir,$species_name."_reheadered_toplevel.fa");
@@ -232,7 +228,6 @@ sub fetch_input {
                                            $core_db_details->{'-user'}.','.
                                            $core_db_details->{'-pass'}.
                           ' --output_dir '.$output_dir.
-                          ' --short_read_fastq_dir '.$short_read_dir.
                           ' --protein_file '.$protein_file.
                           ' --busco_protein_file '.$busco_protein_file.
                           ' --rfam_accessions_file '.$rfam_accessions_file.
@@ -260,8 +255,6 @@ sub fetch_input {
   $output_params->{'genome_files_dir'} = $genome_files_dir;
   $output_params->{'toplevel_genome_file'} = $toplevel_genome_file;
   $output_params->{'reheadered_toplevel_genome_file'} = $reheadered_toplevel_genome_file;
-  $output_params->{'short_read_dir'} = $short_read_dir;
-  $output_params->{'long_read_dir'} = $long_read_dir;
   $output_params->{'species_url'} = $species_url;
   $output_params->{'species_division'} = $species_division;
   $output_params->{'species_display_name'} = $species_display_name;
@@ -269,8 +262,6 @@ sub fetch_input {
   $output_params->{'species_strain_group'} = $species_strain_group;
   $output_params->{'strain_type'} = $strain_type;
   $output_params->{'production_name'} = $production_name;
-  $output_params->{'rnaseq_summary_file'} = $rnaseq_summary_file; # Problematic
-  $output_params->{'long_read_summary_file'} = $long_read_summary_file; # Problematic
   $output_params->{'protein_file'} = $protein_file;
   $output_params->{'busco_protein_file'} = $busco_protein_file;
   $output_params->{'rfam_accessions_file'} = $rfam_accessions_file;
