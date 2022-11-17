@@ -131,7 +131,7 @@ sub fetch_input {
 
   $sth->bind_param(1,$assembly_id);
   $sth->execute();
-
+  
   my $output_params = {};
   my ($stable_id_prefix,$clade,$species_taxon_id,$taxon_id,$assembly_name,$common_name,$assembly_refseq_accession,$assembly_date,$species_name,$assembly_group,$stable_id_start) = $sth->fetchrow();
   my $scientific_name = $species_name;
@@ -145,23 +145,23 @@ sub fetch_input {
   my $production_name = $p1."_".$p2;
   my $max_part_length = 15;
   unless(length($production_name) <= ($max_part_length * 2) + 1) {
+  
     my $ssp1 = substr($p1,0,$max_part_length);
     my $ssp2 = substr($p2,0,$max_part_length);
     $production_name = $ssp1."_".$ssp2;
   }
-
+  
   my $production_gca = $assembly_accession;
   $production_gca =~ s/\./v/;
   $production_gca =~ s/\_//g;
   $production_gca = lc($production_gca);
   $production_name .= "_".$production_gca;
-
+  
   # The assembly names for the alt haplotypes from DToL have spaces, probably better to substitute them in the registry
   # as opposed to here, but here is fine too. The paths to the files on the ftp site do not have an spaces so subbing with
   # underscore seems to be the correct thing to do based on the observed paths so far
   $assembly_name =~ s/ /\_/g;
 
-  my $clade_params = $self->get_clade_params($clade);
 
   #use taxon id to retrieve genus taxon id
   #genus taxon_id will be used to download genus level rnaseq data
@@ -197,7 +197,6 @@ sub fetch_input {
 
 
   # Meta details
-  my $species_division  =  $clade_params->{'species_division'};
   my $species_url;
   my $species_display_name;
   if ($assembly_name =~ /alternate_haplotype/) {
@@ -240,7 +239,6 @@ sub fetch_input {
   $output_params->{'toplevel_genome_file'} = $toplevel_genome_file;
   $output_params->{'reheadered_toplevel_genome_file'} = $reheadered_toplevel_genome_file;
   $output_params->{'species_url'} = $species_url;
-  $output_params->{'species_division'} = $species_division;
   $output_params->{'species_display_name'} = $species_display_name;
   $output_params->{'species_strain_group'} = $species_strain_group;
   $output_params->{'strain_type'} = $strain_type;
@@ -272,64 +270,6 @@ sub write_output {
 
   my $output_params = $self->param('output_params');
   $self->dataflow_output_id($output_params,1);
-}
-
-
-sub get_clade_params {
-  my ($self,$clade) = @_;
-
-  my $clade_params = {};
-
-  if($clade eq 'lepidoptera') {
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/lepidoptera_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/lepidoptera_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblMetazoa',
-  } elsif($clade eq 'teleostei') {
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  } elsif($clade eq 'mammalia') {
-    # Just temp stuff for testing
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  } elsif($clade eq 'rodentia') {
-    # Just temp stuff for testing
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  } elsif($clade eq 'primates') {
-    # Just temp stuff for testing
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  } elsif($clade eq 'humans') {
-    # Just temp stuff for testing
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  } elsif($clade eq 'metazoa') {
-    # Just temp stuff for testing
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  } else {
-    $self->warning('Clade parameters not found for clade: '.$clade);
-    # Just temp stuff for testing
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  }
-
-  return($clade_params);
 }
 
 
