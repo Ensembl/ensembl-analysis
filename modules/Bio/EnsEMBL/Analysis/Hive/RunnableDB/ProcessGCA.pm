@@ -195,9 +195,6 @@ sub fetch_input {
   my $toplevel_genome_file = catfile($output_dir,$species_name."_toplevel.fa");
   my $reheadered_toplevel_genome_file = catfile($output_dir,$species_name."_reheadered_toplevel.fa");
 
-  my $protein_file = $clade_params->{'protein_file'};
-  my $busco_protein_file = $clade_params->{'busco_protein_file'};
-  my $rfam_accessions_file = $clade_params->{'rfam_accessions_file'};
 
   # Meta details
   my $species_division  =  $clade_params->{'species_division'};
@@ -228,9 +225,6 @@ sub fetch_input {
                                            $core_db_details->{'-user'}.','.
                                            $core_db_details->{'-pass'}.
                           ' --output_dir '.$output_dir.
-                          ' --protein_file '.$protein_file.
-                          ' --busco_protein_file '.$busco_protein_file.
-                          ' --rfam_accessions_file '.$rfam_accessions_file.
                           ' --num_threads '.$self->param('num_threads').
                           ' --run_full_annotation 1'.
                           ' --load_to_ensembl_db 1';
@@ -262,9 +256,6 @@ sub fetch_input {
   $output_params->{'species_strain_group'} = $species_strain_group;
   $output_params->{'strain_type'} = $strain_type;
   $output_params->{'production_name'} = $production_name;
-  $output_params->{'protein_file'} = $protein_file;
-  $output_params->{'busco_protein_file'} = $busco_protein_file;
-  $output_params->{'rfam_accessions_file'} = $rfam_accessions_file;
   $output_params->{'gbiab_commandline'} = $gbiab_commandline;
   $self->param('output_params',$output_params);
 
