@@ -218,16 +218,6 @@ sub fetch_input {
   my $species_strain_group = $production_name;
   my $strain_type = "strain";
 
-  my $gbiab_commandline = ' --genome_file '.$reheadered_toplevel_genome_file.
-                          ' --db_details '.$core_db_details->{'-dbname'}.','.
-                                           $core_db_details->{'-host'}.','.
-                                           $core_db_details->{'-port'}.','.
-                                           $core_db_details->{'-user'}.','.
-                                           $core_db_details->{'-pass'}.
-                          ' --output_dir '.$output_dir.
-                          ' --num_threads '.$self->param('num_threads').
-                          ' --run_full_annotation 1'.
-                          ' --load_to_ensembl_db 1';
 
   $output_params->{'core_db'} = $core_db_details;
   $output_params->{'core_dbname'} = $core_dbname;
@@ -252,11 +242,9 @@ sub fetch_input {
   $output_params->{'species_url'} = $species_url;
   $output_params->{'species_division'} = $species_division;
   $output_params->{'species_display_name'} = $species_display_name;
-  #$output_params->{'species_strain'} = $species_strain;
   $output_params->{'species_strain_group'} = $species_strain_group;
   $output_params->{'strain_type'} = $strain_type;
   $output_params->{'production_name'} = $production_name;
-  $output_params->{'gbiab_commandline'} = $gbiab_commandline;
   $self->param('output_params',$output_params);
 
   $self->create_registry_entry($self->param('registry_file'),$core_db_details,$production_name);
