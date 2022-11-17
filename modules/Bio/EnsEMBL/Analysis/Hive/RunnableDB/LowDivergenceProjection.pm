@@ -308,19 +308,6 @@ sub fetch_input_genes_by_id {
   return($input_genes);
 }
 
-
-sub runnable_failed {
-  my ($self,$runnable_failed) = @_;
-  unless ($self->param_is_defined('_runnable_failed')) {
-    $self->param('_runnable_failed',[]);
-  }
-  if ($runnable_failed) {
-    push (@{$self->param('_runnable_failed')},$runnable_failed);
-  }
-  return ($self->param('_runnable_failed'));
-}
-
-
 sub write_input_file {
   my ($self,$genomic_reads) = @_;
 
