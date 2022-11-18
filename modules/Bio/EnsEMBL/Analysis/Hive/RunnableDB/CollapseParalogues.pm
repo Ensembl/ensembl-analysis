@@ -24,7 +24,7 @@ Questions may also be sent to the Ensembl help desk at
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2Remap
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::CollapseParalogues
 
 =head1 SYNOPSIS
 
