@@ -24,7 +24,7 @@ Questions may also be sent to the Ensembl help desk at
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2Remap
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::FindRecentParalogues
 
 =head1 SYNOPSIS
 
@@ -120,7 +120,6 @@ sub fetch_input {
 
 }
 
-
 sub run {
   my ($self) = @_;
 
@@ -131,8 +130,6 @@ sub run {
     $self->output($filtered_new_genes);
   }
 }
-
-
 
 sub write_output {
   my ($self) = @_;
@@ -148,7 +145,6 @@ sub write_output {
 
   return 1;
 }
-
 
 sub filter_new_genes {
   my ($self,$genes) = @_;
@@ -171,7 +167,6 @@ sub filter_new_genes {
 
   return($final_filtered_genes);
 }
-
 
 sub select_secondary_mappings {
   my ($self,$genes,$source_transcripts_hash) = @_;
@@ -197,7 +192,6 @@ sub select_secondary_mappings {
   return($secondary_genes);
 }
 
-
 sub features_overlap {
   my ($self,$feature_a, $feature_b) = @_;
 
@@ -207,7 +201,6 @@ sub features_overlap {
 
   return 0;
 }
-
 
 sub cluster_source_genes {
   my ($self,$new_genes) = @_;
@@ -262,7 +255,6 @@ sub cluster_source_genes {
 
   return($filtered_genes);
 }
-
 
 sub filter_by_cutoffs {
   my ($self,$genes,$source_transcripts_hash) = @_;
@@ -402,19 +394,6 @@ sub filter_by_cutoffs {
 
   return($filtered_genes);
 }
-
-
-sub runnable_failed {
-  my ($self,$runnable_failed) = @_;
-  unless ($self->param_is_defined('_runnable_failed')) {
-    $self->param('_runnable_failed',[]);
-  }
-  if ($runnable_failed) {
-    push (@{$self->param('_runnable_failed')},$runnable_failed);
-  }
-  return ($self->param('_runnable_failed'));
-}
-
 
 sub write_input_file {
   my ($self,$genomic_reads) = @_;
