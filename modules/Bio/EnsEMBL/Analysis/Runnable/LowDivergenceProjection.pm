@@ -33,9 +33,6 @@ Bio::EnsEMBL::Analysis::Runnable::LowDivergenceProjection
 
 =head1 DESCRIPTION
 
-This module uses Star to align fastq to a genomic sequence. Star is a splice aware
-aligner. It creates output files with the reads overlapping splice sites and the reads
-aligning on the exons. Some reads are aligned multiple times in the genome.
 
 =head1 METHODS
 

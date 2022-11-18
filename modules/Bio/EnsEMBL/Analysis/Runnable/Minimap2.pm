@@ -26,21 +26,13 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Star
+Bio::EnsEMBL::Analysis::Runnable::Minimap2
 
 =head1 SYNOPSIS
 
-  my $runnable =
-    Bio::EnsEMBL::Analysis::Runnable::Star->new();
-
- $runnable->run;
- my @results = $runnable->output;
 
 =head1 DESCRIPTION
 
-This module uses Star to align fastq to a genomic sequence. Star is a splice aware
-aligner. It creates output files with the reads overlapping splice sites and the reads
-aligning on the exons. Some reads are aligned multiple times in the genome.
 
 =head1 METHODS
 
