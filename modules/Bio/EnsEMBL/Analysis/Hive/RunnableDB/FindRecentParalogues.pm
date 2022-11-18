@@ -395,25 +395,10 @@ sub filter_by_cutoffs {
   return($filtered_genes);
 }
 
-sub write_input_file {
-  my ($self,$genomic_reads) = @_;
-
-  my $output_file = $self->create_filename();
-  open(OUT,">".$output_file);
-  foreach my $genomic_read (@$genomic_reads) {
-    say OUT $genomic_read;
-  }
-  close OUT;
-
-  return($output_file);
-}
-
-
 sub create_filename{
   my ($self, $stem, $ext, $dir, $no_clean) = @_;
   return create_file_name($stem, $ext, $dir, $no_clean);
 }
-
 
 sub create_input_file {
   my ($self,$genes,$source_transcript_hash) = @_;
@@ -452,7 +437,6 @@ sub create_input_file {
 
   return($output_file);
 }
-
 
 sub set_canonical {
   my ($self,$gene) = @_;
@@ -528,7 +512,6 @@ sub fetch_input_genes_by_id {
   }
   return($input_genes);
 }
-
 
 sub generate_biotypes_hash {
   my ($self,$genes) = @_;
