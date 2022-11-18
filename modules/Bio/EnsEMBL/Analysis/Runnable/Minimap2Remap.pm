@@ -202,7 +202,6 @@ sub run {
 
   say "Got ".$high_confidence_count." high condfidence genes from a total of ".scalar(@$target_genes);
 
-
   # Now that we have a high confidence set of genes, we want to take the missing genes and see where they should be located, then try to map
   # them to the expected region
   $self->set_expected_regions($missing_source_genes,$source_genes_by_slice,$high_confidence_genes_by_id);
@@ -213,7 +212,6 @@ sub run {
   # it overlaps and extends an existing region, or if it's a unique region. Basically we should get all hits within the region, extend as perdicted
   # from the source region, order the extended hits and then merge into clustered regions. Foreach clustered region, then proceed normally with the
   # analysis
-
 
   my $paf_file = $self->create_filename(undef,'paf');
   $self->files_to_delete($paf_file);
@@ -531,7 +529,6 @@ sub check_conflict {
       unless($source_gene) {
         next;
       }
-
 
       my $slice_source_genes = $source_genes_by_slice->{$source_gene->seq_region_name()};
       foreach my $slice_source_gene (@$slice_source_genes) {
@@ -1375,7 +1372,6 @@ sub set_cds_sequences {
   }
 }
 
-
 sub project_cds {
   my ($self,$transcript,$source_transcript) = @_;
 
@@ -1918,10 +1914,6 @@ sub filter_paf_hits {
   $gene->{'paf_regions'} = $final_paf_regions;
 }
 
-
-
-
-
 sub coords_overlap {
   my ($self,$s1,$e1,$s2,$e2) = @_;
 
@@ -1930,26 +1922,6 @@ sub coords_overlap {
   }
   return 0;
 }
-
-
-sub calculate_coord_distance {
-  my ($self,$s1,$e1,$s2,$e2) = @_;
-
-  my $dist = 0;
-  if($s1 < $s2) {
-    $dist = $s2-$e1;
-  } else {
-    $dist = $s1-$e2;
-  }
-
-  if($dist < 0) {
-    $dist = 0;
-  }
-  return $dist;
-}
-
-
-
 
 sub print_transcript_stats {
   my ($self,$transcripts_by_id,$tag) = @_;
