@@ -781,58 +781,26 @@ sub _master_config {
           'genblast_not_best'   => 125000,
         }, # logic_names
         'biotypes' =>    {
-          'human_pe12_'         => 20000,
-          'primates_pe12_'      => 50000,
-          'mammals_pe12_'       => 100000,
+          'vert_pe12_'         => 100000,
         }, # biotypes
       }, # genblast
-      'genblast_select' => {
-        'biotypes' =>    {
-          'genblast_select_' => 10000,
-        }, # biotypes
-      }, # genblast_select
       'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 80,
+          'ig_tr_gene'          => 0,#setting to 0 until we have better ig detection outside of human
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 100,
-          'TR_'                 => 5,
+          'IG_'                 => 0,
+          'TR_'                 => 0,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
         'logic_names' => {
-          'project_transcripts' => 51000,
+          'project_transcripts' => 10000,
         }, # logic_names
         'biotypes' =>    {
-          'projection'          => 51000,
+          'projection_'          => 10000,
         }, # biotypes
       }, # projection_coding
-      'projection_lincrna' => {
-        'logic_names' => {
-          'project_lincrna' => 40,
-        }, # logic_names
-      }, # projection_lincrna
-      'projection_pseudogene' => {
-        'logic_names' => {
-          'project_pseudogene' => 3900,
-        }, # logic_names
-      }, # projection_pseudogene
-      'projection_ig_tr' => {
-        'logic_names' => {
-          'project_ig_tr' => 80,
-        }, # logic_names
-      }, # projection_ig_tr
-      'realign' => {
-        'logic_names' => {
-          # Would actually prefer an upper limit on realign as opposed to a lower limit
-          'project_transcripts'  => 40000,
-          'genblast'             => 9000,
-        }, # logic_names
-        'biotypes' =>    {
-          'realign'             => 50000,
-        }, # biotypes
-      }, # realign
       'rnaseq_blast' =>  {
         # This one is an issue, logic names, counts are varied and one biotype is a
         # substring of the other. At the moment it's really just a check that theres'
@@ -845,93 +813,57 @@ sub _master_config {
          }, # biotypes
       }, # rnaseq_blast
       'layer' => {
-        'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'human_pe12_'          => 10000,
-          'primates_pe12_'       => 15000,
-          'mammals_pe12_'        => 10000,
-          'realign_'             => 30000,
-          'rnaseq_tissue_'       => 100,
+	  'logic_names' =>    {
+	  },
+	  'biotypes' =>    {
+	      'verts_pe12_'        => 20000,
+	      'rnaseq_tissue_'       => 100,
         }, # biotypes
       }, # layer
       'genebuilder' => {
         'logic_names' => {
-          'ensembl'             => 19000,
+          'ensembl'             => 20000,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'human_pe12_'         => 2000,
-          'primates_pe12_'      => 2000,
-          'mammals_pe12_'       => 1000,
-          'realign_'            => 10000,
+          'protein_coding'            => 20000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
-          'ncrna' => 3000,
+          'ncrna' => 500,
         }, # logic_names
         'biotypes' =>    {
-          'miRNA'               => 500,
-          'misc_RNA'            => 1000,
+          'miRNA'               => 5,
+          'misc_RNA'            => 1,
           'ribozyme'            => 0,
-          'rRNA'                => 200,
+          'rRNA'                => 20,
           'scaRNA'              => 0,
-          'snoRNA'              => 200,
-          'snRNA'               => 400,
+          'snoRNA'              => 20,
+          'snRNA'               => 20,
         }, # biotypes
       }, # ncrna
       'final' => {
         'logic_names' => {
           'ensembl'             => 18000,
-          'ncrna'               => 3000,
+          'ncrna'               => 500,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'realign_'            => 10000,
-          'human_pe12_'         => 2000,
-          'primates_pe12_'      => 2000,
-          'mammals_pe12_'       => 1000,
-          'miRNA'               => 500,
-          'misc_RNA'            => 1000,
-          'ribozyme'            => 0,
-          'rRNA'                => 200,
-          'scaRNA'              => 0,
-          'snoRNA'              => 200,
-          'snRNA'               => 400,
+          'protein_coding'       => 18000,
         }, # biotypes
       }, # final
       'core' => {
         'logic_names' => {
           'ensembl'             => 18000,
-          'ncrna'               => 3000,
+          'ncrna'               => 500,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'protein_coding'       => 25000,
-          'pseudogene'           => 50,
-          'processed_pseudogene' => 0,
-          'miRNA'                => 500,
-          'misc_RNA'             => 1000,
-          'ribozyme'             => 0,
-          'rRNA'                 => 200,
-          'scaRNA'               => 0,
-          'snoRNA'               => 200,
-          'snRNA'                => 400,
+          'protein_coding'       => 18000,
         }, # biotypes
       }, # core
     }, # distant_vertebrate_basic
 
    }, # gene_db_checks
 
-  'final_core_checks' => {
-     'primates_basic' => {
-       # Fill in
-     }, # primates_basic
-  }, # final_core_checks
 
 );
   return $config{$key};
