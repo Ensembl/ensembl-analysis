@@ -240,31 +240,6 @@ sub set_parent_info {
   }
 }
 
-sub map_anchors {
-  my ($self,$batched_input_genes,$genome_index) = @_;
-
-  foreach my $id (keys(%$batched_input_genes)) {
-    say "Mapping Anchors for batch ID: ".$id;
-    my $batch = $batched_input_genes->{$id};
-    my $anchors = $batch->{'anchor_seqs'};
-    my $batch_file = "batch_".$id.".fa";
-    my $batch_output_file = $batch_file.".paf";
-    open(OUT,">".$batch_file);
-    say OUT ">al\n".${$anchors}[0][2];
-    say OUT ">am\n".${$anchors}[1][2];
-    say OUT ">ar\n".${$anchors}[2][2];
-    close OUT;
-
-    my $minimap2_command = $self->param('minimap2_path')." --cs --secondary=yes -x map-ont -N 10 ".$genome_index." ".$batch_file." > ".$batch_output_file;
-#    if($id eq '448') {
-#    if($id eq '889') {
-    if(-e $batch_output_file) {
-#      system($minimap2_command);
-      my $target_regions = $self->calculate_target_regions($batch_output_file,$anchors);
-    }
-  }
-}
-
 sub calculate_target_regions {
   my ($self,$batch_output_file,$anchors) = @_;
 
