@@ -207,21 +207,6 @@ sub fetch_source_genes {
   return($source_genes);
 }
 
-
-sub write_input_file {
-  my ($self,$genomic_reads) = @_;
-
-  my $output_file = $self->create_filename();
-  open(OUT,">".$output_file);
-  foreach my $genomic_read (@$genomic_reads) {
-    say OUT $genomic_read;
-  }
-  close OUT;
-
-  return($output_file);
-}
-
-
 sub create_filename {
   my ($self, $stem, $ext, $dir, $no_clean) = @_;
   return create_file_name($stem, $ext, $dir, $no_clean);
