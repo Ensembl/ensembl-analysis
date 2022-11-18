@@ -30,6 +30,11 @@ Bio::EnsEMBL::Analysis::Runnable::LowDivergenceProjection
 
 =head1 SYNOPSIS
 
+ my $runnable =
+    Bio::EnsEMBL::Analysis::Runnable::LowDivergenceProjection->new();
+
+ $runnable->run;
+ my @results = $runnable->output;
 
 =head1 DESCRIPTION
 
