@@ -686,7 +686,7 @@ sub _master_config {
           'project_transcripts' => 10000,
         }, # logic_names
         'biotypes' =>    {
-          'projection'          => 100,
+          'projection_'          => 10000,
         }, # biotypes
       }, # projection_coding
       'rnaseq_blast' =>  {
