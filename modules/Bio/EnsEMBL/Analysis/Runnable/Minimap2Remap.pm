@@ -2194,9 +2194,6 @@ sub reconstruct_transcript {
   return($projected_transcript);
 }
 
-
-
-
 sub project_feature {
   my ($self,$transcript,$exon,$source_region_start,$feature_start,$feature_end,$aligned_source_seq,$aligned_target_seq,$target_region_slice,$target_strand) = @_;
 
@@ -2432,7 +2429,6 @@ sub generate_exonerate_transcripts {
   return($output_transcripts);
 }
 
-
 sub run_exonerate {
   my ($self,$source_transcript,$target_region_slice,$target_slice_adaptor,$max_intron_size) = @_;
 
@@ -2520,16 +2516,6 @@ sub run_exonerate {
   return($output_transcripts);
 }
 
-
-
-
-
-
-
-
-
-
-
 sub label_transcript_status {
   my ($self,$transcripts_by_id,$status) = @_;
 
@@ -2571,7 +2557,6 @@ sub generate_biotypes_hash {
   return($biotypes_hash);
 }
 
-
 sub generate_single_transcript_genes {
   my ($self,$transcripts) = @_;
 
@@ -2591,7 +2576,6 @@ sub generate_single_transcript_genes {
   return($single_transcript_genes);
 }
 
-
 sub check_cluster_status {
   my ($self,$cluster) = @_;
 
@@ -2603,7 +2587,6 @@ sub check_cluster_status {
     }
   }
 }
-
 
 sub create_gene_from_cluster {
   my ($self,$cluster,$parent_gene_ids,$source_transcript_id_hash) = @_;
@@ -2700,9 +2683,6 @@ sub create_gene_from_cluster {
   return($gene);
 }
 
-
-
-
 sub calculate_max_intron_size {
   my ($self,$transcripts) = @_;
 
@@ -2720,9 +2700,6 @@ sub calculate_max_intron_size {
 
   return($max_intron_size);
 }
-
-
-
 
 sub create_annotation_features {
   my ($self,$transcript) = @_;
@@ -2754,8 +2731,6 @@ sub create_filename{
   return create_file_name($stem, $ext, $dir, $no_clean);
 }
 
-
-
 sub genome_index {
   my ($self, $val) = @_;
 
@@ -2765,7 +2740,6 @@ sub genome_index {
 
   return $self->{_genome_index};
 }
-
 
 sub genes_to_process {
   my ($self, $val) = @_;
@@ -2777,7 +2751,6 @@ sub genes_to_process {
   return $self->{_genes_to_process};
 }
 
-
 sub input_file {
   my ($self, $val) = @_;
 
@@ -2788,7 +2761,6 @@ sub input_file {
   return $self->{_input_file};
 }
 
-
 sub paftools_path {
   my ($self, $val) = @_;
 
@@ -2798,7 +2770,6 @@ sub paftools_path {
 
   return $self->{_paftools_path};
 }
-
 
 sub source_adaptor {
   my ($self, $val) = @_;
@@ -2812,7 +2783,6 @@ sub source_adaptor {
   return $self->{_source_adaptor};
 }
 
-
 sub target_adaptor {
   my ($self, $val) = @_;
 
@@ -2825,7 +2795,6 @@ sub target_adaptor {
   return $self->{_target_adaptor};
 }
 
-
 sub delete_input_file {
   my ($self, $val) = @_;
 
@@ -2836,7 +2805,6 @@ sub delete_input_file {
   return $self->{_delete_input_file};
 }
 
-
 sub parent_gene_ids {
   my ($self, $val) = @_;
 
@@ -2846,18 +2814,6 @@ sub parent_gene_ids {
 
   return $self->{_parent_gene_ids};
 }
-
-
-sub gene_synteny_hash {
-  my ($self, $val) = @_;
-
-  if ($val) {
-    $self->{_gene_synteny_hash} = $val;
-  }
-
-  return $self->{_gene_synteny_hash};
-}
-
 
 sub gene_genomic_seqs_hash {
   my ($self, $val) = @_;
