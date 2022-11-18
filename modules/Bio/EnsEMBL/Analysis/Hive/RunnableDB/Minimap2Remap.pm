@@ -240,69 +240,6 @@ sub set_parent_info {
   }
 }
 
-sub batch_input_genes {
-  my ($self,$genes,$sequence_adaptor) = @_;
-
-  my $max_batch_span = 100000;
-  my $anchor_size = 10000;
-  my $anchor_dist = 5000;
-
-  my $batched_input_genes = {};
-  my $batch_id = 1;
-
-  my $current_batch_start = 0;
-  my $current_batch_end = 0;
-  my $current_batch_slice_name;
-  my $current_batch_slice;
-  my $current_batch_genes = [];
-  for(my $i=0; $i<scalar(@$genes); $i++) {
-    my $gene = ${$genes}[$i];
-
-    unless($current_batch_slice) {
-      $current_batch_slice_name = $gene->slice->seq_region_name();
-      $current_batch_slice = $gene->slice->seq_region_Slice();
-      $current_batch_start = $gene->seq_region_start();
-      $current_batch_end = $gene->seq_region_end();
-    }
-
-    if((($gene->seq_region_end - $current_batch_start + 1) > $max_batch_span and $gene->seq_region_end() > $current_batch_end) or $gene->slice->seq_region_name ne $current_batch_slice_name) {
-      $batched_input_genes->{$batch_id}->{'genes'} = $current_batch_genes;
-      $batched_input_genes->{$batch_id}->{'start'} = $current_batch_start;
-      $batched_input_genes->{$batch_id}->{'end'} = $current_batch_end;
-      $batched_input_genes->{$batch_id}->{'slice_name'} = $current_batch_slice_name;
-      $batched_input_genes->{$batch_id}->{'slice'} = $current_batch_slice;
-      $batched_input_genes->{$batch_id}->{'length'} = $current_batch_end - $current_batch_start + 1;
-      $batched_input_genes->{$batch_id}->{'midpoint'} = $current_batch_start + ceil($batched_input_genes->{$batch_id}->{'length'}/2);
-      $batch_id++;
-      $current_batch_slice_name = $gene->slice->seq_region_name();
-      $current_batch_slice = $gene->slice->seq_region_Slice();
-      $current_batch_start = $gene->seq_region_start();
-      $current_batch_end = $gene->seq_region_end();
-      $current_batch_genes = [$gene];
-      next;
-    }
-
-    if($gene->seq_region_end() > $current_batch_end) {
-      $current_batch_end = $gene->seq_region_end();
-    }
-
-    push(@$current_batch_genes,$gene);
-  }
-
-  if(scalar(@$current_batch_genes)) {
-    $batched_input_genes->{$batch_id}->{'genes'} = $current_batch_genes;
-    $batched_input_genes->{$batch_id}->{'start'} = $current_batch_start;
-    $batched_input_genes->{$batch_id}->{'end'} = $current_batch_end;
-    $batched_input_genes->{$batch_id}->{'slice_name'} = $current_batch_slice_name;
-    $batched_input_genes->{$batch_id}->{'slice'} = $current_batch_slice;
-    $batched_input_genes->{$batch_id}->{'length'} = $current_batch_end - $current_batch_start + 1;
-    $batched_input_genes->{$batch_id}->{'midpoint'} = $current_batch_start + ceil($batched_input_genes->{$batch_id}->{'length'}/2);
-  }
-
-  return($batched_input_genes);
-}
-
-
 sub print_batch_details {
   my ($self,$batched_input_genes) = @_;
 
