@@ -207,12 +207,6 @@ sub fetch_source_genes {
   return($source_genes);
 }
 
-sub create_filename {
-  my ($self, $stem, $ext, $dir, $no_clean) = @_;
-  return create_file_name($stem, $ext, $dir, $no_clean);
-}
-
-
 sub set_parent_info {
   my ($self,$sorted_input_genes,$parent_gene_id_hash,$sequence_adaptor) = @_;
 
