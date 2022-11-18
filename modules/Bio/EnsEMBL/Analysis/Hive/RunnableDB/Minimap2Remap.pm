@@ -240,20 +240,6 @@ sub set_parent_info {
   }
 }
 
-sub print_batch_details {
-  my ($self,$batched_input_genes) = @_;
-
-  foreach my $id (keys(%$batched_input_genes)) {
-    my $batch = $batched_input_genes->{$id};
-    say "Batch info: ID: ".$id.", Slice: ".$batch->{'slice_name'}.", Start: ".$batch->{'start'}.", End: ".$batch->{'end'}.", Midpoint: ".$batch->{'midpoint'}.", Length: ".$batch->{'length'};
-    my $genes = $batch->{'genes'};
-    foreach my $gene (@$genes) {
-      say "  Gene: ID: ".$gene->stable_id().", Slice: ".$gene->seq_region_name().", Start: ".$gene->seq_region_start().", End: ".$gene->seq_region_end().", Strand: ".$gene->strand();
-    }
-  }
-}
-
-
 sub calculate_anchors {
   my ($self,$batched_input_genes,$sequence_adaptor) = @_;
 
