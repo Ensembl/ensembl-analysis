@@ -140,6 +140,118 @@ sub _master_config {
    },
 
   'gene_db_checks' => {
+    'bird_basic' => {
+      'genblast' => {
+        'logic_names' => {
+          'genblast'            => 200000,
+          'genblast_not_best'   => 250000,
+        }, # logic_names
+        'biotypes' =>    {
+          'human_pe12_'         => 20000,
+          'aves_pe12_'          => 15000,
+          'mammals_pe12_'       => 100000,
+          'reptiles_pe12_'      => 1000,
+        }, # biotypes
+      }, # genblast
+      'projection_coding' => {
+        'logic_names' => {
+          'project_transcripts' => 30000,
+        }, # logic_names
+        'biotypes' =>    {
+          'projection'          => 10000,
+        }, # biotypes
+      }, # projection_coding
+      'rnaseq_blast' =>  {
+        # This one is an issue, logic names, counts are varied and one biotype is a
+        # substring of the other. At the moment it's really just a check that theres'
+        # some stuff in there
+        'logic_names' => {
+#          $species.'_merged_rnaseq' => 10000,
+        }, # logic_names
+        'biotypes' =>    {
+          'rnaseq'              => 10000,
+         }, # biotypes
+      }, # rnaseq_blast
+      'layer' => {
+        'logic_names' =>    {
+        }, # logic_names
+        'biotypes' =>    {
+          'human_pe12_'          => 0,#not sure what value to set
+          'mammals_pe12_'        => 12000,
+          'rnaseq_tissue_'       => 149000,
+        }, # biotypes
+      }, # layer
+      'genebuilder' => {
+        'logic_names' => {
+          'ensembl'             => 15000,
+        }, # logic_names
+        'biotypes' =>    {
+          'protein_coding'       => 15000,
+        }, # biotypes
+      }, # genebuilder
+      'ncrna' => {
+        'logic_names' => {
+          'ncrna' => 400,
+        }, # logic_names
+        'biotypes' =>    {
+          'miRNA'               => 100,
+          'misc_RNA'            => 3,
+          'ribozyme'            => 0,
+          'rRNA'                => 100,
+          'scaRNA'              => 5,
+          'snoRNA'              => 200,
+          'snRNA'               => 60,
+        }, # biotypes
+      }, # ncrna
+      'final' => {
+        'logic_names' => {
+          'ensembl'             => 15000,
+          'ncrna'               => 400,
+        }, # logic_names
+        'biotypes' =>    {
+          'IG_'                  => 0,
+          'TR_'                  => 0,
+          'protein_coding'      => 15000,
+          'miRNA'               => 100,
+          'misc_RNA'            => 3,
+          'ribozyme'            => 0,
+          'rRNA'                => 100,
+          'scaRNA'              => 5,
+          'snoRNA'              => 200,
+          'snRNA'               => 60,
+        }, # biotypes
+      }, # final
+      'core' => {
+        'logic_names' => {
+          'ensembl'             => 15000,
+          'ncrna'               => 600,
+        }, # logic_names
+        'biotypes' =>    {
+          'IG_'                  => 0,
+          'TR_'                  => 0,
+          'protein_coding'       => 15000,
+          'pseudogene'           => 50,
+          'processed_pseudogene' => 0,
+          'miRNA'                => 100,
+          'misc_RNA'             => 3,
+          'ribozyme'             => 0
+          'rRNA'                 => 100,
+          'scaRNA'               => 0,
+          'snoRNA'               => 200,
+          'snRNA'                => 60,
+        }, # biotypes
+      }, # core
+      'otherfeatures' => {
+        'logic_names' => {
+          'refseq_import'          => 30000,
+        },
+      }, # otherfeatures
+      'rnaseq_final' => {
+        'biotypes' => {
+          'protein_coding'         => 5000,
+        },
+      }, # rnaseq_final
+    }, # birdss_basic
     'mammals_basic' => {
       'genblast' => {
         'logic_names' => {
