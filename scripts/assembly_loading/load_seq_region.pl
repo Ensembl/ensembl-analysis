@@ -261,8 +261,8 @@ sub parse_fasta{
     print( "Loading ".$name."\n" ) if($verbose) ;
     if( $name !~ /^\w+\.\d/ || length($name)>40 )
     {
-	    #    warning( "Name ".$name." does not look like a valid accession - are you sure ".
-	    #"this is what you want?" )
+	  warning( "Name ".$name." does not look like a valid accession - are you sure ".
+	    "this is what you want?" )
     }
 
     my $slice = &make_slice($name, 1, $seq->length, $seq->length, 1, $cs);
