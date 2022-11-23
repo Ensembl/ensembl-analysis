@@ -58,7 +58,7 @@ sub default_options {
     'species_name'                     => '',                                  # e.g. mus_musculus
     'output_path'                      => '',                                  # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'use_genome_flatfile'              => '1',                                 # This will read sequence where possible from a dumped flatfile instead of the core db
-    'skip_repeatmodeler'               => '0',                                 # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
+    'skip_repeatmodeler'               => '1',                                 # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
     'replace_repbase_with_red_to_mask' => '0',                                 # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
     'red_logic_name'                   => 'repeatdetector',                    # logic name for the Red repeat finding analysis
                                                                                # Keys for custom loading, only set/modify if that's what you're doing
@@ -136,7 +136,7 @@ sub default_options {
 ########################
     # Misc setup info
 ########################
-    'repeatmasker_engine' => 'crossmatch',
+    'repeatmasker_engine' => 'rmblast',
     'masking_timer_long'  => '5h',
     'masking_timer_short' => '2h',
 
