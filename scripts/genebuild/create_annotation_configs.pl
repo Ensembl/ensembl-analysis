@@ -79,7 +79,7 @@ if ($is_non_vert == 1) {
   $general_hash->{'protein_entry_loc_file'} = 'entry_loc';
 }
 
-$selected_db = "gb_assembly_registry";
+$selected_db = "do1_automated_registry";
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
   -host    => 'mysql-ens-meta-prod-1',
@@ -232,16 +232,17 @@ unless(scalar(@accession_array)) {
 
 foreach my $accession (@accession_array) {
   my $assembly_hash = {};
+  my @assembly = split(':',$accession);
 
-  say "Processing accession: ".$accession;
-  unless($accession =~ /GCA_([\d]{3})([\d]{3})([\d]{3})\.\d+/) {
-    throw("Found an assembly accession that did not match the regex. Offending accession: ".$accession);
+  say "Processing accession: ".$assembly[0];
+  unless($assembly[0] =~ /GCA_([\d]{3})([\d]{3})([\d]{3})\.\d+/) {
+    throw("Found an assembly accession that did not match the regex. Offending accession: ".$assembly[0]);
   }
   
   #Check genebuild status of assembly
   if ($current_genebuild == 1) {
   } else {
-    check_annotation_status($accession);
+    check_annotation_status($assembly[0]);
   }
 
   # Get stable id prefix
@@ -250,9 +251,9 @@ foreach my $accession (@accession_array) {
     $stable_id_prefix = $general_hash->{'stable_id_prefix'};
   }
   else {
-    $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
+    $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($assembly[0]);
   }
-  say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
+  say "Fetched the following stable id prefix for ".$assembly[0].": ".$stable_id_prefix;
   $assembly_hash->{'stable_id_prefix'} = $stable_id_prefix;
 
   #Get clade
@@ -261,9 +262,9 @@ foreach my $accession (@accession_array) {
     $clade = $general_hash->{'clade'};
   }
   else {
-    $clade = $assembly_registry->fetch_clade_by_gca($accession);
+    $clade = $assembly_registry->fetch_clade_by_gca($assembly[0]);
   }
-  say "Fetched the following clade for ".$accession.": ".$clade;
+  say "Fetched the following clade for ".$assembly[0].": ".$clade;
   #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
   if (($clade eq 'amphibians') || ($clade eq 'sharks') || ($clade eq 'vertebrates')){
     $clade = 'distant_vertebrate';
@@ -276,12 +277,12 @@ foreach my $accession (@accession_array) {
     $stable_id_start = $general_hash->{'stable_id_start'};
   }
   else {
-    $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
+    $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($assembly[0]);
   }
  unless (defined($stable_id_start)) {
    throw ("Could not find stable id start");
  }
-  say "Fetched the following stable id start for ".$accession.": ".$stable_id_start;
+  say "Fetched the following stable id start for ".$assembly[0].": ".$stable_id_start;
   $assembly_hash->{'stable_id_start'} = $stable_id_start;
 
   my $assembly_ftp_path = $ftp_base_dir.'GCA/'.$1.'/'.$2.'/'.$3.'/';
@@ -293,19 +294,19 @@ foreach my $accession (@accession_array) {
   $ftp->cwd($assembly_ftp_path);
   my @ftp_dir_contents = $ftp->ls;
   foreach my $entry (@ftp_dir_contents) {
-    if($entry =~ /^$accession\_(.+)$/) {
+    if($entry =~ /^$assembly[0]\_(.+)$/) {
       $full_assembly_path = $assembly_ftp_path."/".$&."/";
       $assembly_name = $1;
     }
   }
 
   unless($full_assembly_path && $assembly_name) {
-    throw("Issue finding ftp path for the following GCA: $accession $assembly_ftp_path");
+    throw("Issue finding ftp path for the following GCA: $assembly[0] $assembly_ftp_path");
   }
 
-  say "Setting assembly name for ".$accession." to ".$assembly_name;
+  say "Setting assembly name for ".$assembly[0]." to ".$assembly_name;
 
-  $assembly_hash->{'assembly_accession'} = $accession;
+  $assembly_hash->{'assembly_accession'} = $assembly[0];
   $assembly_hash->{'assembly_name'} = $assembly_name;
 
   #get settings per clade
@@ -314,11 +315,14 @@ foreach my $accession (@accession_array) {
     $general_hash->{$key} = $clade_hash->{$key};
   }
 
-  parse_assembly_report($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path);
+  parse_assembly_report($ftp,$general_hash,$assembly_hash,$assembly[0],$assembly_name,$full_assembly_path,$output_path);
+
+  # Add flag to determine if repeatmodeler should be run or not
+  $assembly_hash->{'skip_repeatmodeler'} = $assembly[1];
 
   # Add in the species url by uppercasing the first letter of the species name
   my $species_url = $assembly_hash->{'species_name'};
-  $species_url = ucfirst($species_url).'_'.$accession;
+  $species_url = ucfirst($species_url).'_'.$assembly[0];
   $assembly_hash->{'species_url'} = $species_url;
   
   #Set up taxonomy adaptor to fetch rank of species using NCBI taxonomy database
