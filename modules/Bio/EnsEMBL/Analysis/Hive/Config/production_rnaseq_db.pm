@@ -517,15 +517,15 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'cd #working_dir#;
-        FILES=($(ls *.bam));
-        printf "#free_text#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1
+        FILES=($(ls *.bw));
+        printf "#free_text#" | sed "s/NUM/$((${#FILES[*]}))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1
         IFS=$\'\n\';
         echo "${FILES[*]}" >> README.1',
         working_dir => $self->o('merge_dir'),
         species_name  => $self->o('species_name'),
         free_text => 'Note\n------\n\n'.
-          'The RNASeq data for #species_name# consists of NUM individual sample.\n\n'.
-          'The bam file has an index file (.csi) and a BigWig file (.bw) which contains the coverage information.\n\n'.
+          'The RNASeq data for #species_name# consists of NUM individual sample(s).\n\n'.
+          'The BigWig file (.bw) contains the coverage information.\n\n'.
           'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
           'Files\n-----\n',
       },
@@ -599,22 +599,34 @@ sub pipeline_analyses {
                      },
       -rc_name    => '2GB',
       -flow_into => {
-	1 => ['copy_data_files'],
+	1 => ['copy_bigwig_files'],
       }
     },
 
    {
-    -logic_name => 'copy_data_files',
+    -logic_name => 'copy_bigwig_files',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-      cmd => "sudo -u genebuild rsync -ahvW " . $self->o('merge_dir') . '/* ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/ && rsync -avhc ' . $self->o('merge_dir') . '/* ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/',
+      cmd => "sudo -u genebuild rsync -ahvW " . $self->o('merge_dir') . '/*.bw ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/ && rsync -avhc ' . $self->o('merge_dir') . '/*.bw ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/',
      },
      -rc_name    => '2GB',
      -flow_into => {
-	1 => ['set_dir_permission'],
+	1 => ['copy_readme'],
       },
    },
 
+  {
+    -logic_name => 'copy_readme',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      cmd => "sudo -u genebuild rsync -ahvW " . $self->o('merge_dir') . '/README.1 ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/ && rsync -avhc ' . $self->o('merge_dir') . '/README.1 ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/',
+     },
+    -rc_name    => '2GB',
+    -flow_into => {
+      1 => ['set_dir_permission'],
+    },
+  },
+ 
    {
      -logic_name => 'set_dir_permission',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
