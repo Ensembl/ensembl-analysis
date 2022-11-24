@@ -234,7 +234,7 @@ sub _master_config {
           'processed_pseudogene' => 0,
           'miRNA'                => 100,
           'misc_RNA'             => 3,
-          'ribozyme'             => 0
+          'ribozyme'             => 0,
           'rRNA'                 => 100,
           'scaRNA'               => 0,
           'snoRNA'               => 200,
