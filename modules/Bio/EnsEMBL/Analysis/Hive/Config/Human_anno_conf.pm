@@ -584,7 +584,7 @@ sub pipeline_analyses {
             'UPDATE repeat_feature JOIN seq_region USING(seq_region_id) SET repeat_end = length WHERE repeat_end > length',
           ],
         },
-        -rc_name    => '3GB',
+        -rc_name    => 'default',
         -flow_into => {
                        1 => ['set_meta_coords'],
         },
@@ -604,7 +604,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('core_db','-port').
                                 ' -dbpattern '.'#core_dbname#'
                        },
-        -rc_name => '3GB',
+        -rc_name => 'default',
         -flow_into => {
                         1 => ['set_meta_levels'],
                       },
@@ -622,7 +622,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('core_db','-port').
                                 ' -dbname '.'#core_dbname#'
                        },
-        -rc_name => '3GB',
+        -rc_name => 'default',
         -flow_into => { 1 => ['set_frameshift_introns'] },
       },
 
@@ -638,7 +638,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('core_db','-port').
                                 ' -dbpattern '.'#core_dbname#'
                        },
-        -rc_name => '3GB',
+        -rc_name => 'default',
         -flow_into => { 1 => ['set_canonical_transcripts'] },
       },
 
@@ -655,7 +655,7 @@ sub pipeline_analyses {
                                 ' -dbname '.'#core_dbname#'.
                                 ' -coord toplevel -write'
                        },
-        -rc_name => '3GB',
+        -rc_name => 'default',
         -flow_into => { 1 => ['null_columns'] },
       },
 
@@ -673,7 +673,7 @@ sub pipeline_analyses {
             'UPDATE dna_align_feature set external_db_id = NULL',
           ],
         },
-        -rc_name    => '3GB',
+        -rc_name    => 'default',
         -flow_into => {
                         1 => ['run_stable_ids'],
                       },
@@ -690,7 +690,7 @@ sub pipeline_analyses {
                          id_start => '#stable_id_prefix#'.'#stable_id_start#',
                          output_path => '#output_path#',
                        },
-        -rc_name    => '3GB',
+        -rc_name    => 'default',
         -flow_into => {
                          1 => ['generate_mapping_stats'],
                       },
@@ -714,7 +714,7 @@ sub pipeline_analyses {
                                 ' -output_dir '.'#output_path#'.
                                 ' -output_file_prefix '.'#assembly_accession#'."_mapping_stats"
                        },
-        -rc_name => '3GB',
+        -rc_name => 'default',
         -flow_into => { 1 => ['add_placeholder_sample_location'] },
       },
 
@@ -725,7 +725,7 @@ sub pipeline_analyses {
         -parameters => {
                         input_db => '#core_db#',
                        },
-        -rc_name    => '3GB',
+        -rc_name    => 'default',
         -flow_into => {
                        1 => ['populate_analysis_descriptions'],
         },
@@ -800,16 +800,42 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '3GB' => { LSF => $self->lsf_resource_builder('production', 3000)},
-    '4GB_registry' => { LSF => [$self->lsf_resource_builder('production', 4000), '-reg_conf '.$self->o('registry_file')]},
-    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
-    '5GB' => { LSF => $self->lsf_resource_builder('production', 5000)},
-    '9GB' => { LSF => $self->lsf_resource_builder('production', 9000)},
-    '12GB' => { LSF => $self->lsf_resource_builder('production', 12000)},
-    '15GB' => { LSF => $self->lsf_resource_builder('production', 15000)},
-    '20GB' => { LSF => $self->lsf_resource_builder('production', 20000)},
-    '35GB' => { LSF => $self->lsf_resource_builder('production', 35000)},
-    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
+    'default' => {
+      LSF => $self->lsf_resource_builder('production', 3000),
+      SLURM => $self->slurm_resource_builder('standard', 3000),
+    },
+    '4GB_registry' => {
+      LSF => [$self->lsf_resource_builder('production', 4000), '-reg_conf '.$self->o('registry_file')],
+      SLURM => [$self->slurm_resource_builder('standard', 4000), '-reg_conf '.$self->o('registry_file')],
+    },
+    '4GB' => {
+      LSF => $self->lsf_resource_builder('production', 4000),
+      SLURM => $self->slurm_resource_builder('standard', 4000),
+    },
+    '5GB' => {
+      LSF => $self->lsf_resource_builder('production', 5000),
+      SLURM => $self->slurm_resource_builder('standard', 5000),
+    },
+    '9GB' => {
+      LSF => $self->lsf_resource_builder('production', 9000),
+      SLURM => $self->slurm_resource_builder('standard', 9000),
+    },
+    '12GB' => {
+      LSF => $self->lsf_resource_builder('production', 12000),
+      SLURM => $self->slurm_resource_builder('standard', 12000),
+    },
+    '15GB' => {
+      LSF => $self->lsf_resource_builder('production', 15000),
+      SLURM => $self->slurm_resource_builder('standard', 15000),
+    },
+    '20GB' => {
+      LSF => $self->lsf_resource_builder('production', 20000),
+      SLURM => $self->slurm_resource_builder('standard', 20000),
+    },
+    '35GB' => {
+      LSF => $self->lsf_resource_builder('production', 35000),
+      SLURM => $self->slurm_resource_builder('standard', 35000),
+    },
   }
 }
 
