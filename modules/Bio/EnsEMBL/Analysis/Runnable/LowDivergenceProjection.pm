@@ -82,7 +82,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $gene_synteny_hash, $gene_genomic_seqs_hash, $no_projection, $coverage_cutoff, $perc_id_cutoff, $extended_length_variation_cutoff, $anchor_coverage_cutoff, $anchor_perc_id_cutoff) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS GENE_SYNTENY_HASH GENE_GENOMIC_SEQS_HASH NO_PROJECTION COVERAGE_CUTOFF PERC_ID_CUTOFF EXTENDED_LENGTH_VARIATION_CUTOFF ANCHOR_COVERAGE_CUTOFF ANCHOR_PERC_ID_CUTOFF)],@args);
+  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $gene_genomic_seqs_hash, $no_projection, $coverage_cutoff, $perc_id_cutoff, $extended_length_variation_cutoff, $anchor_coverage_cutoff, $anchor_perc_id_cutoff) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS GENE_GENOMIC_SEQS_HASH NO_PROJECTION COVERAGE_CUTOFF PERC_ID_CUTOFF EXTENDED_LENGTH_VARIATION_CUTOFF ANCHOR_COVERAGE_CUTOFF ANCHOR_PERC_ID_CUTOFF)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
@@ -91,7 +91,6 @@ sub new {
   $self->delete_input_file($delete_input_file);
   $self->genes_to_process($parent_genes);
   $self->parent_gene_ids($parent_gene_ids);
-  $self->gene_synteny_hash($gene_synteny_hash);
   $self->gene_genomic_seqs_hash($gene_genomic_seqs_hash);
   $self->no_projection($no_projection);
   $self->coverage_cutoff($coverage_cutoff);
@@ -1339,6 +1338,7 @@ sub build_batch_genes {
 
 
       my $target_gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis);
+    print join(' ', __LINE__, $target_gene), "\n";
       $target_gene->{'parent_gene_id'} = $source_gene->dbID();
       $target_gene->{'parent_gene_versioned_stable_id'} = $source_gene->stable_id().".".$source_gene->version();
       $target_gene->stable_id($source_gene->stable_id);
@@ -1510,6 +1510,61 @@ sub project_batch_feature {
 
   my $projected_exon = $self->build_projected_exon($transcript,$exon,$target_seq_start_index,$target_seq_end_index,$target_region_slice,$target_strand);
   return($projected_exon);
+}
+
+
+sub coverage_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_coverage_cutoff} = $val;
+  }
+
+  return $self->{_coverage_cutoff};
+}
+
+
+sub perc_id_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_perc_id_cutoff} = $val;
+  }
+
+  return $self->{_perc_id_cutoff};
+}
+
+
+sub extended_length_variation_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_extended_length_variation_cutoff} = $val;
+  }
+
+  return $self->{_extended_length_variation_cutoff};
+}
+
+
+sub anchor_coverage_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_anchor_coverage_cutoff} = $val;
+  }
+
+  return $self->{_anchor_coverage_cutoff};
+}
+
+
+sub anchor_perc_id_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_anchor_perc_id_cutoff} = $val;
+  }
+
+  return $self->{_anchor_perc_id_cutoff};
 }
 
 

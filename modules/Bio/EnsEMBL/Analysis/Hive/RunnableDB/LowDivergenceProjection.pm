@@ -50,6 +50,21 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene clone
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+sub default_params {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::default_params},
+    no_projection => 0,
+    coverage_cutoff => 0.98,
+    perc_id_cutoff => 0.99,
+    extended_length_variation_cutoff => 0.1,
+    anchor_coverage_cutoff => 0.95,
+    anchor_perc_id_cutoff => 0.99,
+  }
+}
+
+
 sub fetch_input {
   my($self) = @_;
 
