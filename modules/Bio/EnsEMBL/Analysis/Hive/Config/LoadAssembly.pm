@@ -325,8 +325,6 @@ sub pipeline_analyses {
           '(1, "genebuild.initial_release_date", NULL),'.
           '(1, "assembly.coverage_depth", "high"),'.
           '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
-	  '(1, "genebuild.method", "full_genebuild"),'.
-	  '(1, "genebuild.method_display", "Ensembl Genebuild"),'.
           '(1, "assembly.provider_name", "'.$self->o('assembly_provider_name').'"),'.
           '(1, "assembly.provider_url", "'.$self->o('assembly_provider_url').'"),'.
           '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
