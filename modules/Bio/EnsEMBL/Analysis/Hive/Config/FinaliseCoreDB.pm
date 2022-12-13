@@ -482,7 +482,7 @@ sub pipeline_analyses {
             '(1, "genebuild.last_geneset_update", (SELECT CONCAT((EXTRACT(YEAR FROM now())),"-",(LPAD(EXTRACT(MONTH FROM now()),2,"0"))))),'.
             '(1, "genebuild.method", "full_genebuild"),'.
             '(1, "genebuild.method_display", "Ensembl Genebuild"),'.
-            '(1, "species.annotation_source", "ensembl"),',
+            '(1, "species.annotation_source", "ensembl")',
         ],
       },
       -rc_name   => 'default',
