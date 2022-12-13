@@ -61,6 +61,7 @@ sub default_options {
     release_number                   => '' || $ENV{ENSEMBL_RELEASE},
     species_name                     => '', # e.g. mus_musculus
     production_name                  => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    annotation_source                => 'ensembl', # Used to define the structure of the ftp, default value ensembl 
     dbname_accession                 => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     taxon_id                         => '', # should be in the assembly report file
     species_taxon_id                 => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
@@ -1898,6 +1899,7 @@ sub pipeline_analyses {
           projection_source_db_name => $self->o('projection_source_db_name'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           registry_file => $self->o('registry_file'),
+          annotation_source => $self->o('annotation_source'),
         },
       },
       -rc_name      => 'default',
@@ -2067,6 +2069,7 @@ sub pipeline_analyses {
           registry_db => $self->o('registry_db'),
           assembly_name => $self->o('assembly_name'),
           assembly_accession => $self->o('assembly_accession'),
+          annotation_source => $self->o('annotation_source'),
         },
       },
       -rc_name      => 'default',

@@ -479,7 +479,10 @@ sub pipeline_analyses {
         db_conn => $self->o('reference_db'),
         sql     => [
           'INSERT INTO meta (species_id, meta_key, meta_value) VALUES ' .
-            '(1, "genebuild.last_geneset_update", (SELECT CONCAT((EXTRACT(YEAR FROM now())),"-",(LPAD(EXTRACT(MONTH FROM now()),2,"0")))))'
+            '(1, "genebuild.last_geneset_update", (SELECT CONCAT((EXTRACT(YEAR FROM now())),"-",(LPAD(EXTRACT(MONTH FROM now()),2,"0"))))),'.
+            '(1, "genebuild.method", "full_genebuild"),'.
+            '(1, "genebuild.method_display", "Ensembl Genebuild"),'.
+            '(1, "species.annotation_source", "ensembl")',
         ],
       },
       -rc_name   => 'default',
