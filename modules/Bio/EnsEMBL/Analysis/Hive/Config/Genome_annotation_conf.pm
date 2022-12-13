@@ -101,7 +101,7 @@ sub default_options {
     long_read_summary_file_genus     => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     long_read_fastq_dir              => '' || catdir($self->o('long_read_dir'),'input'),
 
-    skip_repeatmodeler               => '0', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
+    skip_repeatmodeler               => '', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
     skip_post_repeat_analyses        => '0', # Will skip everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     skip_projection                  => '0', # Will skip projection process if 1
     skip_lastz                       => '0', # Will skip lastz if 1 (if skip_projection is enabled this is irrelevant)
