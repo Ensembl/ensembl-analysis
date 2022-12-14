@@ -210,7 +210,7 @@ sub fetch_input {
                  refseq_accession,
                  assembly_date,
                  species_name,
-                 assembly_group,
+                 pri_asm_group,
                  stable_id_space_start
                  FROM assembly JOIN meta as m USING(assembly_id) JOIN stable_id_space USING(stable_id_space_id) WHERE assembly_id=?";
     $sth = $registry_dba->dbc->prepare($sql);
