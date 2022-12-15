@@ -506,9 +506,9 @@ sub _retrieve_biosample_info {
     if ($content) {
       $self->say_with_header($content);
       my $json = $json_decoder->decode($content);
-      foreach my $disease ( 'immunization', 'disease' ) {
-        if ( exists $json->{characteristics}->{$disease} and $json->{characteristics}->{$disease}->[0]->{text} ne 'control' ) {
-          $self->warning( "Removed $current_sample from the set as it has $disease value: " . $json->{characteristics}->{$disease}->[0]->{text} );
+      foreach my $disease ('immunization', 'disease') {
+        if (exists $json->{characteristics}->{$disease} and ($json->{characteristics}->{$disease}->[0]->{text} ne 'control' or $json->{characteristics}->{$disease}->[0]->{text} ne 'normal')) {
+          $self->warning("Removed $current_sample from the set as it has $disease value: ".$json->{characteristics}->{$disease}->[0]->{text});
           return -1;
         }
       }
