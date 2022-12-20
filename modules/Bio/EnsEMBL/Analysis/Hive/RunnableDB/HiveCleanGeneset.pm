@@ -49,6 +49,17 @@ use File::Path qw(make_path);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    evidence_high_count => 50,
+    tiny_gene_size => 500,
+  }
+}
+
+
 sub fetch_input {
   my $self = shift;
 
@@ -72,6 +83,23 @@ sub fetch_input {
 
   my $blessed_biotypes = $self->param('blessed_biotypes');
   $self->blessed_biotypes($blessed_biotypes);
+  my $high_count_evidence_name_sth = $input_dba->dbc->prepare(
+    "SELECT paf.hit_name FROM transcript_supporting_feature tsf, protein_align_feature paf"
+    ." WHERE tsf.feature_id = paf.protein_align_feature_id AND tsf.feature_type = 'protein_align_feature'"
+    ." GROUP BY paf.hit_name HAVING COUNT(paf.hit_name) > ?"
+  );
+  $high_count_evidence_name_sth->execute($self->param('evidence_high_count'));
+  my $gene_id_high_evidence_sth = $input_dba->dbc->prepare("SELECT g.gene_id FROM gene g, transcript t, transcript_supporting_feature tsf, protein_align_feature paf WHERE g.gene_id = t.gene_id AND t.transcript_id = tsf.transcript_id AND tsf.feature_id = paf.protein_align_feature_id AND tsf.feature_type = 'protein_align_feature' AND paf.hit_name = ?");
+  my %genes_to_check;
+  while(my $row = $high_count_evidence_name_sth->fetch) {
+    $gene_id_high_evidence_sth->execute($row->[0]);
+    $self->say_with_header($row->[0]);
+    while (my $row_gene_id = $gene_id_high_evidence_sth->fetch) {
+      $genes_to_check{$row_gene_id->[0]} = $row_gene_id->[0];
+      $self->say_with_header($row_gene_id->[0]);
+    }
+  }
+  $self->param('genes_to_check', \%genes_to_check);
 
   return 1;
 }
@@ -133,7 +161,8 @@ sub blessed_biotypes {
 sub clean_genes {
   my ($self,$genes) = @_;
   my $transcript_ids_to_remove = [];
-  my $tiny_gene_size = 500; # Note that this should be made a param. Usually there are very few such genes in a geneset
+  my $tiny_gene_size = $self->param('tiny_gene_size'); # Note that this should be made a param. Usually there are very few such genes in a geneset
+  my $genes_to_check = $self->param('genes_to_check');
   say "Have ".scalar(@{$genes})." genes to process";
 
   my $gene_strings;
@@ -197,6 +226,13 @@ sub clean_genes {
       if($logic_name =~ /^genblast/ && scalar(@{$transcript->get_all_Exons()}) <= 3) {
         if($self->check_protein_models($transcript)) {
           $self->warning("Found protein model with weak supporting evidence: ".$transcript->dbID.", ".$transcript->biotype);
+          push(@{$transcript_ids_to_remove},$transcript->dbID);
+          next;
+        }
+      }
+      if (exists $genes_to_check->{$gene->dbID}) {
+        if (exists $transcript->{_non_start_stop_complete}) {
+          $self->say_with_header('Removing high evidence count '.$transcript->dbID);
           push(@{$transcript_ids_to_remove},$transcript->dbID);
         }
       }
