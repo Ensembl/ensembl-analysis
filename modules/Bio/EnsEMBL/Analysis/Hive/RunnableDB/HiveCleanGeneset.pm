@@ -49,6 +49,16 @@ use File::Path qw(make_path);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    tiny_gene_size => 500,
+  }
+}
+
+
 sub fetch_input {
   my $self = shift;
 
@@ -133,7 +143,7 @@ sub blessed_biotypes {
 sub clean_genes {
   my ($self,$genes) = @_;
   my $transcript_ids_to_remove = [];
-  my $tiny_gene_size = 500; # Note that this should be made a param. Usually there are very few such genes in a geneset
+  my $tiny_gene_size = $self->param('tiny_gene_size'); # Note that this should be made a param. Usually there are very few such genes in a geneset
   say "Have ".scalar(@{$genes})." genes to process";
 
   my $gene_strings;
