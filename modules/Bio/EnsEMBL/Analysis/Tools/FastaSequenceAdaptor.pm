@@ -185,7 +185,13 @@ sub _fetch_raw_seq {
   my ($self, $id, $start, $length) = @_;
 
   my $fasta_db = $self->{_fasta_db};
-  my $fa_length = $fasta_db->length($id);
+  my $fa_length;
+  eval {
+    $fa_length = $fasta_db->length($id);
+  };
+  if ($@) {
+    throw("Could not fetch data for $id:$start-$length using $fasta_db ".$fasta_db->{db}."\n$@");
+  }
   my $seq;
   my $end = $start+$length-1;
   if ($fa_length and $fa_length > 0) {
