@@ -137,13 +137,18 @@ sub run {
     }
   }
 
-  $self->process_gene_batches($source_genes,$genome_index,$all_source_transcripts_id_hash,$self->coverage_cutoff(),$self->perc_id_cutoff(),$self->extended_length_variation_cutoff(),$self->anchor_coverage_cutoff(),$self->anchor_perc_id_cutoff());
+  $self->process_gene_batches($source_genes,$genome_index,$all_source_transcripts_id_hash);
 } # End run
 
 
 sub process_gene_batches {
-  my ($self,$source_genes,$genome_index,$all_source_transcripts_id_hash,$coverage_cutoff,$perc_id_cutoff,$extended_length_variation_cutoff,$anchor_coverage_cutoff,$anchor_perc_id_cutoff) = @_;
+  my ($self,$source_genes,$genome_index,$all_source_transcripts_id_hash) = @_;
 
+  my $coverage_cutoff = $self->coverage_cutoff;
+  my $perc_id_cutoff = $self->perc_id_cutoff;
+  my $extended_length_variation_cutoff = $self->extended_length_variation_cutoff;
+  my $anchor_coverage_cutoff = $self->anchor_coverage_cutoff;
+  my $anchor_perc_id_cutoff = $self->anchor_perc_id_cutoff;
   my $source_adaptor = $self->source_adaptor();
   my $source_sequence_adaptor = $source_adaptor->get_SequenceAdaptor();
   my $target_adaptor = $self->target_adaptor();
