@@ -2149,9 +2149,9 @@ sub project_gene_coords {
         say "Projected exon alignment scores: Coverage: ".$proj_coverage.", Perc identity: ".$proj_percent_id;
         $projected_exon->{'cov'} = $proj_coverage;
         $projected_exon->{'perc_id'} = $proj_percent_id;
-        $projected_exon->{'source_stable_id'} = $exon->stable_id();
-        $projected_exon->{'source_length'} = $exon->length();
       }
+      $projected_exon->{'source_stable_id'} = $exon->stable_id();
+      $projected_exon->{'source_length'} = $exon->length();
       $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
     } else {
       say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
