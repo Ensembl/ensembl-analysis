@@ -383,7 +383,7 @@ sub parse_results {
         }
 
         if ($coverage < $coverage_cutoff) {
-          warning("Coverage for the hit fails the cutoff.\nHit name: $hit_name\nCoverage: $coverage\nCut-off: $coverage_cutoff");
+          warning("Coverage for the hit fails the cutoff.\nQuery name: $query_name\nHit name: $hit_name\nCoverage: $coverage\nCut-off: $coverage_cutoff");
           next;
         }
       }
