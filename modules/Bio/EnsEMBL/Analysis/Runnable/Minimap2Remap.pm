@@ -1502,6 +1502,18 @@ sub project_cds {
     say "Orig CDS start/end exon lengths: ".$source_translation->start_Exon->length."/".$source_translation->end_Exon->length;
     say "Orig CDS start/end exon phases: ".$source_translation->start_Exon->phase()."/".$source_translation->end_Exon->end_phase();
     say "Orig CDS start exon frame: ".$source_translation->start_Exon->frame();
+    if ($phase_adjust and $cds_start_exon != $exons->[0] and $exons->[0]->phase == -1) {
+      say "CDS start exon will have start phase $phase_adjust but it is not the first exon";
+      # This code will fail if the previous exon is smaller than $phase_adjust which may never happen
+      my $new_start_exon;
+      foreach my $exon (@$exons) {
+        last if ($cds_start_exon == $exon);
+        $new_start_exon = $exon;
+      }
+      $cds_start_offset = $new_start_exon->length-$phase_adjust+1;
+      $cds_start_exon = $new_start_exon;
+      $phase_adjust = 0;
+    }
     say "Orig CDS start/end exon offsets: ".$source_translation->start()."/".$source_translation->end();
     say "CDS start/end index: ".$target_cds_start_index."/".$target_cds_end_index;
     say "CDS start/end exon lengths: ".$cds_start_exon->length()."/".$cds_end_exon->length();
