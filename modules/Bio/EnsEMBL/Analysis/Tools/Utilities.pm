@@ -1072,7 +1072,7 @@ sub align_nucleotide_seqs {
   }
 
   warning($cmd);
-  execute_with_wait($cmd);
+  execute_with_timer($cmd, '1H');
 
   my $file = "";
   open(ALIGN,$align_output_file) or die("Could not open $align_output_file");
