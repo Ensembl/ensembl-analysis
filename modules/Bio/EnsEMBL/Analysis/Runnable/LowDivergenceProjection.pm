@@ -1255,8 +1255,13 @@ sub project_batch_genes {
 
       my $target_parent_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_region_name);
       my $target_genomic_sequence = ${$target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_genomic_start, $target_genomic_end, $target_region_strand)};
+      my $number_Ns = $target_genomic_sequence =~ tr/N/N/;
 
       my $target_region_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_region_name,$target_genomic_start,$target_genomic_end,1);
+      if ($number_Ns > $target_region_slice->length*.95) {
+        $self->warning("Too many Ns, skipping: $number_Ns > ".($target_region_slice->length*.95));
+        next;
+      }
 
       my $coverage = 0;
       my $percent_id = 0;
@@ -1495,8 +1500,13 @@ sub project_batch_feature {
 
 
   my $align_feature_length = $align_feature_end - $align_feature_start + 1;
-  my $source_feature_align_seq = substr($aligned_source_seq,$align_feature_start,$align_feature_length);
   my $target_feature_align_seq = substr($aligned_target_seq,$align_feature_start,$align_feature_length);
+  my $number_Ns = $target_feature_align_seq =~ tr/n/n/;
+  if ($number_Ns > $align_feature_length*.95) {
+    $self->warning("Exon has too many Ns, skipping: $number_Ns > ".($align_feature_length*.95));
+    return;
+  }
+  my $source_feature_align_seq = substr($aligned_source_seq,$align_feature_start,$align_feature_length);
   say "Source feature in alignment:\n".$source_feature_align_seq;
   say "Target feature in alignment:\n".$target_feature_align_seq;
 
