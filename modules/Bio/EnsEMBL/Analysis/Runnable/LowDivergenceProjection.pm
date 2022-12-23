@@ -1306,6 +1306,7 @@ sub build_batch_genes {
     my $target_genomic_end= ${$target_region}[3];
     my $aligned_source_seq = ${$target_region}[4];
     my $aligned_target_seq = ${$target_region}[5];
+    next unless ($aligned_source_seq and $aligned_target_seq);
     my $target_region_slice = ${$target_region}[6];
     foreach my $source_gene (@$batch_source_genes) {
       my $source_transcripts = $source_gene->get_all_Transcripts();
