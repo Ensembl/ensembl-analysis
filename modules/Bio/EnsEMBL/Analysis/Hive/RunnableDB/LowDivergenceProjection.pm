@@ -68,32 +68,30 @@ sub param_defaults {
 sub fetch_input {
   my($self) = @_;
 
-  if ($self->param('use_genome_flatfile')) {
-    $self->setup_fasta_db;
-  }
+  $self->setup_fasta_db;
   $self->create_analysis;
-  my $genome_index = $self->param_required('genome_index');
+  $self->param_required('genome_index');
 
   # Define the dna dbs
   my $source_dna_dba = $self->hrdb_get_dba($self->param('source_dna_db'));
   my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
-  $self->hrdb_set_con($source_dna_dba,'source_dna_db');
-  $self->hrdb_set_con($target_dna_dba,'target_dna_db');
-  if ($self->param('use_genome_flatfile')) {
+  $self->say_with_header($self->is_fasta_file_ready);
+  if ($self->is_fasta_file_ready) {
     if ($self->param_is_defined('source_dna_fasta')) {
+      $self->say_with_header($self->is_fasta_file_ready);
+      $self->say_with_header($self->param('source_dna_fasta'));
       $source_dna_dba->get_SequenceAdaptor->fasta($self->param_required('source_dna_fasta'));
     }
-    my $target_dna_fasta = $genome_index;
-    $target_dna_fasta =~ s/(\.fa(sta)?).*$/$1/;
-    $target_dna_dba->get_SequenceAdaptor->fasta($target_dna_fasta);
+    if ($self->param_is_defined('genome_index')) {
+      my ($fasta) = $self->param('genome_index') =~ /(.*).mmi/;
+      $self->say_with_header($fasta);
+      $target_dna_dba->get_SequenceAdaptor->fasta($fasta);
+    }
   }
 
   # Define the source and target gene dbs
-  my $source_gene_dba = $self->hrdb_get_dba($self->param('source_gene_db'));
-  my $target_gene_dba = $self->hrdb_get_dba($self->param('target_gene_db'));
-  $source_gene_dba->dnadb($source_dna_dba);
-  $target_gene_dba->dnadb($target_dna_dba);
-  $self->hrdb_set_con($source_gene_dba,'source_gene_db');
+  my $source_gene_dba = $self->hrdb_get_dba($self->param('source_gene_db'), $source_dna_dba);
+  my $target_gene_dba = $self->get_database_by_name('target_gene_db', $target_dna_dba);
   $self->hrdb_set_con($target_gene_dba,'target_gene_db');
 
 #  my $input_genes = $self->fetch_input_genes_by_id([53671,56952,59930,59295,59266,59293],$source_gene_dba);

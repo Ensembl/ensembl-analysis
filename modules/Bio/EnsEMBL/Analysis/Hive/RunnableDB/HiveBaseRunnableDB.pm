@@ -632,11 +632,38 @@ sub  hrdb_get_dba {
 =cut
 
 sub get_database_by_name {
-    my ($self, $name, $dna_db, $alternative_class) = @_;
+    my ($self, $name, $dna_db, $alternative_class, $fasta_file) = @_;
 
-    return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db, $alternative_class);
+    if (!$dna_db) {
+      if ($self->param_is_defined('dna_db') and $self->param('dna_db') and $name ne 'dna_db') {
+        $dna_db = $self->get_database_by_name('dna_db');
+        $self->say_with_header('Attaching dna db '.$dna_db->dbc->dbname);
+      } else {
+        $self->say_with_header("Assuming the target db has dna for $name");
+      }
+    }
+      $self->say_with_header(__LINE__);
+    if (!$fasta_file) {
+      $self->say_with_header(__LINE__);
+      if ($self->param_is_defined('genome_file') and $self->is_fasta_file_ready) {
+        $self->say_with_header("Ignoring dna table and using fasta file for sequence fetching");
+        if (-e $self->param_required('genome_file')) {
+          $fasta_file = $self->param('genome_file');
+        }
+        else {
+          $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+        }
+      }
+    }
+      $self->say_with_header(__LINE__);
+    return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db, $alternative_class, $fasta_file);
 }
 
+sub is_fasta_file_ready {
+  my ($self) = @_;
+
+  return $self->param('use_genome_flatfile')and Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors->{Sequence} eq 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
+}
 
 =head2 is_slice_name
 
