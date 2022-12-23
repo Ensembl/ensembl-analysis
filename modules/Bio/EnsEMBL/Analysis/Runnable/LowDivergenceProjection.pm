@@ -727,13 +727,11 @@ sub calculate_target_regions {
   my $anchors_middle_res = [];
   my $anchors_right_res = [];
 
+  # The PAF format is 0-based and open ended [,[ and not 1-based and inclusive [,] like Ensembl
   foreach my $line (@$paf_results) {
     my @eles = split("\t",$line);
     $eles[2]++;
-    $eles[3]++;
     $eles[7]++;
-    $eles[8]++;
-
     my $anchor_name = $eles[0];
     my $source_length = $eles[1];
     my $source_hit_start = $eles[2];
