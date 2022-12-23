@@ -119,7 +119,6 @@ sub fetch_input {
 
 #  my $batched_input_genes = $self->batch_input_genes();
 
-  my $gene_synteny_hash = {};
   my $gene_genomic_seqs_hash = {};
   my $parent_gene_id_hash = {};
   my $genomic_reads = [];
@@ -188,7 +187,6 @@ sub fetch_input {
     $gene_genomic_seqs_hash->{$gene_id} = [$region_start,$region_end,$genomic_seq];
   } #close foreach sorted_input_gene
 
-  $self->param('gene_synteny_hash',$gene_synteny_hash);
   my $input_file = $self->write_input_file($genomic_reads);
   $self->param('input_file',$input_file);
 
@@ -204,7 +202,6 @@ sub fetch_input {
        -target_adaptor    => $target_gene_dba,
        -parent_genes      => $sorted_input_genes,
        -parent_gene_ids   => $parent_gene_id_hash,
-       -gene_synteny_hash => $gene_synteny_hash,
        -gene_genomic_seqs_hash => $gene_genomic_seqs_hash,
        -no_projection     => $self->param('no_projection'),
        -coverage_cutoff   => $self->param('coverage_cutoff'),
