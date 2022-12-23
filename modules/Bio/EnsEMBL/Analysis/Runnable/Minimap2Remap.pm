@@ -2512,6 +2512,10 @@ sub run_exonerate {
             $output_translation->start(1);
           }
         }
+        if ($output_transcript->translateable_seq and !$output_transcript->translate) {
+          $output_transcript->translation(undef);
+          $self->warning($source_transcript->display_id.' FAILED no translation for a protein coding transcript of biotype '.$source_transcript->biotype);
+        }
       }
       else {
         $self->warning($source_transcript->display_id.' FAILED no translation for a protein coding transcript');
