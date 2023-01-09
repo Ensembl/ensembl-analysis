@@ -147,15 +147,13 @@ sub gene_db_checks {
     my $observed_logic_name_counts = {};
     foreach my $slice (@$slices) {
       foreach my $gene (@{$slice->get_all_Genes}) {
-        foreach my $transcript (@{$gene->get_all_Transcripts}) {
-          my $biotype = $transcript->biotype;
+          my $biotype = $gene->biotype;
           if (exists $observed_biotype_counts->{$biotype}) {
             $observed_biotype_counts->{$biotype}++;
           }
           else {
             $observed_biotype_counts->{$biotype} = 1;
           }
-        }
         my $logic_name = $gene->analysis->logic_name;
         if (exists $observed_logic_name_counts->{$logic_name}) {
           $observed_logic_name_counts->{$logic_name}++;
@@ -186,7 +184,7 @@ sub gene_db_checks {
 
     }
 
-    # Count the transcripts per biotype
+    # Count the gene per biotype
     # Not particularly happy with this, I think it is good to have a way to specify generic parts of a biotype, but it comes at the
     # expense of having to pattern match, which is dangerous
     $self->say_with_header("Checking biotypes:");
