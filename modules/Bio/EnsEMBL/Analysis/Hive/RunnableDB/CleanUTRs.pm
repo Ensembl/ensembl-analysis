@@ -141,4 +141,19 @@ sub write_output {
   }
 }
 
+
+sub pre_cleanup {
+  my ($self) = @_;
+
+  if ($self->param_is_defined('target_db')) {
+    my $db = $self->get_database_by_name('target_db');
+    my $slice = $db->get_SliceAdaptor->fetch_by_name($self->input_id);
+    my $gene_adaptor = $db->get_GeneAdaptor;
+    foreach my $gene (@{$slice->fetch_all_Genes}) {
+      $self->warning('Deleting gene '.$gene->dbID);
+      $gene_adaptor->remove($gene);
+    }
+  }
+}
+
 1;
