@@ -286,6 +286,7 @@ sub pipeline_analyses {
           'DELETE FROM transcript_supporting_feature WHERE feature_type = "dna_align_feature"',
           'DELETE FROM supporting_feature WHERE feature_type = "dna_align_feature"',
           'DELETE FROM analysis WHERE logic_name NOT LIKE "%rnaseq%"',
+          'DELETE FROM analysis WHERE logic_name LIKE "%merged%"',
           'INSERT INTO analysis (logic_name, module, created, db_version) VALUES ("other_protein", "HiveBlastRNAseq", NOW(), "#uniprot_version#")',
           'UPDATE protein_align_feature paf, analysis a SET paf.analysis_id = a.analysis_id WHERE a.logic_name = "other_protein"',
           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
