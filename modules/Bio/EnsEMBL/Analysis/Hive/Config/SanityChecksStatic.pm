@@ -183,11 +183,10 @@ sub _master_config {
       }, # layer
       'genebuilder' => {
         'logic_names' => {
-          'ensembl'             => 15000,
-        }, # logic_names
-        'biotypes' =>    {
-          'protein_coding'       => 15000,
-        }, # biotypes
+	    'ensembl'             => 15000,
+	},
+	'biotypes' =>    {
+	}, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -308,10 +307,7 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
-        'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'protein_coding'       => 19000,
+	 'biotypes' =>    {
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -434,11 +430,8 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
-        'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'protein_coding'            => 19000,
-        }, # biotypes
+	 'biotypes' =>    {
+        }, # biotypes  
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -553,9 +546,7 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
-        'biotypes' =>    {
-          'pre_lncRNA'          => 100,
-          'protein_coding'      => 13000,
+	'biotypes' =>    {
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -655,16 +646,7 @@ sub _master_config {
           'project_ig_tr' => 50,
         }, # logic_names
       }, # projection_ig_tr
-      'realign' => {
-        'logic_names' => {
-          # Would actually prefer an upper limit on realign as opposed to a lower limit
-          'project_transcripts'  => 20000,
-          'genblast'             => 1000,
-        }, # logic_names
-        'biotypes' =>    {
-          'realign'             => 20000,
-        }, # biotypes
-      }, # realign
+
       'rnaseq_blast' =>  {
         # This one is an issue, logic names, counts are varied and one biotype is a
         # substring of the other. At the moment it's really just a check that theres'
@@ -697,15 +679,8 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
-        'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'human_pe12_'         => 1700,
-          'mouse_pe12_'      => 2000,
-          'vert_pe12_'      => 2000,
-          'mammals_pe12_'       => 1000,
-          'realign_'            => 10000,
-        }, # biotypes
+	'biotypes' =>    {
+	}, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -825,7 +800,6 @@ sub _master_config {
           'ensembl'             => 20000,
         }, # logic_names
         'biotypes' =>    {
-          'protein_coding'            => 20000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
