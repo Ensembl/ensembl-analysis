@@ -221,6 +221,7 @@ sub pipeline_analyses {
         target_db => $self->o('rnaseq_db'),
         create_type => 'copy',
       },
+      -max_retry_count => 0,
       -rc_name    => 'default',
       -input_ids  => [{}],
       -flow_into => {
