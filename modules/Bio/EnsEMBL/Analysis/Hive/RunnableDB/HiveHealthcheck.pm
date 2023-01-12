@@ -99,6 +99,7 @@ sub fetch_input {
     if ($group eq 'core_handover') {
       push(@$methods_list, qw(
         supporting_evidence_sanity
+        supporting_evidence_sanity_advisory
         coding_supporting_evidence_presence
       ));
     }
@@ -116,6 +117,7 @@ sub fetch_input {
     elsif ($group eq 'protein_cdna') {
       push(@$methods_list, qw(
         supporting_evidence_sanity
+        supporting_evidence_sanity_advisory
         supporting_evidence_presence
       ));
     }
@@ -364,8 +366,6 @@ sub supporting_evidence_sanity {
     'SELECT t.transcript_id, t.seq_region_id, daf.seq_region_id FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN dna_align_feature daf ON daf.dna_align_feature_id = tsf.feature_id WHERE tsf.feature_type = "dna_align_feature" AND t.seq_region_id != daf.seq_region_id',
     'SELECT t.transcript_id, t.seq_region_id, paf.seq_region_id FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN protein_align_feature paf ON paf.protein_align_feature_id = tsf.feature_id WHERE tsf.feature_type = "protein_align_feature" AND t.seq_region_id != paf.seq_region_id',
     'SELECT t.transcript_id, t.seq_region_id, ise.seq_region_id FROM transcript t LEFT JOIN transcript_intron_supporting_evidence tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN intron_supporting_evidence ise ON ise.intron_supporting_evidence_id = tsf.intron_supporting_evidence_id WHERE t.seq_region_id != ise.seq_region_id',
-    'SELECT t.exon_id, t.seq_region_start, t.seq_region_end, daf.seq_region_start, daf.seq_region_end FROM exon t LEFT JOIN supporting_feature sf ON t.exon_id = sf.exon_id LEFT JOIN dna_align_feature daf ON daf.dna_align_feature_id = sf.feature_id WHERE sf.feature_type = "dna_align_feature" AND NOT (t.seq_region_start <= daf.seq_region_end AND t.seq_region_end >= daf.seq_region_start)',
-    'SELECT t.exon_id, t.seq_region_start, t.seq_region_end, paf.seq_region_start, paf.seq_region_end FROM exon t LEFT JOIN supporting_feature sf ON t.exon_id = sf.exon_id LEFT JOIN protein_align_feature paf ON paf.protein_align_feature_id = sf.feature_id WHERE sf.feature_type = "protein_align_feature" AND NOT (t.seq_region_start <= paf.seq_region_end AND t.seq_region_end >= paf.seq_region_start)',
   );
 
   my $hc_db = $self->hrdb_get_con('hc_db');
@@ -387,6 +387,46 @@ sub supporting_evidence_sanity {
   }
   if ($failed) {
     $self->output(['supporting_evidence_sanity']);
+  }
+}
+
+
+=head2 supporting_evidence_sanity_advisory
+
+ Arg [1]    : None
+ Description: Run basic SQL queries to check that supporting evidences are correctly linked
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub supporting_evidence_sanity_advisory {
+  my ($self) = @_;
+
+  my @sql_queries = (
+    'SELECT t.exon_id, t.seq_region_start, t.seq_region_end, daf.seq_region_start, daf.seq_region_end FROM exon t LEFT JOIN supporting_feature sf ON t.exon_id = sf.exon_id LEFT JOIN dna_align_feature daf ON daf.dna_align_feature_id = sf.feature_id WHERE sf.feature_type = "dna_align_feature" AND NOT (t.seq_region_start <= daf.seq_region_end AND t.seq_region_end >= daf.seq_region_start)',
+    'SELECT t.exon_id, t.seq_region_start, t.seq_region_end, paf.seq_region_start, paf.seq_region_end FROM exon t LEFT JOIN supporting_feature sf ON t.exon_id = sf.exon_id LEFT JOIN protein_align_feature paf ON paf.protein_align_feature_id = sf.feature_id WHERE sf.feature_type = "protein_align_feature" AND NOT (t.seq_region_start <= paf.seq_region_end AND t.seq_region_end >= paf.seq_region_start)',
+  );
+
+  my $hc_db = $self->hrdb_get_con('hc_db');
+  my $dbc = $hc_db->dbc;
+  my $max_lines = 5;
+  my $failed = 0;
+  foreach my $query (@sql_queries) {
+    my $sth = $dbc->prepare($query);
+    $sth->execute;
+    my $count = 0;
+    my $msg = '';
+    foreach my $row (@{$sth->fetchall_arrayref}) {
+      $msg .= join("\t", @$row) if ($count++ < $max_lines);
+    }
+    if ($count > 2000) {
+      $self->say_with_header("$count rows where it should be below 2000, an optimise_* analysis may have failed. You should rerun this query: $query");
+      $failed = 1;
+    }
+  }
+  if ($failed) {
+    $self->output(['supporting_evidence_sanity_advisory']);
   }
 }
 
