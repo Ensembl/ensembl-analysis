@@ -183,8 +183,10 @@ sub _master_config {
       }, # layer
       'genebuilder' => {
         'logic_names' => {
-          'ensembl'             => 15000,
-        }, # logic_names
+	    'ensembl'             => 15000,
+	},
+	'biotypes' =>    {
+	}, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -305,6 +307,8 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
+	 'biotypes' =>    {
+        }, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -426,6 +430,8 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
+	 'biotypes' =>    {
+        }, # biotypes  
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -540,6 +546,8 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
+	'biotypes' =>    {
+        }, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -671,6 +679,8 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
+	'biotypes' =>    {
+	}, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -789,6 +799,8 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 20000,
         }, # logic_names
+        'biotypes' =>    {
+        }, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
