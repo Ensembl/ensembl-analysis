@@ -61,7 +61,7 @@ sub default_options {
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
-    annotation_source           => '', # Used to define the structure of the ftp, default value ensembl 
+    annotation_source           => 'ensembl', # Used to define the structure of the ftp, default value ensembl
     dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'taxon_id'                  => '', # should be in the assembly report file
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
@@ -598,7 +598,7 @@ sub pipeline_analyses {
       -logic_name => 'create_species_ftp_dir',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	      cmd => 'sudo -u genebuild mkdir -p ' . catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'),'ensembl', 'rnaseq'),
+	      cmd => 'sudo -u genebuild mkdir -p ' . catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq'),
                      },
       -rc_name    => '2GB',
       -flow_into => {
@@ -610,7 +610,7 @@ sub pipeline_analyses {
     -logic_name => 'copy_bigwig_files',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.bw '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'ensembl', 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.bw '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'ensembl', 'rnaseq'),
+      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.bw '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.bw '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq'),
      },
      -rc_name    => '2GB',
      -flow_into => {
@@ -622,7 +622,7 @@ sub pipeline_analyses {
     -logic_name => 'copy_readme',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.1 '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'ensembl', 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.1 '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'ensembl', 'rnaseq'),
+      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.1 '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.1 '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq'),
      },
     -rc_name    => '2GB',
     -flow_into => {
