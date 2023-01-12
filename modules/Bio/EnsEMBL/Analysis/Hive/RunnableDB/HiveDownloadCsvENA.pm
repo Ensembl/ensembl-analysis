@@ -92,6 +92,15 @@ sub param_defaults {
     instrument_platform      => 'ILLUMINA',
     taxon_id_restriction     => 0,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       # Set it to 1 if you are using 'study_accession' which has multiple species
     max_long_read_read_count => 1000000,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 # if a long read set has more than 1,000,000 reads, discard it. Very crude filter on rax reads
+    # if the sample has been immunised or is known to be sick we do not want to use it for the annotation
+    # unless it is a control
+    disease_keyword_for_removal => ['immunization', 'disease'],
+    # If the sex field is set to the following words, we do not want to use them in the sample name
+    bad_text_sex_field => {
+      'not determined' => 1,
+      'not collected' => 1,
+      'missing' => 1,
+    }
   };
 }
 
@@ -112,6 +121,10 @@ sub fetch_input {
   if ( $self->param_required('read_type') eq 'isoseq' ) {
     $self->param( 'paired_end_only',     0 );
     $self->param( 'instrument_platform', 'PACBIO_SMRT' ),;
+  }
+  elsif ( $self->param_required('read_type') eq 'nanopore' ) {
+    $self->param( 'paired_end_only',     0 );
+    $self->param( 'instrument_platform', 'OXFORD_NANOPORE' ),;
   }
   $self->param_required('inputfile');
   if ( -e $self->param('inputfile') ) {
@@ -402,20 +415,30 @@ sub run {
               is_stranded is 0 as we don't have a correct way of getting this information yet
               DS is made of "study_accession, sample_accession, study_title, experiment_title
                 and cell_type if the sample is a cell_type
+              If 'download_method' is 'ftp', it will be set to 'https' for improved performance
               It will also return the list of file to download on channel '_branch_to_flow_to',
               usually #2
  Returntype : None
  Exceptions : Throws if it cannot open or close the file 'inputfile'
+              Throws if the 'read_type' is not short_read, isoseq or nanopore
 
 =cut
 
 sub write_output {
   my ($self) = @_;
 
+  $self->throw( 'Read type unknown: ' . $self->param('read_type') ) unless (
+    $self->param('read_type') eq 'short_read'
+    or $self->param('read_type') eq 'isoseq'
+    or $self->param('read_type') eq 'nanopore'
+  );
   open( FH, '>' . $self->param('inputfile') ) || $self->throw( 'Could not open ' . $self->param('inputfile') );
   my $data            = $self->output;
   my $samples         = $data->[1];
   my $download_method = $self->param('download_method');
+  if ($download_method eq 'ftp') {
+    $download_method = 'https';
+  }
   my @output_ids;
   foreach my $study_accession ( keys %{ $data->[0] } ) {
     my $study = $data->[0]->{$study_accession};
@@ -460,7 +483,7 @@ sub write_output {
               $checksums[$index]
             );
           }
-          elsif ( $self->param('read_type') eq 'isoseq' ) {
+          else {
             print FH sprintf( "%s\t%s\t%s\t%s\t%s\n",
               lc($sample_name),
               $filename,
@@ -468,9 +491,6 @@ sub write_output {
               $file,
               $checksums[$index]
             );
-          }
-          else {
-            $self->throw( 'Read type unknown: ' . $self->param('read_type') );
           }
           push( @output_ids, { url => $file, download_method => $download_method, checksum => $checksums[ $index++ ] } );
         }
@@ -506,7 +526,7 @@ sub _retrieve_biosample_info {
     if ($content) {
       $self->say_with_header($content);
       my $json = $json_decoder->decode($content);
-      foreach my $disease ('immunization', 'disease') {
+      foreach my $disease (@{$self->param('disease_keyword_for_removal')}) {
         if (exists $json->{characteristics}->{$disease} and ($json->{characteristics}->{$disease}->[0]->{text} ne 'control' or $json->{characteristics}->{$disease}->[0]->{text} ne 'normal')) {
           $self->warning("Removed $current_sample from the set as it has $disease value: ".$json->{characteristics}->{$disease}->[0]->{text});
           return -1;
@@ -534,16 +554,13 @@ sub _retrieve_biosample_info {
           last;
         }
       }
-      if ( exists $json->{characteristics}->{sex} ) {
-        if ( exists $data->{sex} and $data->{sex} ne $json->{characteristics}->{sex}->[0]->{text} ) {
-          $self->warning( 'Replacing ' . $data->{sex} . ' with ' . $json->{characteristics}->{sex}->[0]->{text} );
+      foreach my $sex ('sex', 'ArrayExpress-Sex') {
+        if ( exists $json->{characteristics}->{$sex} and ! exists $self->param('bad_text_sex_field')->{$json->{characteristics}->{$sex}->[0]->{text}}) {
+          if ( exists $data->{$sex} and $data->{$sex} ne $json->{characteristics}->{$sex}->[0]->{text} ) {
+            $self->warning( 'Replacing ' . $data->{$sex} . ' with ' . $json->{characteristics}->{$sex}->[0]->{text} );
+          }
+          $data->{sex} = $json->{characteristics}->{$sex}->[0]->{text};
         }
-        $data->{sex} = $json->{characteristics}->{sex}->[0]->{text};
-	my @sex_type = ( 'not determined', 'not collected', 'missing' );
-	if ( grep( /^$data->{sex}$/, @sex_type ) ) {
-	  $data->{sex} = undef;
-	}
-
       }
       # The order of the keys influence the age given. If unborn we expect the two values to be the same
       foreach my $age_string ( 'gestational age at sample collection', 'animal age at collection', 'age' ) {
@@ -575,7 +592,7 @@ sub _retrieve_biosample_info {
 
         return 0;
       }
-      foreach my $tissue ( 'cell type', 'organism part', 'tissue', 'tissue_type', 'tissue type' ) {
+      foreach my $tissue ( 'cell type', 'organism part', 'ArrayExpress-OrganismPart', 'tissue', 'tissue_type', 'tissue type' ) {
         if ( exists $json->{characteristics}->{$tissue} ) {
           if ( exists $data->{organismPart} and $data->{organismPart} ne $json->{characteristics}->{$tissue}->[0]->{text} ) {
             $self->warning( 'Replacing ' . $data->{organismPart} . ' with ' . $json->{characteristics}->{$tissue}->[0]->{text} );
