@@ -129,7 +129,7 @@ sub default_options {
 ########################################################
 # URLs for retrieving the INSDC contigs and RefSeq files
 ########################################################
-    ncbi_base_ftp           => 'https://ftp.ncbi.nlm.nih.gov/genomes/all',
+    ncbi_base_ftp           => 'http://ftp.ncbi.nlm.nih.gov/genomes/all',# no change should be done unless the new URL is fully tested within the pipeline!!!
     insdc_base_ftp          => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
     assembly_ftp_path       => $self->o('insdc_base_ftp'),
 
