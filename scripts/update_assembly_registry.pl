@@ -63,7 +63,7 @@ my $registry_dba = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdap
   -driver  => $driver,);
 
 my $registry_assembly_id = $registry_dba->fetch_assembly_id_by_gca($assembly_accession);
-my $sth = $registry_dba->dbc->prepare("UPDATE assembly set annotated_status =? where assembly_id=?");
+my $sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set progress_status =? where assembly_id=?");
 $sth->bind_param(1,'completed');
 $sth->bind_param(2,$registry_assembly_id);
 if ($sth->execute){

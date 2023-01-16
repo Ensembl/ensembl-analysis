@@ -525,7 +525,7 @@ This method returns the status of an annotation via its assembly_accession.
 sub fetch_genebuild_status_by_gca {
   my ($self,$chain_version,$type) = @_;
 
-  my $sql = "SELECT progress_status,date_started,date_completed,genebuilder FROM genebuild_status WHERE assembly_accession=? and is_current = ?";
+  my $sql = "SELECT progress_status,date_started,date_completed,genebuilder,annotation_source FROM genebuild_status WHERE assembly_accession=? and is_current = ?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain_version);
   $sth->bind_param(2,1);
