@@ -510,7 +510,7 @@ sub update_annotation_status{
   $sth->bind_param(4,$ENV{EHIVE_USER} || $ENV{USER});
   $sth->bind_param(5,$assembly_id);
   $sth->bind_param(6,1);
-  $sth->bind_param('pending');
+  $sth->bind_param(7,'pending');
   say "Accession being worked on is $accession";
   unless($sth->execute()){
    throw("Could not update annotation status for assembly with accession ".$accession);
