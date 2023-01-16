@@ -628,10 +628,10 @@ sub update_annotation_status {
     $sth->bind_param( 1, 0 );
     $sth->bind_param( 2, $accession );
     unless ( $sth->execute() ) {
-      throw( "Could not update annoation status for assembly with accession " . $accession );
+      throw( "Could not update annotation status for assembly with accession " . $accession );
     }
   }
-  $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id,is_current) values(?,?,?,?,?,?)";
+  $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id,is_current,annotation_source) values(?,?,?,?,?,?,?)";
   $sth = $registry_dba->dbc->prepare($sql);
   $sth->bind_param( 1, $accession );
   $sth->bind_param( 2, 'in progress' );
@@ -639,6 +639,7 @@ sub update_annotation_status {
   $sth->bind_param( 4, $ENV{EHIVE_USER} || $ENV{USER} );
   $sth->bind_param( 5, $assembly_id );
   $sth->bind_param( 6, 1 );
+  $sth->bind_param( 7, 'pending' );
   say "Accession being worked on is $accession";
 
   unless ( $sth->execute() ) {
@@ -660,10 +661,10 @@ sub check_annotation_status {
   my @status = $registry_dba->fetch_genebuild_status_by_gca($accession);
   if (@status) {
     if ( $status[2] ) {
-      throw( "A genebuild entry already exists for this assembly. " . "$accession\nStatus: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3      ]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
+      throw( "A genebuild entry already exists for this assembly. " . "$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3]\nAnnotation source: $status[4]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
     }
     else {
-      throw( "A genebuild entry already exists for this assembly. " . "$accession\nStatus: $status[0]\nDate started: $status[1]\nDate completed: Pending\nGenebuilder: $status[3      ]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
+      throw( "A genebuild entry already exists for this assembly. " . "$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: Pending\nGenebuilder: $status[3]\nAnnotation source: $status[4]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
     }
   }
 }
