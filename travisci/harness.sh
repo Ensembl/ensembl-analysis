@@ -1,5 +1,5 @@
 #!/bin/bash
-export PERL5LIB=$PWD/bioperl-live:$PWD/ensembl-taxonomy/modules:$PWD/ensembl/modules:$PWD/ensembl-variation/modules:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules:$PWD/GIFTS/modules:$PWD/ensembl-test/modules
+export PERL5LIB=$PWD/ensembl-production/modules:$PWD/bioperl-live:$PWD/ensembl-taxonomy/modules:$PWD/ensembl/modules:$PWD/ensembl-variation/modules:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules:$PWD/GIFTS/modules:$PWD/ensembl-test/modules
 
 export WORK_DIR=$PWD
 
