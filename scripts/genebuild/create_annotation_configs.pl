@@ -533,10 +533,10 @@ sub check_annotation_status{
   my @status = $assembly_registry->fetch_genebuild_status_by_gca($accession);
   if (@status){
     if ($status[2]){
-      throw("A genebuild entry already exists for this assembly. "."$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3],\nAnnotation source: $status[4]"."\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1"  );
+      throw("A genebuild pipeline has already been run for this assembly. "."$accession.\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3],\nAnnotation source: $status[4]"."\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1"  );
     }
     else{
-      throw("A genebuild entry already exists for this assembly. "."$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: Pending\nGenebuilder: $status[3]\nAnnotation source: $status[4]"."\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1"  );
+      throw("A genebuild pipeline is currently in progress for this assembly. "."$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: Pending\nGenebuilder: $status[3]\nAnnotation source: $status[4]"."\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1"  );
     }
   }
 }
