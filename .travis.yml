@@ -31,6 +31,7 @@ before_install:
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-killlist.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-compara.git
+    - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-production.git
     - git clone --branch release/90 --depth 1 https://github.com/Ensembl/ensembl-funcgen.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-hive.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-io.git
