@@ -90,15 +90,14 @@ sub fetch_input {
   $self->max_internal_stops($max_internal_stops);
 
   # Define the dna dbs
-  my $source_dna_dba = $self->hrdb_get_dba($self->param('source_dna_db'));
-  my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
+  my $source_dna_dba = $self->get_database_by_name('source_dna_db');
+  my $target_dna_dba = $self->get_database_by_name('target_dna_db');
   $self->hrdb_set_con($source_dna_dba,'source_dna_db');
   $self->hrdb_set_con($target_dna_dba,'target_dna_db');
 
   # Define the source transcript and target transcript dbs
-  my $source_transcript_dba = $self->hrdb_get_dba($self->param('source_transcript_db'));
-  my $target_transcript_dba = $self->hrdb_get_dba($self->param('target_transcript_db'));
-  $target_transcript_dba->dnadb($target_dna_dba);
+  my $source_transcript_dba = $self->get_database_by_name('source_transcript_db', $source_dna_dba);
+  my $target_transcript_dba = $self->get_database_by_name('target_transcript_db', $target_dna_dba);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
 

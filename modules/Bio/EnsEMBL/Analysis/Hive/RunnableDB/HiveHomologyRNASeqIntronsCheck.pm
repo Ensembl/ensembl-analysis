@@ -41,7 +41,6 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene fully_load_Gene);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 =head2 param_defaults
@@ -104,24 +103,6 @@ sub fetch_input {
   my $target_db;
   if ($self->param('target_db')) {
      $target_db = $self->get_database_by_name('target_db');
-  }
-
-  if($self->param('use_genome_flatfile')) {
-    $self->say_with_header("Ignoring dna table and using fasta file for sequence fetching");
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param_required('genome_file'),
-               );
-  } else {
-    $self->say_with_header("Attaching dna db");
-    my $dna_dba = $self->get_database_by_name('dna_db');
-    $source_db->dnadb($dna_dba);
-    $intron_db->dnadb($dna_dba);
-    if($target_db) {
-      $target_db->dnadb($dna_dba);
-    }
   }
 
   if($target_db) {

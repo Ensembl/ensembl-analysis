@@ -23,7 +23,6 @@ We recommend that you clone all the repositories into one directory
 | ensembl | default | https://github.com/Ensembl/ensembl.git |
 | ensembl-hive | default | https://github.com/Ensembl/ensembl-hive.git |
 | ensembl-compara | release/98 | https://github.com/Ensembl/ensembl-compara.git |
-| ensembl-variation | default | https://github.com/Ensembl/ensembl-variation.git |
 | ensembl-production | default | https://github.com/Ensembl/ensembl-production.git |
 | ensembl-taxonomy | default | https://github.com/Ensembl/ensembl-taxonomy.git |
 | ensembl-orm | default | https://github.com/Ensembl/ensembl-orm.git |

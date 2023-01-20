@@ -127,11 +127,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input{
   my ($self) = @_;
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $dba->dnadb($dna_dba);
-  }
+  my $dba = $self->get_database_by_name('target_db');
 
   $self->hrdb_set_con($dba,'target_db');
 
@@ -153,10 +149,7 @@ sub fetch_input{
     my $feature_type = $self->param('feature_type');
     if($feature_type eq 'transcript') {
       my $transcript_id = $self->param('iid');
-      my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
-      if($dna_dba) {
-        $transcript_dba->dnadb($dna_dba);
-      }
+      my $transcript_dba = $self->get_database_by_name('transcript_db');
 
       $self->hrdb_set_con($transcript_dba,'transcript_db');
       $transcript_features = $self->get_transcript_features($transcript_id);
