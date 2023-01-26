@@ -222,7 +222,21 @@ sub pipeline_analyses {
         -rc_name    => '4GB',
 
         -flow_into  => {
-                         1 => ['create_core_db'],
+                         1 => {'create_core_db' => {
+                           assembly_accession => '#assembly_accession#',
+                           assembly_name => '#assembly_name#',
+                           core_db => '#core_db#',
+                           output_path => '#output_path#',
+                           stable_id_prefix => '#stable_id_prefix#',
+                           species_url => '#species_url#',
+                           species_name => '#species_name#',
+                           species_display_name => '#species_display_name#',
+                           production_name => '#production_name#',
+                           toplevel_genome_file => '#toplevel_genome_file#',
+                           reheadered_toplevel_genome_file => '#reheadered_toplevel_genome_file#',
+                           core_dbname => '#core_dbname#',
+                           stable_id_start => '#stable_id_start#',
+                           }},
                        },
         -analysis_capacity => 1,
         -input_ids  => [],
