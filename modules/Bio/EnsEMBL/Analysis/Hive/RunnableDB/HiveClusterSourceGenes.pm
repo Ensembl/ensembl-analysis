@@ -44,10 +44,11 @@ sub fetch_input {
   # Once fetch input is done there should be a geneset associated with some of the major
   # groupings
 
+  $self->setup_fasta_db;
+  my $dba = $self->hrdb_get_dba($self->param('dna_db'));
   my $input_gene_dbs =  $self->param('input_gene_dbs');
   my $allowed_input_sets = $self->param('allowed_input_sets');
 
-  my $dba = $self->hrdb_get_dba($self->param('dna_db'));
   $self->hrdb_set_con($dba,'dna_db');
 
   my $input_id = $self->param('iid');

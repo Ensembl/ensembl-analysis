@@ -26,18 +26,13 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
-  my $projection_dba = $self->hrdb_get_dba($self->param('projection_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $projection_dba->dnadb($dna_dba);
-  }
 
-  my $projection_source_dba = $self->hrdb_get_dba($self->param('projection_source_db'));
+  $self->setup_fasta_db;
+  my $projection_dba = $self->get_database_by_name('projection_db');
 
-  my $output_dba = $self->hrdb_get_dba($self->param('projection_realign_db'));
-  if($dna_dba) {
-    $output_dba->dnadb($dna_dba);
-  }
+  my $projection_source_dba = $self->get_database_by_name('projection_source_db');
+
+  my $output_dba = $self->get_database_by_name('projection_realign_db');
 
   $self->hrdb_set_con($output_dba,'output_db');
 

@@ -51,7 +51,6 @@ use File::Basename;
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Analysis::Runnable::Scallop;
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 

@@ -87,11 +87,7 @@ sub fetch_input {
   my $genome_file;
   my $query;
 
-  my $dba = $self->hrdb_get_dba($self->param_required('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $dba->dnadb($dna_dba);
-  }
+  my $dba = $self->get_database_by_name('target_db');
 
   $self->hrdb_set_con($dba,'target_db');
 
@@ -117,10 +113,7 @@ sub fetch_input {
     }
   } elsif($iid_type eq 'projection_transcript_id') {
     my @iid = @{$self->input_id};
-    my $projection_dba = $self->hrdb_get_dba($self->param('projection_db'));
-    if($dna_dba) {
-      $projection_dba->dnadb($dna_dba);
-    }
+    my $projection_dba = $self->get_database_by_name('projection_db');
     my $projection_transcript_id = $iid[0];
     my $projection_protein_accession = $iid[1];
 

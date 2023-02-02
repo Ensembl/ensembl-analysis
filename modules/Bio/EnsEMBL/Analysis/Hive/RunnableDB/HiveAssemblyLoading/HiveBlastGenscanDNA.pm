@@ -78,7 +78,8 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveB
 sub fetch_input{
   my ($self) = @_;
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  $self->setup_fasta_db;
+  my $dba = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($dba,'target_db');
 
   $self->create_analysis;
