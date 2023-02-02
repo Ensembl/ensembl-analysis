@@ -29,6 +29,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::CliHelper;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use DateTime;
 
 my ($self) = @_;
 
@@ -44,7 +45,8 @@ my $assembly_accession  = '';
 my $registry_host = '';
 my $registry_port = '';
 my $registry_db = '';
-
+my $dt   = DateTime->now;   # Stores current date and time as datetime object
+my $date = $dt->ymd;
 GetOptions('user:s' => \$user,
            'pass:s' => \$pass,
            'driver:s' => \$driver,
@@ -63,13 +65,21 @@ my $registry_dba = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdap
   -driver  => $driver,);
 
 my $registry_assembly_id = $registry_dba->fetch_assembly_id_by_gca($assembly_accession);
-my $sth = $registry_dba->dbc->prepare("UPDATE assembly set annotated_status =? where assembly_id=?");
+my $sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set progress_status =? where assembly_id=?");
 $sth->bind_param(1,'completed');
 $sth->bind_param(2,$registry_assembly_id);
 if ($sth->execute){
 }
 else{
- $self->throw("Could not update annotation status");
+ $self->throw("Could not update genebuild status with annotation progress");
+}
+$sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set date_completed =? where assembly_id=?");
+$sth->bind_param(1,$date);
+$sth->bind_param(2,$registry_assembly_id);
+if ($sth->execute){
+}   
+else{
+ $self->throw("Could not update genebuild status with date completed");
 }
 
 #------------------------------------------------------------------------------
