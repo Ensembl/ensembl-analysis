@@ -225,56 +225,8 @@ sub pipeline_analyses {
       -rc_name    => 'default',
       -input_ids  => [{}],
       -flow_into => {
-        '1' => ['delete_merged_genes_files'],
+        '1' => ['prepare_rnaseq_meta_data'],
       },
-    },
-
-    {
-      -logic_name => 'delete_merged_genes_files',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
-      -parameters => {
-        db_conn => $self->o('rnaseq_db'),
-        lines => $self->o('gene_ids_per_file'),
-        input_query => 'SELECT g.gene_id FROM gene g, analysis a'.
-          ' WHERE g.analysis_id = a.analysis_id AND a.logic_name  LIKE "%\_merged_rnaseq_gene" ORDER BY g.seq_region_id',
-        command_out => 'split -a 3 -d -l #lines# - '.$self->o('delete_genes_prefix'),
-        prepend => ['-NB', '-q'],
-      },
-      -rc_name => 'default',
-      -flow_into => {
-        1 => ['create_delete_merge_genes_jobs'],
-      },
-    },
-
-    {
-      -logic_name => 'create_delete_merge_genes_jobs',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -parameters => {
-        inputcmd => 'ls #delete_genes_prefix#*',
-        column_names => ['id_file'],
-        delete_genes_prefix => $self->o('delete_genes_prefix'),
-      },
-      -rc_name => 'default',
-      -flow_into  => {
-        '2->A' => ['delete_merge_genes'],
-        'A->1' => ['prepare_rnaseq_meta_data'],
-      },
-    },
-
-    {
-      -logic_name => 'delete_merge_genes',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl '.$self->o('delete_genes_script').
-          ' -host '.$self->o('rnaseq_db', '-host').
-          ' -port '.$self->o('rnaseq_db', '-port').
-          ' -user '.$self->o('rnaseq_db', '-user').
-          ' -pass '.$self->o('rnaseq_db', '-pass').
-          ' -dbname '.$self->o('rnaseq_db', '-dbname').
-          ' -idfile #id_file#'
-      },
-      -rc_name => 'default',
-      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -293,7 +245,7 @@ sub pipeline_analyses {
           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
           'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag\.%"',
           'DELETE FROM meta WHERE meta_key LIKE "marker\.%"',
-          'DELETE FROM meta WHERE meta_key IN ("genebuild.method","genebuild.projection_source_db","genebuild.start_date","repeat.analysis", "species.annotation_source", "genebuild.method_display")',
+          'DELETE FROM meta WHERE meta_key IN ("genebuild.method","genebuild.projection_source_db","genebuild.start_date","repeat.analysis", "genebuild.method_display")',
           'UPDATE gene JOIN transcript USING(gene_id) SET canonical_transcript_id = transcript_id',
           'UPDATE transcript JOIN translation USING(transcript_id) SET canonical_translation_id = translation_id',
           'UPDATE intron_supporting_evidence ise, analysis a1, analysis a2 SET ise.analysis_id = a2.analysis_id'.
@@ -470,7 +422,7 @@ sub pipeline_analyses {
       -parameters => {
         deeptools_bamcoverage => $self->o('deeptools_bamcoverage_path'),
         num_cpus => $self->o('use_threads'),
-        cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors #num_cpus# --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#','#bam_file#').'.bw',
+        cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors #num_cpus# --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#', "#expr(join('', split('.bam',#bam_file#)))expr#").'.bw',
         working_dir => $self->o('merge_dir'),
       },
       -rc_name => '10GB_multithread',
@@ -483,7 +435,8 @@ sub pipeline_analyses {
       -logic_name => 'md5_sum',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'cd #working_dir#;md5sum #bam_file#.bw #bam_file# #bam_file#.csi > #bam_file#.md5',
+        cmd => 'cd #working_dir#;' .
+        'md5sum ' . "#expr(join('', split('.bam',#bam_file#)))expr#" . '.bw #bam_file# #bam_file#.csi > #bam_file#.md5',
         working_dir => $self->o('merge_dir'),
       },
       -rc_name => 'default',
@@ -493,7 +446,7 @@ sub pipeline_analyses {
       -logic_name => 'concat_md5_sum',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'cat '.catfile('#working_dir#', '*md5').' > '.catfile('#working_dir#', 'md5sum.txt.1'),
+        cmd => 'cat '.catfile('#working_dir#', '*md5').' | grep ".bw" > '.catfile('#working_dir#', 'md5sum.txt.1'),
         working_dir => $self->o('merge_dir'),
       },
       -rc_name => 'default',
@@ -529,7 +482,7 @@ sub pipeline_analyses {
         free_text => 'Note\n------\n\n'.
           'The RNASeq data for #species_name# consists of NUM individual sample(s).\n\n'.
           'The BigWig file (.bw) contains the coverage information.\n\n'.
-          'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
+          'Use the md5sum.txt.1 file to check the integrity of the downloaded files.\n\n'.
           'Files\n-----\n',
       },
       -rc_name => 'default',
@@ -614,12 +567,12 @@ sub pipeline_analyses {
      },
      -rc_name    => '2GB',
      -flow_into => {
-	1 => ['copy_readme'],
+	1 => ['copy_readme_md5sum'],
       },
    },
 
   {
-    -logic_name => 'copy_readme',
+    -logic_name => 'copy_readme_md5sum',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
       cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.1 '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.1 '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq'),
