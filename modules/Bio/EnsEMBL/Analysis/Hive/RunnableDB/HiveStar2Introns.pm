@@ -107,12 +107,6 @@ sub fetch_input {
       }
       $analyses{$row->{$self->param('sample_id_column')}} = $unique_analyses{$logic_name};
     }
-    #if (scalar(keys %unique_analyses) > 1) {
-    #  my $logic_name = $self->param_required('species').'_merged_rnaseq_daf';
-    #  $analyses{$logic_name} = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name, -module => 'Star2Introns');
-    #  $unique_analyses{$logic_name} = $analyses{$logic_name};
-    #  $self->param('has_merge_set', $logic_name);
-    #}
     $self->param('_analyses', \%analyses);
     $self->param('_unique_analyses', \%unique_analyses);
     my $slice_adaptor = $output_dba->get_SliceAdaptor;
@@ -181,7 +175,6 @@ sub write_output {
   my $analyses = $self->param('_unique_analyses');
   my $small_intron_size = $self->param('small_intron_size');
   my $min_intron_depth = $self->param('min_intron_depth');
-  #my $merged_logic_name = $self->param('has_merge_set');
 
   my $target_adaptor = $self->hrdb_get_con('target_db')->get_AnalysisAdaptor;
   foreach my $analysis (values %$analyses) {
@@ -197,7 +190,6 @@ sub write_output {
     my $seq_region_id = $slice_adaptor->fetch_by_region('toplevel', $seq_region)->get_seq_region_id;
     foreach my $item (keys %{$daf_table->{$seq_region}}) {
       my ($start, $end, $strand, $is_canonical) = split(':', $item);
-      #my $merged_depth = 0;
       my $diff = $end-$start;
       if ($diff > $max_intron_size) {
         $max_intron_size = $diff;
@@ -216,24 +208,11 @@ sub write_output {
           $sth_write->bind_param(8, $daf_table->{$seq_region}->{$item}->{$logic_name});
           $sth_write->bind_param(9, ($diff+1).'M');
           $sth_write->execute();
-          #$merged_depth += $daf_table->{$seq_region}->{$item}->{$logic_name};
         }
         else {
           $self->say_with_header("Low threshold for $seq_region $item ".$analyses->{$logic_name}->logic_name.' '.$daf_table->{$seq_region}->{$item}->{$logic_name});
         }
       }
-      #if ($merged_logic_name and $merged_depth) {
-      #  $sth_write->bind_param(1, $seq_region_id);
-      #  $sth_write->bind_param(2, $start);
-      #  $sth_write->bind_param(3, $end);
-      #  $sth_write->bind_param(4, $strand == 2 ? -1 : 1);
-      #  $sth_write->bind_param(5, "$num_dafs:$is_canonical");
-      #  $sth_write->bind_param(6, $diff);
-      #  $sth_write->bind_param(7, $analyses->{$merged_logic_name}->dbID);
-      #  $sth_write->bind_param(8, $merged_depth);
-      #  $sth_write->bind_param(9, ($diff+1).'M');
-      #  $sth_write->execute();
-      #}
     }
   }
   $out_dbc->do("ALTER TABLE dna_align_feature ENABLE KEYS");

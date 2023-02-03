@@ -90,7 +90,6 @@ sub fetch_input {
   my ($self) = @_;
 
   my $merged_sample_hash = {};
-  #$merged_sample_hash->{'merged'} = [];
 
   my @all_gtf_files = ();
   my $gtf_dirs = $self->param_required('input_gtf_dirs');
@@ -120,7 +119,6 @@ sub fetch_input {
     }
 
     push(@{$merged_sample_hash->{$sample_name}},$input_file);
-    #push(@{$merged_sample_hash->{'merged'}},$input_file);
   }
 
   $self->param('merged_sample_hash',$merged_sample_hash);
