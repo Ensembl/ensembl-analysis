@@ -1740,6 +1740,7 @@ sub pipeline_analyses {
 	  is_non_vert => $self->o('is_non_vert'),
           protein_blast_db_file => $self->o('protein_blast_db_file'),
           protein_entry_loc_file => $self->o('protein_entry_loc_file'),
+          download_csv => $self->o('download_csv'),
         },
       },
       -rc_name      => 'default',
