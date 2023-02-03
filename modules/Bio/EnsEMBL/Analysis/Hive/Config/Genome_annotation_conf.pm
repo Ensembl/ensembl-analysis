@@ -678,72 +678,6 @@ sub pipeline_analyses {
 
   return [
     {
-      -logic_name => 'download_rnaseq_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
-      -rc_name => '1GB',
-      -parameters => {
-        study_accession => $self->o('rnaseq_study_accession'),
-        taxon_id => $self->o('species_taxon_id'),
-        inputfile => $self->o('rnaseq_summary_file'),
-        paired_end_only => $self->o('paired_end_only'),
-      },
-      -flow_into => {
-        1 => ['download_genus_rnaseq_csv'],
-      },
-      -input_ids  => [
-        {
-          assembly_name => $self->o('assembly_name'),
-          assembly_accession => $self->o('assembly_accession'),
-          assembly_refseq_accession => $self->o('assembly_refseq_accession'),
-        },
-      ],
-    },
-
-    {
-      -logic_name => 'download_genus_rnaseq_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
-      -rc_name => '1GB',
-      -parameters => {
-        study_accession => $self->o('rnaseq_study_accession'),
-        taxon_id => $self->o('genus_taxon_id'),
-        inputfile => $self->o('rnaseq_summary_file_genus'),
-      },
-      -flow_into => {
-        1 => ['download_long_read_csv'],
-      },
-    },
-
-    {
-      -logic_name => 'download_long_read_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
-      -rc_name => '1GB',
-      -parameters => {
-        study_accession => $self->o('long_read_study_accession'),
-        taxon_id => $self->o('species_taxon_id'),
-        inputfile => $self->o('long_read_summary_file'),
-        read_type => 'isoseq',
-      },
-      -flow_into => {
-        1 => ['download_genus_long_read_csv'],
-      },
-    },
-
-    {
-      -logic_name => 'download_genus_long_read_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
-      -rc_name => '1GB',
-      -parameters => {
-        study_accession => $self->o('long_read_study_accession'),
-        taxon_id => $self->o('genus_taxon_id'),
-        inputfile => $self->o('long_read_summary_file_genus'),
-        read_type => 'isoseq',
-      },
-      -flow_into => {
-        1 => ['create_load_assembly_pipeline_job'],
-      },
-    },
-
-    {
       -logic_name => 'create_load_assembly_pipeline_job',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
@@ -758,6 +692,13 @@ sub pipeline_analyses {
         '2->A' => ['initialise_load_assembly'],
         'A->1' => ['create_registry']
       }
+      -input_ids  => [
+        { 
+          assembly_name => $self->o('assembly_name'),
+          assembly_accession => $self->o('assembly_accession'),
+          assembly_refseq_accession => $self->o('assembly_refseq_accession'),
+        },
+      ],
     },
 
     {
