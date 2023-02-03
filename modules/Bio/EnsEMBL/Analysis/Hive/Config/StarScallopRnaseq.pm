@@ -210,6 +210,7 @@ sub default_options {
     download_method => 'ftp',
 
     'filename_tag' => 'filename',    # For the analysis that creates star jobs, though I assume we should need to do it this way
+    'download_csv' => $self->param('download_csv'),
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
@@ -349,6 +350,29 @@ sub pipeline_analyses {
 #
 ############################################################################
     {
+      -logic_name => 'fetch_transcriptomic_data',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+      -rc_name => 'default',
+      -parameters => {
+        download_csv => $self->o('download_csv'),
+      },
+      -flow_into => {1 => WHEN ('#download_csv#' => ['download_rnaseq_csv'],
+                     ELSE  ['fetch_from_registry','index_rnaseq_genome_file']
+                  )},
+      -input_ids  => [{}],
+    },
+    {
+      -logic_name => 'fetch_from_registry',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        inputquery    => 'SELECT sample_name,run_id,paired,filename,is_mate_1,read_length,is_13plus,source,instrument,description,url,md5 FROM csv_table WHERE species_id = ' . $self->o('taxon_id'),
+        column_names => $self->o('file_columns'),
+        db_conn    => 'registry_db',
+      },
+      -flow_into => {2 => WHEN ('#inputquery#' => ['fetch_from_registry'], ELSE  ['download_rnaseq_csv'])
+      },
+    },
+    {
       -logic_name => 'download_rnaseq_csv',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
       -rc_name => 'default',
@@ -362,7 +386,6 @@ sub pipeline_analyses {
       -flow_into => {
         1 => ['download_genus_rnaseq_csv'],
       },
-      -input_ids  => [{}],
     },
 
     {
