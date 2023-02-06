@@ -81,7 +81,6 @@ sub default_options {
     species_url                      => '', # sets species.url meta key
     species_division                 => 'EnsemblVertebrates', # sets species.division meta key
     is_non_vert                      => '0', # Setting this will indicate that the assembly corresponds to a non-vertebrate species.
-    download_csv                     => '', # Setting this will indicate whether to fetch transcriptomic date from registry or ENA for the species.
     protein_blast_db_file            => 'PE12_vertebrata', # use PE12 for non-vertebrates. Note there must also be a PE12_index file available in the same directory.
     protein_entry_loc_file           => 'entry_loc',
 
@@ -678,20 +677,22 @@ sub pipeline_analyses {
 
 
   return [
-    { 
-      -logic_name => 'download_rnaseq_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
-      -rc_name => '1GB',
-      -parameters => {
-        study_accession => $self->o('rnaseq_study_accession'),
-        taxon_id => $self->o('species_taxon_id'),
-        inputfile => $self->o('rnaseq_summary_file'),
-        paired_end_only => $self->o('paired_end_only'),
-      },
-      -flow_into => {
+
+    {
+      -logic_name => 'fan_load_assembly',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+      -parameters => {},
+      -rc_name    => 'default',
+      -flow_into  => {
         1 => ['create_load_assembly_pipeline_job'],
       },
+      -input_ids  => [{
+          assembly_name => $self->o('assembly_name'),
+          assembly_accession => $self->o('assembly_accession'),
+          assembly_refseq_accession => $self->o('assembly_refseq_accession'),
+        },],
     },
+
     {
       -logic_name => 'create_load_assembly_pipeline_job',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
@@ -704,16 +705,12 @@ sub pipeline_analyses {
       -rc_name => 'default',
       -max_retry_count => 0,
       -flow_into => {
+        1 => ['fan_semaphored_analysis'],
+      },
+      -flow_into => {
         '2->A' => ['initialise_load_assembly'],
         'A->1' => ['create_registry']
       }
-      -input_ids  => [
-        { 
-          assembly_name => $self->o('assembly_name'),
-          assembly_accession => $self->o('assembly_accession'),
-          assembly_refseq_accession => $self->o('assembly_refseq_accession'),
-        },
-      ],
     },
 
     {
@@ -1584,7 +1581,7 @@ sub pipeline_analyses {
       -logic_name => 'skip_rnaseq',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ #skip_rnaseq# -eq 0 ] && [ -s "'.$self->o('rnaseq_summary_file').'" ] || [ -s "'.$self->o('rnaseq_summary_file_genus').'" ]; then exit 0; else exit 42;fi',
+        cmd => 'if [ #skip_rnaseq# -eq 0 ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => {'42' => 2},
       },
       -rc_name => 'default',
@@ -1696,7 +1693,6 @@ sub pipeline_analyses {
 	  is_non_vert => $self->o('is_non_vert'),
           protein_blast_db_file => $self->o('protein_blast_db_file'),
           protein_entry_loc_file => $self->o('protein_entry_loc_file'),
-          download_csv => $self->o('download_csv'),
         },
       },
       -rc_name      => 'default',
@@ -1731,7 +1727,7 @@ sub pipeline_analyses {
       -logic_name => 'skip_long_read',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ #skip_long_read# -eq 0 ] && [ -s "'.$self->o('long_read_summary_file').'" ] || [ -s "'.$self->o('long_read_summary_file_genus').'" ]; then exit 0; else exit 42;fi',
+        cmd => 'if [ #skip_long_read# -eq 0 ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => {'42' => 2},
       },
       -rc_name => 'default',

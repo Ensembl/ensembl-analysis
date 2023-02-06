@@ -369,7 +369,7 @@ sub pipeline_analyses {
         column_names => $self->o('file_columns'),
         db_conn    => 'registry_db',
       },
-      -flow_into => {2 => WHEN ('#inputquery#' => ['fetch_from_registry'], ELSE  ['download_rnaseq_csv'])
+      -flow_into => {2 => WHEN ('#inputquery#' => ['download_RNASeq_fastqs'], ELSE  ['download_rnaseq_csv'])
       },
     },
     {
