@@ -546,7 +546,8 @@ sub _master_config {
         'logic_names' => {
           'ensembl'             => 19000,
         }, # logic_names
-	'biotypes' =>    {
+	    'biotypes' =>    {
+		'rnaseq_tissue_'      => 10000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -567,8 +568,8 @@ sub _master_config {
           'ncrna'               => 500,
         }, # logic_names
         'biotypes' =>    {
-          'protein_coding'      => 19000,
-          'lncRNA'              => 5,
+          'rnaseq_tissue_'      => 10000,
+          'lncRNA'              => 2000,
           'miRNA'               => 30,
           'misc_RNA'            => 5,
           'rRNA'                => 50,
