@@ -1116,11 +1116,12 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'cd #output_path#; ' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/#species_name#_reheadered_toplevel.fa  -m genome -l #busco_group# -c 20 -o busco_genome_score_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
-          'rm -rf  #output_path#/busco_genome_score_output/logs;' .
-          'rm -rf  #output_path#/busco_genome_score_output/busco_downloads;' .
-          'rm -rf  #output_path#/busco_genome_score_output/run*;' .
-          'mv #output_path#/busco_genome_score_output/*.txt #output_path#/busco_genome_score_output/#species_strain_group#_genome_busco_short_summary.txt',
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/#species_name#_reheadered_toplevel.fa  -m genome -l #busco_group# -c 20 -o busco_core_genome_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+          'rm -rf  #output_path#/busco_core_genome_mode_output/logs;' .
+          'rm -rf  #output_path#/busco_core_genome_mode_output/busco_downloads;' .
+          'rm -rf  #output_path#/busco_core_genome_mode_output/run*;' .
+          'sed  -i "/genebuild/d"  #output_path#/busco_core_genome_mode_output/*.txt;' .
+          'mv #output_path#/busco_core_genome_mode_output/*.txt #output_path#/busco_core_genome_mode_output/#species_strain_group#_genome_busco_short_summary.txt',
       },
       -rc_name   => 'busco',
       -flow_into => { 1 => ['fan_busco_output'] },
@@ -1158,12 +1159,12 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c 20 -o output_busco_#assembly_accession# --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
-	  'rm -rf  #output_path#/output_busco_#assembly_accession#/logs;' .
-	  'rm -rf  #output_path#/output_busco_#assembly_accession#/busco_downloads;' .
-	  'rm -rf  #output_path#/output_busco_#assembly_accession#/run*;' .
-	  'sed  -i "/genebuild/d"  #output_path#/output_busco_#assembly_accession#/*.txt;' .
-	  'mv #output_path#/output_busco_#assembly_accession#/*.txt #output_path#/output_busco_#assembly_accession#/#species_strain_group#_busco_short_summary.txt;',
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c 20 -o busco_core_protein_mode_output -offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+	  'rm -rf  #output_path#/busco_core_protein_mode_output/logs;' .
+	  'rm -rf  #output_path#/busco_core_protein_mode_output/busco_downloads;' .
+	  'rm -rf  #output_path#/busco_core_protein_mode_output/run*;' .
+	  'sed  -i "/genebuild/d"  #output_path#/busco_core_protein_mode_output/*.txt;' .
+	  'mv #output_path#/busco_core_protein_mode_output/*.txt #output_path#/busco_core_protein_mode_output/#species_strain_group#_busco_short_summary.txt;',
       },
       -rc_name   => 'braker',
       -flow_into => {
@@ -1222,11 +1223,12 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'cd #output_path#; ' .
-	  'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/busco_score_data/canonical_proteins.fa  -m prot -l #busco_group# -c 20 -o busco_score_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
-	  'rm -rf  #output_path#/busco_score_output/logs;' .
-          'rm -rf  #output_path#/busco_score_output/busco_downloads;' .
-          'rm -rf  #output_path#/busco_score_output/run*;' .
-	  'mv #output_path#/busco_score_output/*.txt #output_path#/busco_score_output/#species_strain_group#_busco_short_summary.txt',
+	  'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/busco_score_data/canonical_proteins.fa  -m prot -l #busco_group# -c 20 -o busco_core_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+	  'rm -rf  #output_path#/busco_core_protein_mode_output/logs;' .
+          'rm -rf  #output_path#/busco_core_protein_mode_output/busco_downloads;' .
+          'rm -rf  #output_path#/busco_core_protein_mode_output/run*;' .
+          'sed  -i "/genebuild/d"  #output_path#/busco_core_protein_mode_output/*.txt;' .
+	  'mv #output_path#/busco_core_protein_mode_output/*.txt #output_path#/busco_core_protein_mode_output/#species_strain_group#_busco_short_summary.txt',
       },
       -rc_name   => 'busco',
       -flow_into => { 1 => ['fan_otherfeatures_db'] },
@@ -1579,12 +1581,12 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c 20 -o output_busco_#assembly_accession# --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
-	  'rm -rf  #output_path#/output_busco_#assembly_accession#/logs;' .
-          'rm -rf  #output_path#/output_busco_#assembly_accession#/busco_downloads;' .
-          'rm -rf  #output_path#/output_busco_#assembly_accession#/run*;' .
-	  'sed  -i "/genebuild/d"  #output_path#/output_busco_#assembly_accession#/*.txt;' .
-	  'mv #output_path#/output_busco_#assembly_accession#/*.txt #output_path#/output_busco_#assembly_accession#/#species_strain_group#_busco_short_summary.txt;',
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c 20 -o busco_otherfeatures_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+	  'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/logs;' .
+          'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/busco_downloads;' .
+          'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/run*;' .
+	  'sed  -i "/genebuild/d"  #output_path#/busco_otherfeatures_protein_mode_output/*.txt;' .
+	  'mv #output_path#/busco_otherfeatures_protein_mode_output/*.txt #output_path#/busco_otherfeatures_protein_mode_output/#species_strain_group#_busco_short_summary.txt;',
       },
       -rc_name   => 'braker',
       -flow_into => {
