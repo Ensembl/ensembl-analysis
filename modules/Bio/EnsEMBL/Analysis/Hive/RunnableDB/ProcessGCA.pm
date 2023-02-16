@@ -475,11 +475,17 @@ sub get_clade_params {
       $clade_params->{'busco_group'}          = 'lepidoptera_odb10',;
   } elsif ( $clade eq 'trichoptera' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/trichoptera_uniprot_proteins.fa',
-	  $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/holometabola_orthodb_proteins.fa',
+	  $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/holometabola_orthodb11v0_proteins.fa',
 	  $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
 	  $clade_params->{'species_division'}     = 'EnsemblMetazoa',
 	  $clade_params->{'busco_group'}          = 'endopterygota_odb10',;
-  }  elsif ( $clade eq 'plasmodium' ) {
+  }  elsif ( $clade eq 'orthoptera' ) {
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/orthoptera_uniprot_proteins.fa',
+          $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hexapoda_orthodb11v0_proteins.fa',
+          $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+          $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+          $clade_params->{'busco_group'}          = 'insecta_odb10',;
+  } elsif ( $clade eq 'plasmodium' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/plasmodium_uniprot_proteins.fa',
           $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/plasmodium_orthodb_proteins.fa',
           $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_plasmodium_ids.txt',
@@ -540,7 +546,14 @@ sub get_clade_params {
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblPlants',
       $clade_params->{'busco_group'}          = 'viridiplantae_odb10',;
-  } elsif ( $clade eq 'metazoa' ) {
+  }  elsif ( $clade eq 'eudicotyledons' ) {
+      $clade_params->{'max_intron_length'} = 10000;
+      $clade_params->{'protein_file'}      = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/plants_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/eudicotyledons_orthodb_proteins_reheader.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblPlants',
+      $clade_params->{'busco_group'}          = 'eudicots_odb10',;
+   } elsif ( $clade eq 'metazoa' ) {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/worm_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
