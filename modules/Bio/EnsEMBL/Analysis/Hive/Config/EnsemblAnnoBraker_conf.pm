@@ -1159,7 +1159,7 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c 20 -o busco_core_protein_mode_output -offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c 20 -o busco_core_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/logs;' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/busco_downloads;' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/run*;' .
