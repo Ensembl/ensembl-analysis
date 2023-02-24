@@ -73,13 +73,14 @@ sub default_options {
     'production_name'     => '',                                                                                      # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'taxon_id'            => '',                                                                                      # should be in the assembly report file
-    'genus_taxon_id'      => $self->o('taxon_id'),
+    'genus_taxon_id'      => $self->o('genus_taxon_id'),
     'sanity_set'          => '',
     'uniprot_set'         => '',                                                                                      # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'         => '',                                                                                      # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'       => '',                                                                                      # Name (as it appears in the assembly report file)
     'uniprot_version'     => 'uniprot_2021_04',                                                                       # What UniProt data dir to use for various analyses
     'paired_end_only'     => '1',                                                                                     # Will only use paired-end rnaseq data if 1
+    #'csv_download'        => $self->o('download_csv'), #Will download csv from ENA if set to 1
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file') ), # Blast database for comparing the final models to.
@@ -160,6 +161,7 @@ sub default_options {
     rnasamba => '/hps/software/users/ensembl/genebuild/singularity/rnasamba_latest.sif',
     cpc2 => '/hps/software/users/ensembl/genebuild/singularity/test_cpc2.sif',
     ensembl_analysis_scripts   => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
+    transcriptomic_status_script   => catdir($self->o('ensembl_analysis_scripts'), 'check_transcriptomic_status_registry.pl'),
     pcp_get_transcripts_script => catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'get_transcripts.pl'),
 
     'blast_type'             => 'ncbi',                                                                         # It can be 'ncbi', 'wu', or 'legacy_ncbi'
@@ -210,7 +212,6 @@ sub default_options {
     download_method => 'ftp',
 
     'filename_tag' => 'filename',    # For the analysis that creates star jobs, though I assume we should need to do it this way
-    'download_csv' => $self->param('download_csv'),
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
@@ -269,6 +270,15 @@ sub default_options {
       -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_nr_'.$self->o('release_number'),
       -host   => $self->o('pcp_db_host'),
       -port   => $self->o('pcp_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'registry_conn'=> {
+      -dbname => $self->o('registry_db'),
+      -host   => $self->o('registry_host'),
+      -port   => $self->o('registry_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -350,26 +360,52 @@ sub pipeline_analyses {
 #
 ############################################################################
     {
-      -logic_name => 'fetch_transcriptomic_data',
+      -logic_name => 'set_transcriptomic_data_source',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
       -rc_name => 'default',
       -parameters => {
         download_csv => $self->o('download_csv'),
       },
       -flow_into => {1 => WHEN ('#download_csv#' => ['download_rnaseq_csv'],
-                     ELSE  ['fetch_from_registry','index_rnaseq_genome_file']
+                     ELSE  ['is_data_in_registry']#['fetch_from_registry','index_rnaseq_genome_file']
                   )},
       -input_ids  => [{}],
+    },
+    {
+      -logic_name => 'is_data_in_registry',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CheckTranscriptomicRegistry',
+      -parameters => {
+        db_conn   => $self->o('registry_conn'),
+        taxon_id  => $self->o('taxon_id'),
+      },
+
+      -rc_name    => 'default',
+      -flow_into => {
+         1 => WHEN ('#transcriptomic_status#' => ['index_rnaseq_genome_file','fetch_from_registry'],
+              ELSE ['download_rnaseq_csv'],
+                  )},
     },
     {
       -logic_name => 'fetch_from_registry',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
-        inputquery    => 'SELECT sample_name,run_id,paired,filename,is_mate_1,read_length,is_13plus,source,instrument,description,url,md5 FROM csv_table WHERE species_id = ' . $self->o('taxon_id'),
+        transcriptomic_status => '#transcriptomic_data#',
+        inputquery    => 'SELECT SM,ID,is_paired,filename,is_mate_1,read_length,is_13plus,CN,PL,DS,url,md5sum FROM csv_table WHERE species_id = ' . $self->o('taxon_id'),
         column_names => $self->o('file_columns'),
-        db_conn    => 'registry_db',
+        db_conn    => $self->o('registry_conn'),
       },
-      -flow_into => {2 => WHEN ('#inputquery#' => ['download_RNASeq_fastqs'], ELSE  ['download_rnaseq_csv'])
+      -flow_into => {
+        '2->A' => [ 'download_RNASeq_fastqs' ],
+        'A->1' => ['set_semaphored_analysis_registry'],
+      }
+    },
+    {
+      -logic_name => 'set_semaphored_analysis_registry',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+      -rc_name => 'default',
+    -flow_into => {
+        '1->A' => ['create_star_jobs_registry'],
+        'A->1' => ['scallopmerge_registry'],
       },
     },
     {
@@ -425,7 +461,17 @@ sub pipeline_analyses {
       },
       -flow_into => {
         '1->A' => [ 'create_fastq_download_jobs', 'index_rnaseq_genome_file' ],
-        'A->1' => ['parse_summary_file'],
+        'A->1' => ['set_semaphored_analysis_csv'],
+      },
+    },
+
+    { 
+      -logic_name => 'set_semaphored_analysis_csv',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+      -rc_name => 'default',
+    -flow_into => {
+        '1->A' => ['create_star_jobs'],
+        'A->1' => ['scallopmerge'],
       },
     },
 
@@ -451,10 +497,19 @@ sub pipeline_analyses {
         uncompress => 0,
       },
       -flow_into => {
-        2 => ['get_read_lengths'],
+        1 => ['store_RNASeq_fastqs_in_csvtable'],# WHEN('#transcriptomic_status# eq "1"' => 'store_RNASeq_fastqs_in_csvtable', ELSE 'get_read_lengths',),
       },
       -analysis_capacity => 50,
       -max_retry_count => 12, #This is needed for big files > 10GB as there will be timeout and md5sum failures
+    },
+    
+    {  
+      -logic_name => 'store_RNASeq_fastqs_in_csvtable',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveParseDataIntoCsvTable',
+      -flow_into => {
+        1 => ['get_read_lengths'],
+      },
+      -analysis_capacity => 50,
     },
 
     {
@@ -481,25 +536,6 @@ sub pipeline_analyses {
     },
 
     {
-      -logic_name => 'parse_summary_file',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveParseCsvIntoTable',
-      -rc_name    => 'default',
-      -parameters => {
-        column_names      => $self->o('file_columns'),
-        sample_column     => $self->o('read_group_tag'),
-        inputfile         => $self->o('rnaseq_summary_file'),
-        delimiter         => $self->o('summary_file_delimiter'),
-        csvfile_table     => $self->o('summary_csv_table'),
-        pairing_regex     => $self->o('pairing_regex'),
-        read_length_table => $self->o('read_length_table'),
-      },
-      -flow_into => {
-        '2->A' => ['create_star_jobs'],
-        'A->1' => ['scallopmerge'],
-      },
-    },
-
-    {
       -logic_name => 'create_star_jobs',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateStarJobs',
       -parameters => {
@@ -509,6 +545,25 @@ sub pipeline_analyses {
         filename_column  => $self->o('filename_tag'),
         csvfile_table    => $self->o('summary_csv_table'),
         column_names     => $self->o('file_columns'),
+        taxon_id         => $self->o('taxon_id'),
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        2 => ['star'],
+      },
+    },
+
+    {
+      -logic_name => 'create_star_jobs_registry',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateStarJobs',
+      -parameters => {
+        input_dir        => $self->o('input_dir'),
+        sample_column    => $self->o('read_group_tag'),
+        sample_id_column => $self->o('read_id_tag'),
+        filename_column  => $self->o('filename_tag'),
+        csvfile_table    => $self->o('summary_csv_table'),
+        column_names     => $self->o('file_columns'),
+        taxon_id         => $self->o('taxon_id'),
       },
       -rc_name   => 'default',
       -flow_into => {
@@ -560,6 +615,7 @@ sub pipeline_analyses {
         csv_summary_file       => $self->o('rnaseq_summary_file'),
         csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
         num_threads            => $self->o('scallop_threads'),
+        taxon_id         => $self->o('taxon_id'),
       },
       -rc_name => '10GB_scallop',
       -flow_into => {
@@ -598,6 +654,24 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'scallopmerge',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Stringtie2Merge',
+      -parameters => {
+        input_gtf_dirs => [ catdir( $self->o('output_dir'), 'scallop' ) ],
+        stringtie_merge_dir => catdir( $self->o('output_dir'), 'scallop', 'merge' ),
+        stringtie2_path     => $self->o('stringtie2_path'),
+        csv_summary_file    => $self->o('rnaseq_summary_file'),
+        csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
+        num_threads            => $self->o('scallop_threads'),
+
+      },
+      -flow_into => {
+        1 => ['create_scallop_initial_db'],
+      },
+      -rc_name => '10GB_scallop',
+    },
+
+    {
+      -logic_name => 'scallopmerge_registry',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Stringtie2Merge',
       -parameters => {
         input_gtf_dirs => [ catdir( $self->o('output_dir'), 'scallop' ) ],

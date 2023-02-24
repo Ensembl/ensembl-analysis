@@ -65,7 +65,7 @@ sub default_options {
     dbname_accession                 => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     taxon_id                         => '', # should be in the assembly report file
     species_taxon_id                 => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
-    genus_taxon_id                   => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
+    genus_taxon_id                   => '' || $self->o('genus_taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
     uniprot_set                      => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     sanity_set                       => '', #sanity checks
     ig_tr_fasta_file                 => '', # file containing ig and tr proteins to be used during the IGTR subpipeline. This would come from the clade settings defined in "create_annotation_configs.pl" (ie 'fish_ig_tr.fa')
@@ -92,7 +92,8 @@ sub default_options {
     stable_id_prefix                 => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     mapping_required                 => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     mapping_db                       => 'undef', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-
+    
+    csv_download                     => '' || $self->o('download_csv'), # Will not fetch transcriptomic data from registry if 1
     paired_end_only                  => '1', # Will only use paired-end rnaseq data if 1
     rnaseq_study_accession           => '', # A study accession for a transcriptomic dataset, if provided, only this data will be used
     long_read_study_accession        => '', # A study accession for a transcriptomic dataset, if provided, only this data will be used
@@ -704,9 +705,6 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -max_retry_count => 0,
-      -flow_into => {
-        1 => ['fan_semaphored_analysis'],
-      },
       -flow_into => {
         '2->A' => ['initialise_load_assembly'],
         'A->1' => ['create_registry']
@@ -1684,6 +1682,7 @@ sub pipeline_analyses {
           dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
+          genus_taxon_id => $self->o('genus_taxon_id'),
           uniprot_set => $self->o('uniprot_set'),
           sanity_set => $self->o('sanity_set'),
 	  use_genome_flatfile => $self->o('use_genome_flatfile'),
@@ -1693,6 +1692,10 @@ sub pipeline_analyses {
 	  is_non_vert => $self->o('is_non_vert'),
           protein_blast_db_file => $self->o('protein_blast_db_file'),
           protein_entry_loc_file => $self->o('protein_entry_loc_file'),
+          download_csv => $self->o('csv_download'),
+          registry_db => $self->o('registry_db'),
+          registry_host => $self->o('registry_host'),
+          registry_port => $self->o('registry_port'),
         },
       },
       -rc_name      => 'default',
