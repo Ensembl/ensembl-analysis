@@ -685,11 +685,11 @@ sub check_annotation_status {
 
   my @status = $registry_dba->fetch_genebuild_status_by_gca($accession);
   if (@status) {
-    if ( $status[2] ) {
+    if ( $status[1] ) {
       throw( "A genebuild entry already exists for this assembly. " . "$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3]\nAnnotation source: $status[4]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
     }
     else {
-      throw( "A genebuild entry already exists for this assembly. " . "$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: Pending\nGenebuilder: $status[3]\nAnnotation source: $status[4]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
+      $self->update_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
     }
   }
 }
