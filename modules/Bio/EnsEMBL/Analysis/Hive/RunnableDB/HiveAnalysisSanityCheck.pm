@@ -132,6 +132,7 @@ sub gene_db_checks {
   my $genome_prep_dba = $self->hrdb_get_con('target_db');
   my $min_allowed_feature_counts = $self->param('min_allowed_feature_counts');
   my $slices = $genome_prep_dba->get_SliceAdaptor->fetch_all('toplevel');
+  my $error_string = '';
   if ($min_allowed_feature_counts) {
 
     my $logic_names = $min_allowed_feature_counts->{'logic_names'};
@@ -180,7 +181,7 @@ sub gene_db_checks {
         my $observed_count = $observed_logic_name_counts->{$logic_name};
         $self->say_with_header("Observed gene/transcript count for $logic_name : $observed_count");
         if ($observed_count < $min_count) {
-          $self->throw("Gene/transcript count is below the min value of $min_count for $logic_name, observed count: $observed_count");
+          $error_string .= "Gene/transcript count is below the min value of $min_count for $logic_name, observed count: $observed_count\n";
         }
       }
 
@@ -209,7 +210,7 @@ sub gene_db_checks {
 
         $self->say_with_header("Observed gene/transcript count for $biotype : $observed_count");
         unless(defined $observed_count && ($observed_count >= $min_count)) {
-          $self->throw("Gene/transcript count is below the min value of ".$min_count." for ".$biotype.", observed count: ".$observed_count);
+          $error_string .= "Gene/transcript count is below the min value of ".$min_count." for ".$biotype.", observed count: ".$observed_count."\n";
         }
       }
     }
@@ -221,9 +222,13 @@ sub gene_db_checks {
     foreach my $slice (@$slices) {
       my $count = $gene_adaptor->count_all_by_Slice($slice);
       if ($count == 0 and $slice->length > $min_size_empty_slice) {
-        $self->throw($slice->name.' has no genes');
+        $error_string .= $slice->name.' has no genes'."\n";
       }
     }
+  }
+
+  if ($error_string) {
+    $self->throw($error_string);
   }
 }
 
