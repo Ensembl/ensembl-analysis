@@ -360,6 +360,7 @@ sub pipeline_analyses {
         input_gene_dbs => [$self->o('long_read_initial_db')],
         iid_type => 'slice',
         use_strand => 1,
+        disconnect_jobs => 1,
       },
       -batch_size => 100,
       -rc_name    => '5GB',
@@ -378,6 +379,7 @@ sub pipeline_analyses {
                        source_dbs        => [$self->o('long_read_initial_db')],
 		       biotypes => ["isoseq","cdna"],
 		       reduce_large_clusters => 1,
+               disconnect_jobs => 1,
       },
       -rc_name      => '5GB',
       -flow_into => {
@@ -398,6 +400,7 @@ sub pipeline_analyses {
         source_dbs        => [$self->o('long_read_initial_db')],
         biotypes => ["isoseq","cdna"],
         reduce_large_clusters => 1,
+        disconnect_jobs => 1,
       },
       -rc_name      => '20GB',
       -flow_into => {
