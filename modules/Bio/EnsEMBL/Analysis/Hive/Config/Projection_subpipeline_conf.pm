@@ -65,7 +65,7 @@ sub default_options {
 # Pipe and ref db info
 ########################
      dna_db_name  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
-	
+
     'projection_source_db_name'         => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_host'         => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
@@ -346,6 +346,7 @@ sub pipeline_analyses {
         'cesar_mem'             => '3',
         'canonical_or_longest'  => 1,
         'stops2introns'         => 1,
+        'disconnect_jobs'       =>1,
         use_genome_flatfile => 0,
       },
       -rc_name              => '3GB',
@@ -372,6 +373,7 @@ sub pipeline_analyses {
         'cesar_mem'             => '15',
         'canonical_or_longest'  => 1,
         'stops2introns'         => 1,
+        'disconnect_jobs'       => 1,
         use_genome_flatfile => 0,
       },
       -rc_name              => '15GB',
@@ -397,6 +399,7 @@ sub pipeline_analyses {
         'cesar_mem'             => '30',
         'canonical_or_longest'  => 1,
         'stops2introns'         => 1,
+        'disconnect_jobs'       => 1,
         use_genome_flatfile => 0,
       },
       -rc_name              => '30GB',
