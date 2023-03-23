@@ -135,13 +135,12 @@ sub run {
       my $tsf = $transcript->get_all_supporting_features->[0];
       next if ($tsf->hcoverage < $self->param('coverage_threshold'));
       if (exists $alignments{$tsf->seqname}) {
-        my $accession = $tsf->seqname;
-        if ($tsf->score > ($alignments{$accession}->{score}+$tsf->{score}*$score_threshold)
+        if ($tsf->score > ($alignments{$tsf->seqname}->{score}+$tsf->{score}*$score_threshold)
             or ($tsf->percent_id > $minimum_identity and
-              $tsf->percent_id > $alignments{$accession}->get_all_supporting_features->[0]->percent_id and
-              (($tsf->q_end-$tsf->q_start) > $tsf->{query_length}*$coverage_threshold)) ) {
-          $transcript->slice($alignments{$tsf->seqname}->slice);
-          $alignments{$tsf->seqname} = $transcript;
+              $tsf->percent_id > $alignments{$tsf->seqname}->get_all_supporting_features->[0]->{percent_id} and
+		(($tsf->hend-$tsf->hstart) > $transcript->{query_length}*$coverage_threshold)) ) {
+	    $transcript->slice($alignments{$tsf->seqname}->slice);
+	    $alignments{$tsf->seqname} = $transcript;
         }
       }
       else {
