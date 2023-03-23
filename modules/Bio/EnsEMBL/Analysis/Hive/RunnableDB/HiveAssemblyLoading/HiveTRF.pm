@@ -121,7 +121,9 @@ sub fetch_input{
     );
     $self->runnable($runnable);
   }
-
+ if ($self->param('disconnect_jobs')) {
+   $dba->dbc->disconnect_when_inactive(1);
+ }
   return 1;
 }
 

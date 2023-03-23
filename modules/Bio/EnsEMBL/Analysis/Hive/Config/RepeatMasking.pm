@@ -579,6 +579,7 @@ sub pipeline_analyses {
         logic_name => 'trf',
         module     => 'HiveTRF',
         trf_path   => $self->o('trf_path'),
+        disconnect_jobs  => 1,
       },
       -rc_name       => 'simple_features',
       -flow_into => {

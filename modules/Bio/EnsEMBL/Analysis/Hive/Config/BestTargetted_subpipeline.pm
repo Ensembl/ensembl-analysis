@@ -440,6 +440,7 @@ sub pipeline_analyses {
         gtag              => 0,                                                             # 0 is for gtag, 1 is for non canonical
         biotype           => 'gw_gtag',
         max_intron_length => 200000,
+        disconnect_jobs   => 1,
         seqfetcher_index  => [ catfile( $self->o('targetted_path'), 'proteome_index' ) ],
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise' ) },
       },

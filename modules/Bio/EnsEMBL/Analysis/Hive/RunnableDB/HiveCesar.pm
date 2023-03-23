@@ -364,6 +364,9 @@ sub fetch_input {
       scalar(@{$self->parent_genes()}) != scalar(@{$self->transcript_align_slices()})) {
     $self->throw("Different number of elements in parent_genes, unique_translateable_transcripts and transcript_align_slices arrays.");
   }
+  if ($self->param('disconnect_jobs')) {
+    $target_dna_dba->dbc->disconnect_when_inactive(1);
+  }
 }
 
 =head2 run
@@ -383,6 +386,7 @@ sub run {
   my ($self) = @_;
 
   my $gene_index = 0;
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   foreach my $gene (@{$self->parent_genes()}) {
 
     my $transcripts = @{$self->unique_translateable_transcripts()}[$gene_index];
@@ -416,6 +420,7 @@ sub run {
     say "Had a total of ".$fail_count."/".scalar(@{$transcripts})." failed transcript projections for gene ".$gene->dbID();
     $gene_index++;
   }
+  $self->dbc->disconnect_when_inactive(0);
 }
 
 =head2 write_output
@@ -431,7 +436,7 @@ sub write_output {
   my ($self) = @_;
 
   my $gene_adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
-
+  $gene_adaptor->dbc->disconnect_when_inactive(0);
   my $genes = $self->output_genes();
   foreach my $gene (@{$genes}) {
     say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand." (g.start:g.end:g.strand).";

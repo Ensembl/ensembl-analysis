@@ -83,13 +83,15 @@ sub fetch_input {
   }
 
   $self->input_gene_coords($input_gene_coords);
-
+  if ($self->param('disconnect_jobs')) {
+    $dba->dbc->disconnect_when_inactive(1);
+  }
   return 1;
 }
 
 sub run {
   my $self = shift;
-
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   my $input_gene_coords = $self->input_gene_coords();
 
   say "Processing input genes to find intergenic regions...";
@@ -97,7 +99,7 @@ sub run {
   say "...finished finding intergenic regions";
 
   $self->output($output_ids);
-
+  $self->dbc->disconnect_when_inactive(0);
   return 1;
 }
 
@@ -124,7 +126,6 @@ sub write_output {
     $output_hash->{'iid'} = $output_id;
     $self->dataflow_output_id($output_hash,2);
   }
-
   return 1;
 
 }
