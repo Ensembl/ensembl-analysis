@@ -44,6 +44,8 @@ my $assembly_accession  = '';
 my $registry_host = '';
 my $registry_port = '';
 my $registry_db = '';
+my $dt   = DateTime->now;   # Stores current date and time as datetime object
+my $date = $dt->ymd;
 
 GetOptions('user:s' => \$user,
            'pass:s' => \$pass,
