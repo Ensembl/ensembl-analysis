@@ -64,14 +64,27 @@ my $registry_dba = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdap
 
 my $registry_assembly_id = $registry_dba->fetch_assembly_id_by_gca($assembly_accession);
 #my $sth = $registry_dba->dbc->prepare("UPDATE assembly set annotated_status =? where assembly_id=?");
-my $sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set progress_status =? where assembly_id=?");
+my $sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set progress_status =? where assembly_id=? and is_current=? and annotation_status = ?");
 $sth->bind_param(1,'completed');
 $sth->bind_param(2,$registry_assembly_id);
+$sth->bind_param(3,1);
+$sth->bind_param(4,'pending');
 if ($sth->execute){
 say "Status COMPLETED";	
 }
 else{
  $self->throw("Could not update annotation status");
+}
+
+$sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set date_completed =? where assembly_id=? and is_current=? and annotation_status = ?");
+ $sth->bind_param(1,$date);
+ $sth->bind_param(2,$registry_assembly_id);
+ $sth->bind_param(3,1);
+ $sth->bind_param(4,'pending');
+ if ($sth->execute){
+ }
+ else{
+ $self->throw("Could not update genebuild status with date completed");
 }
 
 #------------------------------------------------------------------------------
