@@ -63,22 +63,6 @@ sub default_options {
     'password'                     => '',                                                                                                                # password for write db user
     'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
-    'pipe_db_server'               => $ENV{GBS7},                                                                                                        # host for pipe db
-    'databases_server'             => $ENV{GBS5},                                                                                                        # host for general output dbs
-    'dna_db_server'                => $ENV{GBS6},                                                                                                        # host for dna db
-    'pipe_db_port'                 => $ENV{GBP7},                                                                                                        # port for pipeline host
-    'databases_port'               => $ENV{GBP5},                                                                                                        # port for general output db host
-    'dna_db_port'                  => $ENV{GBP6},                                                                                                        # port for dna db host
-    'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
-    'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
-    'registry_db_name'             => 'gb_assembly_registry',                                                                                            # name for registry db
-    'repbase_logic_name'           => '',                                                                                                                # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
-    'repbase_library'              => '',                                                                                                                # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
-    'rnaseq_summary_file'          => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '.csv' ),                                     # Set this if you have a pre-existing cvs file with the expected columns
-    'rnaseq_summary_file_genus'    => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '_gen.csv' ),                                 # Set this if you have a pre-existing genus level cvs file with the expected columns
-    'long_read_summary_file'       => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read.csv' ),                           # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_summary_file_genus' => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read_gen.csv' ),                       # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_fastq_dir'          => '' || catdir( $self->o('long_read_dir'), 'input' ),
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
     'taxon_id'                     => '', #optional, already defined in ProcessGCA, should be in the assembly report file
     'species_taxon_id'             => '' || $self->o('taxon_id'),                                                                                        # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
@@ -87,36 +71,23 @@ sub default_options {
     'output_path'                  => '', #optional, already defined in ProcessGCA
     'assembly_name'                => '', #optional aleady defined in the registry
     'assembly_accession'           => '', #the pipeline is initialed via standalone job  # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    'assembly_refseq_accession'    => '', #optional aleady defined in the registry Versioned GCF accession, e.g. GCF_001857705.1
     'stable_id_prefix'             => '', #optional, already defined in ProcessGCA
     'use_genome_flatfile'          => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'species_url'                  => '' || $self->o('production_name') . $self->o('production_name_modifier'),                                          # sets species.url meta key
     'species_division'             => '', #optional, already defined in ProcessGCA # sets species.division meta key
     'stable_id_start'              => '', #optional, already defined in ProcessGCA When mapping is not required this is usually set to 0
     'mapping_required'             => '0',# If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
-    'mapping_db'                   => '',                                                                                                                # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_version'              => 'uniprot_2021_04',                                                                                                 # What UniProt data dir to use for various analyses
-    'vertrna_version'              => '136',                                                                                                             # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
-    'paired_end_only'              => '1',                                                                                                               # Will only use paired-end rnaseq data if 1
-    'ig_tr_fasta_file'             => 'human_ig_tr.fa',                                                                                                  # What IMGT fasta file to use. File should contain protein segments with appropriate headers
-    'mt_accession'                 => undef,                                                                                                             # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'production_name_modifier'     => '',                                                                                                                # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
-    'compara_registry_file'        => '',
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'skip_genscan_blasts'       => '1',
     'load_toplevel_only'        => '1',                                                                                                                  # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     'custom_toplevel_file_path' => '',                                                                                                                   # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'     => '', #no needed, it can be an option for the anno command This should be the path to a custom repeat library, leave blank if none exists
-    'use_repeatmodeler_to_mask' => '0',# Setting this will include the repeatmodeler library in the masking process
     'base_blast_db_path'    => $ENV{BLASTDB_DIR},
-    'protein_blast_db'          => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata' ),           # Blast database for comparing the final models to.
-    'protein_blast_index'       => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index' ),      # Indicate Index for the blast database.
     'protein_entry_loc'         => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                       # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
     'softmask_logic_names' => [],
-    'desired_slice_length' => 10000000,
-    'store_rejected'       => 0,
 
 
 
@@ -132,33 +103,11 @@ sub default_options {
     #'pipe_db_name'                  => $self->o('pipeline_name') . 'f_pipe_' . '105',
     'dna_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_core_' . $self->o('release_number'),
 
-    'core_db_name'   => $self->o('dna_db_name'),
-    'core_db_server' => $self->o('dna_db_server'),
-    'core_db_port'   => $self->o('dna_db_port'),
-
-
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
     'production_db_server' => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
-
-
-######################################################
-#
-# Mostly constant settings
-#
-######################################################
-
-    genome_dumps => catdir( $self->o('output_path'), 'genome_dumps' ),
-    # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
-    softmasked_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa' ),
-    # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
-    faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
-    # This one is a cross between the two above, it has the seq_region name header but is softmasked. It is used by things that would both want to skip using the dna table and also want to avoid the repeat_feature table, e.g. bam2introns
-    faidx_softmasked_genome_file             => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa.reheader' ),
-
-
 
 
     ensembl_analysis_script           => catdir( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts' ),
@@ -183,7 +132,6 @@ sub default_options {
 # Executable paths
 ########################
 
-    'blast_type'             => 'ncbi',                                                                                                   # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     samtools_path            => catfile( $self->o('binary_base'),        'samtools' ),                                                    #You may need to specify the full path to the samtools binary
 
     'uniprot_table_name'          => 'uniprot_sequences',
@@ -210,8 +158,13 @@ sub default_options {
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
+    'rnaseq_summary_file'          => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '.csv' ),                                     # Set this if you have a pre-existing cvs file with the expected columns
+    'rnaseq_summary_file_genus'    => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '_gen.csv' ),                                 # Set this if you have a pre-existing genus level cvs file with the expected columns
     'long_read_dir'       => catdir( $self->o('output_path'),   'long_read' ),
-    'long_read_fastq_dir' => catdir( $self->o('long_read_dir'), 'input' ),
+    'long_read_summary_file'       => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read.csv' ),                           # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_summary_file_genus' => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read_gen.csv' ),                       # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_fastq_dir'          => '' || catdir( $self->o('long_read_dir'), 'input' ),
+
 
     # Please assign some or all columns from the summary file to the
     # some or all of the following categories.  Multiple values can be
@@ -243,14 +196,23 @@ sub default_options {
     'insdc_base_ftp'         => $self->o('ncbi_base_ftp') . '/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
     'assembly_ftp_path'      => $self->o('insdc_base_ftp'),
 
+########################
+# db info
+########################
+    'pipe_db_server'               => $ENV{GBS7},                                                                                                        # host for pipe db
+    'dna_db_server'                => $ENV{GBS6},                                                                                                        # host for dna db
+    'pipe_db_port'                 => $ENV{GBP7},                                                                                                        # port for pipeline host
+    'dna_db_port'                  => $ENV{GBP6},                                                                                                        # port for dna db host
+    'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
+    'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
+    'registry_db_name'             => 'gb_assembly_registry', 
 
     otherfeatures_db_host => $self->o('dna_db_server'),
     otherfeatures_db_port => $self->o('dna_db_port'),
     otherfeatures_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_otherfeatures_' . $self->o('release_number'),
 
-########################
-# db info
-########################
+
+
     'core_db' => {
       -dbname => $self->o('dna_db_name'),
       -host   => $self->o('dna_db_server'),
@@ -304,7 +266,6 @@ sub default_options {
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
-    databases_to_delete => [ 'reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'rnaseq_db' ],
 
     #######################
     # Extra db settings
