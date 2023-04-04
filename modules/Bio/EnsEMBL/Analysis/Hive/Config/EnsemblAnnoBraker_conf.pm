@@ -57,7 +57,7 @@ sub default_options {
     'validation_type'              => 'moderate',
     'release_number'               => '' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier') . '_' . $self->o('ensembl_release'),
+    'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => '',                                                                                                                # read only db user
     'user'                         => '',                                                                                                                # write db user
     'password'                     => '',                                                                                                                # password for write db user
@@ -99,7 +99,7 @@ sub default_options {
     'provider_name' => 'Ensembl',
     'provider_url'  => 'www.ensembl.org',
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('pipeline_name') . '_pipe_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('pipeline_name') . '_pipe_' . $self->o('release_number'),
     #'pipe_db_name'                  => $self->o('pipeline_name') . 'f_pipe_' . '105',
     'dna_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_core_' . $self->o('release_number'),
 
