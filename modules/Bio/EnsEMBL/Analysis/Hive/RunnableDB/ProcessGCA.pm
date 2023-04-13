@@ -151,7 +151,6 @@ sub fetch_input {
 		#$general_hash->{$key} = $value;
 	 $stable_id_prefix = $value;
 	 
-	 say "dentro if: " . $stable_id_prefix;
 	 }
 	if ( $key eq 'clade' ) {
 	 $clade = $value;
@@ -391,6 +390,7 @@ sub fetch_input {
     $self->update_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
   } else {
     #it will stop the pipeline if there is already an annotation in progress for this assembly
+    say "UPDATE REGISTRY";
     $self->check_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
   }
 
@@ -682,16 +682,13 @@ This would automatically make this new genebuild the current annotation for trac
 
 sub check_annotation_status {
   my ( $self, $registry_dba, $accession, $current_genebuild ) = @_;
-
   my @status = $registry_dba->fetch_genebuild_status_by_gca($accession);
   if (@status) {
-    if ( $status[1] ) {
       throw( "A genebuild entry already exists for this assembly. " . "$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3]\nAnnotation source: $status[4]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
     }
     else {
-      $self->update_annotation_status( $registry_dba, $accession, $current_genebuild );
+      $self->update_annotation_status( $registry_dba, $accession, $current_genebuild ); 
     }
-  }
 }
 
 1;
