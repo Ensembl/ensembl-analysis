@@ -270,9 +270,6 @@ foreach my $accession (@accession_array) {
   }
   $assembly_hash->{'clade'} = $clade;
 
-  #Parse transcriptomic data source flag
-  $assembly_hash->{'download_csv'} = $general_hash->{'download_csv'};
-
   # Get stable id start
   my $stable_id_start;
   if (exists ($general_hash->{'stable_id_start'}) && $general_hash->{'stable_id_start'} >=0) {

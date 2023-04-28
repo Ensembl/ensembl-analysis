@@ -72,6 +72,60 @@ sub fetch_all_gca {
 
 =head1 Description of method
 
+This method fetches the all short read data per species from the registry.
+
+=cut
+
+sub fetch_short_reads_by_species_id {
+  my ($self,$species_id,$type) = @_;
+  my @reads;
+  my $sql = "SELECT * FROM short_read_data WHERE species_id=?";
+  my $sth = $self->dbc->prepare($sql);
+  $sth->bind_param(1,$species_id);
+  if ($sth->execute()){
+    while (my @result = $sth->fetchrow_array()){
+      push @reads, join("\t ", @result);
+    }
+  }
+
+  else {
+    $self->throw("Could not execute query to retrieve samples for taxonomy ".$species_id);
+  }
+
+  return @reads;
+}
+
+=pod
+
+=head1 Description of method
+
+This method fetches the all long read data per species from the registry.
+
+=cut
+
+sub fetch_long_reads_by_species_id {
+  my ($self,$species_id,$type) = @_;
+  my @reads;
+  my $sql = "SELECT * FROM long_read_data WHERE species_id=?";
+  my $sth = $self->dbc->prepare($sql);
+  $sth->bind_param(1,$species_id);
+  if ($sth->execute()){
+    while (my @result = $sth->fetchrow_array()){
+      push @reads, join("\t ", @result);
+    }
+  }
+
+  else {
+    $self->throw("Could not execute query to retrieve samples for taxonomy ".$species_id);
+  }
+
+  return @reads;
+}
+
+=pod
+
+=head1 Description of method
+
 This method fetches the clade via its assembly accessions from the registry.
 
 =cut

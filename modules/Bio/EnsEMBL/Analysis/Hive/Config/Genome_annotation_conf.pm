@@ -92,8 +92,7 @@ sub default_options {
     stable_id_prefix                 => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     mapping_required                 => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     mapping_db                       => 'undef', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    
-    csv_download                     => '' || $self->o('download_csv'), # Will not fetch transcriptomic data from registry if 1
+    csv_download                     => '0', # Will not fetch transcriptomic data from registry if 1
     paired_end_only                  => '1', # Will only use paired-end rnaseq data if 1
     rnaseq_study_accession           => '', # A study accession for a transcriptomic dataset, if provided, only this data will be used
     long_read_study_accession        => '', # A study accession for a transcriptomic dataset, if provided, only this data will be used

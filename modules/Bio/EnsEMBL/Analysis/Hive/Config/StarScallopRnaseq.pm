@@ -390,7 +390,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
         transcriptomic_status => '#transcriptomic_data#',
-        inputquery    => 'SELECT SM,ID,is_paired,filename,is_mate_1,read_length,is_13plus,CN,PL,DS,url,md5sum FROM csv_table WHERE species_id = ' . $self->o('taxon_id'),
+        inputquery    => 'SELECT SM,ID,is_paired,filename,is_mate_1,read_length,is_13plus,CN,PL,DS,url,md5sum FROM short_read_data WHERE species_id = ' . $self->o('taxon_id'),
         column_names => $self->o('file_columns'),
         db_conn    => $self->o('registry_conn'),
       },
@@ -555,15 +555,21 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'create_star_jobs_registry',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateStarJobs',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateStarJobsFromRegistry',
       -parameters => {
         input_dir        => $self->o('input_dir'),
         sample_column    => $self->o('read_group_tag'),
         sample_id_column => $self->o('read_id_tag'),
         filename_column  => $self->o('filename_tag'),
         csvfile_table    => $self->o('summary_csv_table'),
-        column_names     => $self->o('file_columns'),
+        column_names     => "['SM']",
         taxon_id         => $self->o('taxon_id'),
+        registry_db => $self->o('registry_db'),
+        registry_host   => $self->o('registry_host'),
+        registry_port   => $self->o('registry_port'),
+        user   => $self->o('user'),
+        pass   => $self->o('password'),
+        driver => $self->o('hive_driver'),
       },
       -rc_name   => 'default',
       -flow_into => {
