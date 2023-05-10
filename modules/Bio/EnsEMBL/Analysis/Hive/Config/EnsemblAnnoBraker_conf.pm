@@ -1298,6 +1298,7 @@ sub pipeline_analyses {
           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
           'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
           'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
+          'DELETE FROM meta WHERE meta_key = "genebuild.method_display"',
           'DELETE FROM meta WHERE meta_key IN' .
             ' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date","species.strain_group")',
           'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
