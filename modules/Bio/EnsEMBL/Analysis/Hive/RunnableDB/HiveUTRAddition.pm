@@ -1780,7 +1780,7 @@ sub filter_input_genes {
     if($allowed_transcript_sets) {
       foreach my $logic_name (keys %$allowed_transcript_sets) {
         if (ref($allowed_transcript_sets->{$logic_name}) eq 'ARRAY') {
-          foreach my $biotype (${$allowed_transcript_sets->{$logic_name}}) {
+          foreach my $biotype (@{$allowed_transcript_sets->{$logic_name}}) {
             push(@genes, @{$gene_adaptor->fetch_all_by_Slice($slice, $logic_name, 1, undef, $biotype)});
           }
         }
