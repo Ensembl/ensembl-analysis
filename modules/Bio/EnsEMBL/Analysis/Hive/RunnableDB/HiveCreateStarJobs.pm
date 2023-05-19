@@ -154,7 +154,7 @@ sub build_sorted_batches {
     my $file_size = $file_sizes->{$sample_id} * $size_multiplier;
     if($file_size + $total_size > $target_batch_size) {
       if(scalar(@$single_batch_array)){
-        push(@{$all_batches},[$single_batch_array]);
+        push(@{$all_batches},[$single_batch_array, $self->param('transcriptomic_status')]);
         $single_batch_array = [];
         $total_size = 0;
       }
@@ -162,7 +162,7 @@ sub build_sorted_batches {
     push(@{$single_batch_array}, $sample);
     $total_size += $file_size;
   }
-  push(@{$all_batches},[$single_batch_array]);
+  push(@{$all_batches},[$single_batch_array,$self->param('transcriptomic_status')]);
   return($all_batches);
 }
 

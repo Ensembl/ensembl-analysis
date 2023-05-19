@@ -48,6 +48,7 @@ use strict;
 use feature 'say';
 use File::Spec::Functions;
 use File::Basename;
+use Bio::EnsEMBL::Analysis::Hive::DBSQL::TranscriptomicRegistryAdaptor;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -105,15 +106,21 @@ sub fetch_input {
   unless(scalar(@all_gtf_files)) {
     $self->throw("No gtf dirs were provided");
   }
-
+  my $sample_name = '';
   foreach my $input_file (@all_gtf_files) {
-    my $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file'));
-    unless($sample_name) {
-      $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file_genus'));
+    if ($self->param('transcriptomic_status') == 0){
+      $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file'));
       unless($sample_name) {
-        $self->throw("Checked both the normal and genus csv files and failed to match the input file to a line, so could not retrieve the sample name");
+        $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file_genus'));
+        unless($sample_name) {
+          $self->throw("Checked both the normal and genus csv files and failed to match the input file to a line, so could not retrieve the sample name");
+        }
       }
     }
+    elsif ($self->param('transcriptomic_status') == 1){
+      $sample_name = $self->get_sample_name_from_registry($input_file);
+    }
+    else{}
 
     unless($merged_sample_hash->{$sample_name}) {
       $merged_sample_hash->{$sample_name} = [];
@@ -221,31 +228,60 @@ sub get_sample_name {
   if($file_extension_to_remove) {
     $input_file =~ s/$file_extension_to_remove//;
   }
-
+  
+  say "Searching for string ".$input_file." in the following csv file:\n".$csv_file;
+  
   my $sample_name;
-
+  
   unless(open(IN,$csv_file)) {
     $self->throw("Could not find the summary file to get the sample name. Path used:\n".$csv_file);
-  }
-
-
+  } 
+  
+  
   while(<IN>) {
     my $line = $_;
     unless($line =~ /$input_file/) {
       next;
-    }
-
-    # Here we should have found the line, so the sample name should be in the first column
-    unless($line =~ /^([^\t]+)\t/) {
+    } 
+  # Here we should have found the line, so the sample name should be in the first column
+  unless($line =~ /^([^\t]+)\t/) {
       $self->throw("Tried to parse the sample name from corresponding line in the csv file but failed (parsing regex issue?). Line:\n".$line);
-    }
-
+    } 
+    
     $sample_name = $1;
     last;
+  } 
+  close IN;
+  
+  return($sample_name);
+} 
+
+sub get_sample_name_from_registry {
+  my ($self,$input_file_path) = @_;
+  my $transcriptomic_adaptor = new Bio::EnsEMBL::Analysis::Hive::DBSQL::TranscriptomicRegistryAdaptor(
+        -user   => $self->param('user'),
+        -dbname => $self->param('registry_db'),
+        -host   => $self->param('registry_host'),
+        -port   => $self->param('registry_port'),
+        -pass   => '',
+        -driver => 'mysql',,
+    );
+
+  my $input_file = basename($input_file_path);
+  chomp($input_file);
+
+  my $file_extensions_to_remove = $self->param('input_file_extensions');
+
+  foreach my $extension (@$file_extensions_to_remove) {
+    $input_file =~ s/$extension//;
   }
-  close(IN) || $self->throw('Could not close '.$csv_file);
+
+  say "Searching for string ".$input_file." in the registry\n";
+
+  my $sample_name = $transcriptomic_adaptor->fetch_sample_name_by_run_id($input_file);
 
   return($sample_name);
 }
+
 
 1;

@@ -186,8 +186,16 @@ sub write_output {
     }
 
     $self->say_with_header("Output file: ".$output_file);
-    $self->dataflow_output_id([{'iid' => $output_file}], $self->param('_branch_to_flow_to'));
+    if (defined($self->param('transcriptomic_status'))){
+      push (@input, [{'iid' => $output_file}, {'transcriptomic_status' => '1'}]);
+      #$self->dataflow_output_id([{'iid' => $output_file}, {'transcriptomic_status' => '1'}], $self->param('_branch_to_flow_to'));
+    }
+    else{
+      push (@output, [{'iid' => $output_file}, {'transcriptomic_status' => '0'}]);
+      #$self->dataflow_output_id([{'iid' => $output_file}, {'transcriptomic_status' => '0'}], $self->param('_branch_to_flow_to'));
+    }
   }
+  $self->param('inputlist',\@output);
 }
 
 1;

@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Hive::RunnableDB::Scallop
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::Scallop;
 
 =head1 SYNOPSIS
 
@@ -51,7 +51,7 @@ use File::Basename;
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Analysis::Runnable::Scallop;
-
+use Bio::EnsEMBL::Analysis::Hive::DBSQL::TranscriptomicRegistryAdaptor;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -101,14 +101,21 @@ sub fetch_input {
   }
 
   foreach my $input_file (@$input_ids) {
+    my $sample_name = '';
     my $analysis = $self->create_analysis;
-    my $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file'));
-    unless($sample_name) {
-      $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file_genus'));
+    if ($self->param('transcriptomic_status') == 0){
+      $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file'));
       unless($sample_name) {
-        $self->throw("Checked both the normal and genus csv files and failed to match the input file to a line, so could not retrieve the sample name");
+        $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file_genus'));
+        unless($sample_name) {
+          $self->throw("Checked both the normal and genus csv files and failed to match the input file to a line, so could not retrieve the sample name");
+        }
       }
     }
+    elsif ($self->param('transcriptomic_status') == 1){
+      $sample_name = $self->get_sample_name_from_registry($input_file);
+    }
+    else{}
 
     $analysis->logic_name($sample_name."_scallop");
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::Scallop->new(
@@ -133,19 +140,7 @@ sub fetch_input {
 
 sub write_output {
   my ($self) = @_;
-
-
-#  my $target_dba = $self->hrdb_get_con("target_db");
-#  my $gene_adaptor = $target_dba->get_GeneAdaptor();
-
-#  my $genes = $self->output();
-#  say "Total genes to output: ".scalar(@$genes);
-#  foreach my $gene (@$genes) {
-#    $gene_adaptor->store($gene);
-#  }
-
 }
-
 
 sub get_sample_name {
   my ($self,$input_file_path,$csv_file) = @_;
@@ -187,4 +182,30 @@ sub get_sample_name {
   return($sample_name);
 }
 
+sub get_sample_name_from_registry {
+  my ($self,$input_file_path) = @_;
+  my $transcriptomic_adaptor = new Bio::EnsEMBL::Analysis::Hive::DBSQL::TranscriptomicRegistryAdaptor(
+        -user   => $self->param('user'),
+        -dbname => $self->param('registry_db'),
+        -host   => $self->param('registry_host'),
+        -port   => $self->param('registry_port'),
+        -pass   => '',
+        -driver => 'mysql',,
+    );
+
+  my $input_file = basename($input_file_path);
+  chomp($input_file);
+
+  my $file_extensions_to_remove = $self->param('input_file_extensions');
+
+  foreach my $extension (@$file_extensions_to_remove) {
+    $input_file =~ s/$extension//;
+  }
+
+  say "Searching for string ".$input_file." in the registry\n";
+
+  my $sample_name = $transcriptomic_adaptor->fetch_sample_name_by_run_id($input_file);
+ 
+  return($sample_name);
+}
 1;

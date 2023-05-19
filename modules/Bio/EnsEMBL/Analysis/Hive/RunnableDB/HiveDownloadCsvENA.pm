@@ -254,7 +254,7 @@ sub run {
             if ( $row[ $fields_index{library_layout} ] eq 'PAIRED' ) {
               $read_length /= 2;
             }
-            next if ( $read_length < 75 );
+           # next if ( $read_length < 75 );
             my %line = (
               run_accession       => $row[ $fields_index{run_accession} ],
               instrument_model    => $row[ $fields_index{instrument_model} ],
@@ -466,30 +466,22 @@ sub write_output {
           }
           $description =~ tr/:\t/ /;
           if ( $self->param('read_type') eq 'short_read' ) {
-            print FH sprintf( "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\t%s\t%s\n",
+            print FH sprintf( "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
               lc($sample_name),
               $experiment->{run_accession},
               $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
               $filename,
-              -1,
               $experiment->{read_length},
-              0,
-              $experiment->{center_name} || $self->param('_centre_name'),
-              $experiment->{instrument_platform},
-              $study_accession,
-              $sample,
-              $description,
               $file,
-              $checksums[$index]
+              $checksums[$index],
             );
           }
           else {
-            print FH sprintf( "%s\t%s\t%s\t%s\t%s\n",
+            print FH sprintf( "%s\t%s\t%s\t%s\n",
               lc($sample_name),
               $filename,
-              $description,
               $file,
-              $checksums[$index]
+              $checksums[$index],
             );
           }
           push( @output_ids, { url => $file, download_method => $download_method, checksum => $checksums[ $index++ ] } );

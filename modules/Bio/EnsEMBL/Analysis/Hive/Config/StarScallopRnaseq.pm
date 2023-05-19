@@ -80,7 +80,6 @@ sub default_options {
     'assembly_name'       => '',                                                                                      # Name (as it appears in the assembly report file)
     'uniprot_version'     => 'uniprot_2021_04',                                                                       # What UniProt data dir to use for various analyses
     'paired_end_only'     => '1',                                                                                     # Will only use paired-end rnaseq data if 1
-    #'csv_download'        => $self->o('download_csv'), #Will download csv from ENA if set to 1
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file') ), # Blast database for comparing the final models to.
@@ -170,6 +169,7 @@ sub default_options {
     'summary_file_delimiter' => '\t',            # Use this option to change the delimiter for your summary data file
     'summary_csv_table'      => 'csv_data',
     'read_length_table'      => 'read_length',
+    'registry_csv_table'      => 'short_read_data',
     'rnaseq_data_provider'   => 'ENA',           #It will be set during the pipeline or it will use this value
 
     'rnaseq_dir' => catdir( $self->o('output_path'), 'rnaseq' ),
@@ -208,7 +208,8 @@ sub default_options {
     # This is just an example based on the file snippet shown below.  It
     # will vary depending on how your data looks.
     ####################################################################
-    file_columns => [ 'SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS', 'url', 'md5sum' ],
+    star_column => ['SM'],
+    file_columns => [ 'SM', 'ID', 'is_paired', 'filename', 'read_length', 'url', 'md5sum', 'data_source' ],
     download_method => 'ftp',
 
     'filename_tag' => 'filename',    # For the analysis that creates star jobs, though I assume we should need to do it this way
@@ -279,8 +280,8 @@ sub default_options {
       -dbname => $self->o('registry_db'),
       -host   => $self->o('registry_host'),
       -port   => $self->o('registry_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('user_r'),
+      -pass   => '',
       -driver => $self->o('hive_driver'),
     },
 
@@ -367,7 +368,7 @@ sub pipeline_analyses {
         download_csv => $self->o('download_csv'),
       },
       -flow_into => {1 => WHEN ('#download_csv#' => ['download_rnaseq_csv'],
-                     ELSE  ['is_data_in_registry']#['fetch_from_registry','index_rnaseq_genome_file']
+                     ELSE  ['is_data_in_registry'],
                   )},
       -input_ids  => [{}],
     },
@@ -381,24 +382,26 @@ sub pipeline_analyses {
 
       -rc_name    => 'default',
       -flow_into => {
-         1 => WHEN ('#transcriptomic_status#' => ['index_rnaseq_genome_file','fetch_from_registry'],
-              ELSE ['download_rnaseq_csv'],
+        1  => WHEN ('#transcriptomic_status#' => ['index_rnaseq_genome_file'],
+                  '#transcriptomic_status#' => { 'fetch_from_registry' => { transcriptomic_status => '#transcriptomic_status#'}},
+              ELSE { 'download_rnaseq_csv' => { transcriptomic_status => '#transcriptomic_status#'}},
                   )},
     },
+ 
     {
       -logic_name => 'fetch_from_registry',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
-        transcriptomic_status => '#transcriptomic_data#',
-        inputquery    => 'SELECT SM,ID,is_paired,filename,is_mate_1,read_length,is_13plus,CN,PL,DS,url,md5sum FROM short_read_data WHERE species_id = ' . $self->o('taxon_id'),
+        inputquery    => 'SELECT SM,ID,is_paired,filename,read_length,url,md5sum,data_level FROM '.$self->o('registry_csv_table').' WHERE species_id = ' . $self->o('taxon_id'),
         column_names => $self->o('file_columns'),
         db_conn    => $self->o('registry_conn'),
       },
       -flow_into => {
-        '2->A' => [ 'download_RNASeq_fastqs' ],
+        '2->A' => [ 'download_RNASeq_fastq_from_registry' ],
         'A->1' => ['set_semaphored_analysis_registry'],
       }
     },
+
     {
       -logic_name => 'set_semaphored_analysis_registry',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
@@ -407,7 +410,9 @@ sub pipeline_analyses {
         '1->A' => ['create_star_jobs_registry'],
         'A->1' => ['scallopmerge_registry'],
       },
+      -wait_for => ['index_rnaseq_genome_file'],
     },
+
     {
       -logic_name => 'download_rnaseq_csv',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
@@ -484,12 +489,24 @@ sub pipeline_analyses {
         delimiter    => '\t',
       },
       -flow_into => {
-        2 => ['download_RNASeq_fastqs'],
+        2 => ['download_RNASeq_fastq_from_csv'],
       },
     },
 
     {
-      -logic_name => 'download_RNASeq_fastqs',
+      -logic_name => 'download_RNASeq_fastq_from_registry',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
+      -parameters => {
+        output_dir => $self->o('input_dir'),
+        download_method => $self->o('download_method'),
+        uncompress => 0,
+      },
+      -analysis_capacity => 50,
+      -max_retry_count => 12, #This is needed for big files > 10GB as there will be timeout and md5sum failures
+    },
+
+    {
+      -logic_name => 'download_RNASeq_fastq_from_csv',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
       -parameters => {
         output_dir => $self->o('input_dir'),
@@ -497,12 +514,13 @@ sub pipeline_analyses {
         uncompress => 0,
       },
       -flow_into => {
-        1 => ['store_RNASeq_fastqs_in_csvtable'],# WHEN('#transcriptomic_status# eq "1"' => 'store_RNASeq_fastqs_in_csvtable', ELSE 'get_read_lengths',),
+        1 => ['store_RNASeq_fastqs_in_csvtable'],
       },
       -analysis_capacity => 50,
       -max_retry_count => 12, #This is needed for big files > 10GB as there will be timeout and md5sum failures
     },
     
+
     {  
       -logic_name => 'store_RNASeq_fastqs_in_csvtable',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveParseDataIntoCsvTable',
@@ -546,6 +564,7 @@ sub pipeline_analyses {
         csvfile_table    => $self->o('summary_csv_table'),
         column_names     => $self->o('file_columns'),
         taxon_id         => $self->o('taxon_id'),
+        transcriptomic_status => '#transcriptomic_status#',
       },
       -rc_name   => 'default',
       -flow_into => {
@@ -561,14 +580,12 @@ sub pipeline_analyses {
         sample_column    => $self->o('read_group_tag'),
         sample_id_column => $self->o('read_id_tag'),
         filename_column  => $self->o('filename_tag'),
-        csvfile_table    => $self->o('summary_csv_table'),
-        column_names     => "['SM']",
+        column_names     => $self->o('star_column'),
         taxon_id         => $self->o('taxon_id'),
         registry_db => $self->o('registry_db'),
         registry_host   => $self->o('registry_host'),
         registry_port   => $self->o('registry_port'),
-        user   => $self->o('user'),
-        pass   => $self->o('password'),
+        user   => $self->o('user_r'),
         driver => $self->o('hive_driver'),
       },
       -rc_name   => 'default',
@@ -638,6 +655,7 @@ sub pipeline_analyses {
         csv_summary_file       => $self->o('rnaseq_summary_file'),
         csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
         num_threads            => $self->o('scallop_threads'),
+        taxon_id         => $self->o('taxon_id'),
       },
       -rc_name => '50GB_scallop',
       -flow_into => {
@@ -654,6 +672,7 @@ sub pipeline_analyses {
         csv_summary_file       => $self->o('rnaseq_summary_file'),
         csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
         num_threads            => $self->o('scallop_threads'),
+        taxon_id         => $self->o('taxon_id'),
       },
       -rc_name => '200GB_scallop',
     },
@@ -686,6 +705,12 @@ sub pipeline_analyses {
         csv_summary_file    => $self->o('rnaseq_summary_file'),
         csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
         num_threads            => $self->o('scallop_threads'),
+        taxon_id         => $self->o('taxon_id'),
+        registry_db => $self->o('registry_db'),
+        registry_host   => $self->o('registry_host'),
+        registry_port   => $self->o('registry_port'),
+        user   => $self->o('user_r'),
+        driver => $self->o('hive_driver'),
 
       },
       -flow_into => {
@@ -722,7 +747,48 @@ sub pipeline_analyses {
       -flow_into => {
         '1->A' => ['generate_scallop_gtf_jobs'],
         'A->1' => ['star2introns'],
-        1 => ['create_sample_jobs'],
+        1 => WHEN ('#transcriptomic_status#' => ['create_sample_jobs_from_registry'],
+              ELSE ['create_sample_jobs'],
+                  )}
+    },
+
+    {
+      -logic_name => 'create_sample_jobs_from_registry',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateSampleJobsFromRegistry',
+      -parameters => {
+        column_names => ['SM', 'rnaseq_data_provider'],
+        registry_db => $self->o('registry_db'),
+        registry_host   => $self->o('registry_host'),
+        registry_port   => $self->o('registry_port'),
+        user   => $self->o('user_r'),
+        pass   => '',
+        driver => $self->o('hive_driver'),
+        taxon_id => $self->o('taxon_id'),
+      },
+      -rc_name    => 'default',
+      -priority => -2,
+      -flow_into => {
+        2 => ['create_tissue_jobs_from_registry'],
+      },
+    },
+
+    {
+      -logic_name => 'create_tissue_jobs_from_registry',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateTissueJobsFromRegistry',
+      -parameters => {
+        column_names => [$self->o('read_group_tag'), $self->o('read_id_tag')],
+        taxon_id         => $self->o('taxon_id'),
+        registry_db => $self->o('registry_db'),
+        registry_host   => $self->o('registry_host'),
+        registry_port   => $self->o('registry_port'),
+        user   => $self->o('user_r'),
+        driver => $self->o('hive_driver'),
+      },
+      -rc_name    => 'default',
+      -priority => -2,
+      -flow_into => {
+        '2->A' => ['create_file_list'],
+        'A->1' => ['merged_tissue_file'],
       },
     },
 
@@ -739,6 +805,7 @@ sub pipeline_analyses {
         2 => ['create_tissue_jobs'],
       },
     },
+
     {
       -logic_name => 'create_tissue_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
@@ -753,6 +820,7 @@ sub pipeline_analyses {
         'A->1' => ['merged_tissue_file'],
       },
     },
+
     {
       -logic_name => 'create_file_list',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
