@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2022] EMBL-European Bioinformatics Institute
+Copyright [2016-2020] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ sub run {
   my $max_version_only      = $self->param('max_version_only');
   my $assembly_group        = $self->param('assembly_group');
   say "Fetching GCAs by constraints...";
-  my $inital_gca_list       = $assembly_registry_dba->fetch_gca_by_constraints_assembly_group_no_haplotype($assembly_group,$min_contig_n50,$min_scaffold_n50,$min_total_length,undef,$max_version_only);
+  my $inital_gca_list       = $assembly_registry_dba->fetch_gca_by_constraints($min_contig_n50,$min_scaffold_n50,$min_total_length,undef,$max_version_only);
   say "Processing GCAs to determine what to process...";
   my $gcas_to_process       = $self->find_gcas_to_process($inital_gca_list,$assembly_registry_dba);
   $self->gcas_to_process($gcas_to_process);
@@ -140,9 +140,39 @@ sub find_gcas_to_process {
 
     $table_adaptor->store($insert_row);
     push(@{$gcas_to_process},$gca);
+
+    #Update the registry with the library status
+    my ($chain,$version) = $self->split_gca($gca);
+    my $sql = "update assembly set repeat_library_status = ? where chain = ? AND version = ?";
+    my $sth = $assembly_registry_dba->dbc->prepare($sql);
+    $sth->bind_param(1,'in progress');
+    $sth->bind_param(2,$chain);
+    $sth->bind_param(3,$version);
+    unless($sth->execute()){
+      throw("Could not update repeatmodeler status for assembly with accession ".$gca);
+    }
   } # end foreach my $gca
 
   return($gcas_to_process);
+}
+
+=pod
+
+=head1 Description of method
+
+This method takes an accession and returns the chain and versionn of the assembly.
+
+=cut
+
+sub split_gca {
+  my ($self,$chain_version) = @_;
+  unless($chain_version =~ /^(GCA\_\d{9})\.(\d+)$/) {
+    $self->throw("Could not parse versioned GCA. GCA used: ".$chain_version);
+  }
+  my $chain = $1;
+  my $version = $2;
+
+  return($chain,$version);
 }
 
 
