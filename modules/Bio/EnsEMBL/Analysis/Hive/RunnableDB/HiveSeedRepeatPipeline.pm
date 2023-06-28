@@ -142,12 +142,14 @@ sub find_gcas_to_process {
     push(@{$gcas_to_process},$gca);
 
     #Update the registry with the library status
+    my $assembly_id = $assembly_registry_dba->fetch_assembly_id_by_gca($gca);
     my ($chain,$version) = $self->split_gca($gca);
-    my $sql = "update assembly set repeat_library_status = ? where chain = ? AND version = ?";
+    my $sql = "insert into repeat_library_status (library_id,assembly_accession,date_started,library_status) values(?,?,?,?)";
     my $sth = $assembly_registry_dba->dbc->prepare($sql);
-    $sth->bind_param(1,'in progress');
-    $sth->bind_param(2,$chain);
-    $sth->bind_param(3,$version);
+    $sth->bind_param(1,$assembly_id);
+    $sth->bind_param(2,$gca);
+    $sth->bind_param(2,DateTime->now));
+    $sth->bind_param(4,'in progress');
     unless($sth->execute()){
       throw("Could not update repeatmodeler status for assembly with accession ".$gca);
     }

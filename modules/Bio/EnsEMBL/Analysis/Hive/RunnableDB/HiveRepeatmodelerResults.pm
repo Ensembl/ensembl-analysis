@@ -202,6 +202,7 @@ sub update_species_file {
   my $species_name = $assembly_registry_dba->fetch_species_name_by_gca($gca);
   $species_name = lc($species_name);
   $species_name =~ s/ +$//; # This is an issue in the assembly registry db that needs fixing
+  $species_name =~ s/\.//g;
   $species_name =~ s/ +/\_/g;
 
   unless($species_name) {
@@ -268,13 +269,32 @@ sub update_registry{
   #Update registry to show that library has been generated
   my ($self,$gca,$assembly_registry_dba) = @_;
   my ($chain,$version) = $self->split_gca($gca);
-  my $sql = "update assembly set repeat_library_status = ? where chain = ? AND version = ?";
+  my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
+  my $species_name = $assembly_registry_dba->fetch_species_name_by_gca($gca);
+  $species_name = lc($species_name);
+  $species_name =~ s/ +$//;
+  $species_name =~ s/\.//g;
+  $species_name =~ s/\'//g;
+  $species_name =~ s/ +/\_/g;
+  my $library_name = $species_name . '.repeatmodeler.fa';
+  my $sql = "update repeat_library_status set library_status = ? where assembly_accession = ?";
   my $sth = $assembly_registry_dba->dbc->prepare($sql);
   $sth->bind_param(1,'completed');
-  $sth->bind_param(2,$chain);
-  $sth->bind_param(3,$version);
+  $sth->bind_param(2,$gca);
   unless($sth->execute()){
     throw("Could not update repeatmodeler status for assembly with accession ".$gca);
+  }
+  $sql = "update repeat_library_status set date_completed = ? where assembly_accession = ?";
+  $sth->bind_param(1,DateTime->now);
+  $sth->bind_param(2,$gca);
+  unless($sth->execute()){
+    throw("Could not update complettion date for assembly with accession ".$gca);
+  }
+  $sql = "update repeat_library_status set library_name = ? where assembly_accession = ?";
+  $sth->bind_param(1,$library_name);
+  $sth->bind_param(2,$gca);
+  unless($sth->execute()){
+    throw("Could not update complettion date for assembly with accession ".$gca);
   }
 }
 
