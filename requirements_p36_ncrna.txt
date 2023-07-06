@@ -1,6 +1,6 @@
 # We can only use python <= 3.6 because it needs scipy 0.18.1
 # We need to reinstall numpy as pandas will update to the latest version possible
 pandas
-scipy==0.18.1
+scipy==1.10.0
 scikit-learn==0.18.1
 numpy==1.17.5
