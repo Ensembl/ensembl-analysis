@@ -30,17 +30,8 @@ use Bio::EnsEMBL::Utils::CliHelper;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
-#my $assembly_registry_host = $ENV{GBS1};
-#my $assembly_registry_port = $ENV{GBP1};
-
-#my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-#  -host    => $assembly_registry_host,
- # -port    => $assembly_registry_port,
- # -user    => 'ensro',
- # -dbname  => 'gb_assembly_registry');
 
 my ($self) = @_;
-#my $registry_assembly_name = $assembly_registry->fetch_assembly_name_by_gca($self->o('assembly_accession'));
 
 if ( scalar(@ARGV) == 0 ) {
         usage();
@@ -59,7 +50,7 @@ my $working_directory = '';
 my $registry_host = '';
 my $registry_port = '';
 my $registry_db = '';
-
+my $busco_csv = '';
 GetOptions('dbname:s' => \$dbname,
            'host:s'  => \$host,
            'user:s' => \$user,
@@ -72,6 +63,7 @@ GetOptions('dbname:s' => \$dbname,
            'registry_host:s' => \$registry_host,
            'registry_port:s' => \$registry_port,
            'registry_db:s' => \$registry_db,
+           'csv_path:s' => \$busco_csv,
           );
 
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
@@ -92,6 +84,9 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
 my $registry_assembly_name = $assembly_registry->fetch_assembly_name_by_gca($assembly_accession);
 
 if ($registry_assembly_name eq $assembly_name){
+   #create csv file for busco run
+  open(my $rdir, '>:encoding(UTF-8)', $busco_csv);
+  print $rdir "$dbname";
    say "nothing to update";
 }
 else{
@@ -120,6 +115,9 @@ else{
   if ($dbname =~ m/rnaseq/){
     &rename_bam_files($working_directory,$assembly_name,$registry_assembly_name);
   }
+  #create csv file for busco run
+  open(my $rdir, '>:encoding(UTF-8)', $busco_csv);
+  print $rdir "$dbname";
 }
 
 

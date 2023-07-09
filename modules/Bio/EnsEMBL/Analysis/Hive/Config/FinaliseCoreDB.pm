@@ -564,6 +564,7 @@ sub pipeline_analyses {
           ' -registry_host ' . $self->o('registry_host') .
           ' -registry_port ' . $self->o('registry_port') .
           ' -registry_db ' . $self->o('registry_db'),
+          ' -cvs_path '. $self->o('output_path'),
       },
       -rc_name => 'default',
     },

@@ -263,6 +263,7 @@ sub default_options {
     ensembl_misc_script     => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script     => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
     registry_status_update_script     => catfile($self->o('ensembl_analysis_script'), 'update_assembly_registry.pl'),
+    nextflow_binary => '/hps/software/users/ensembl/genebuild/bin/nextflow',
 
     hive_beekeeper_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'beekeeper.pl'),
 
@@ -1915,10 +1916,22 @@ sub pipeline_analyses {
       -parameters => {
         beekeeper_script => $self->o('hive_beekeeper_script'),
       },
+      -flow_into => {
+        1 => ['busco_score_generation'],
+      },
       -rc_name      => 'default',
       -max_retry_count => 1,
     },
 
+    {
+      -logic_name => 'busco_score_generation',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => $self->o('nextflow_binary') .' -C '.$self->o('enscode_root_dir').'/ensembl-genes-nf/nextflow.config run '.$self->o('enscode_root_dir').'/ensembl-genes-nf/rmd_pipe_config.nf --enscode '.$self->o('enscode_root_dir').' --csvFile '.$self->o('output_path') . 'dbname.csv --genome_file '.$self->o('output_path').'/genome_dumps/'.$self->o('species_name').'_toplevel.fa --mode genome --w '.$self->o('output_path').'/busco/ --output_dir '.$self->o('output_path').'/busco --scratch '.$self->o('output_path').'/busco',
+        
+      },
+      -rc_name => '4GB',
+    },
 
     {
       -logic_name => 'fan_data_dbs',
