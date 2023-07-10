@@ -257,7 +257,7 @@ sub hive_data_table {
 sub lsf_resource_builder {
     my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements, $paths) = @_;
 
-    my $lsf_requirement = '-q '.($queue || 'production-rh7');
+    my $lsf_requirement = '-q '.($queue || 'production');
     my @lsf_rusage;
     my @lsf_select;
     $extra_requirements = '' unless (defined $extra_requirements);
@@ -299,6 +299,31 @@ sub lsf_resource_builder {
     return $lsf_requirement.' -R"select['.join(', ', @lsf_select).'] rusage['.join(', ', @lsf_rusage).'] '.$extra_requirements.'"';
 }
 
+=head2 slurm_resource_builder
+ Arg [1]    : String $queue, name of the queue to submit to, default is 'standard'
+ Arg [2]    : Integer $mem, memory required in MB
+ Arg [3]    : String $time, allocated time for the job, format is 'mm', 'hh:mm:ss', 'dd-hh'
+ Arg [4]    : Integer $num_threads, number of cores, use only if you ask for multiple cores
+ Arg [5]    : String $extra_requirements, any other parameters you want to give to SLURM
+ Example    : '1GB' => { SLURM => $self->slurm_resource_builder('standard', 1000, 5)},
+              '3GB_multithread' => { SLURM => $self->slurm_resource_builder('long', 3000, '12:00:00', 3)},
+ Description: It will return the SLURM requirement parameters you require based on the queue, the memory, time limit and the number
+              of CPUs. If you need any other other options you can add it with Arg[5].
+ Returntype : String
+ Exceptions : None
+=cut
+
+sub slurm_resource_builder {
+    my ($self, $queue, $memory, $time, $threads, $extra_requirements) = @_;
+
+    my $slurm_requirement = '--partition='.($queue || 'standard')
+                          .' --mem='.($memory || 1000)
+                          .' --time='.($time || '1:00:00');
+    if ($threads) {
+        $slurm_requirement .= " --cpus-per-task=$threads";
+    }
+    return $slurm_requirement.($extra_requirements || '');
+}
 
 =head2 create_database_hash
 
@@ -379,6 +404,50 @@ sub get_meta_db_information {
   $url =~ s/:/\// if ($pipedb->{-driver} eq 'sqlite');
   my $guiurl = sprintf("<a target='_blank' href='%s:%s/?driver=%s&username=%s&passwd=%s&host=%s&port=%d&dbname=%s'>guihive</a>", $guihiveserver, $guihiveport, $pipedb->{'-driver'}, $pipedb->{'-user'}, $pipedb->{'-pass'}, $pipedb->{'-host'}, $pipedb->{'-port'}, $pipedb->{'-dbname'});
   return $pipedb, $url, $guiurl;
+}
+
+
+sub resource_classes {
+  my $self = shift;
+
+  return {
+    'default_registry' => {
+            LSF => [$self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ,undef), '-reg_conf ' . $self->default_options->{'registry_file'}]  ,
+            SLURM => [ $self->slurm_resource_builder( 'standard', 900, '1-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
+    },
+    '1GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 1000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      SLURM =>  $self->slurm_resource_builder('standard', 1000, '7-00:00:00'),
+      },
+    '2GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      SLURM =>  $self->slurm_resource_builder('standard', 2000, '7-00:00:00'),
+      },
+    '3GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      SLURM =>  $self->slurm_resource_builder('standard', 3000, '7-00:00:00'),
+      },
+    '4GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      SLURM =>  $self->slurm_resource_builder('standard', 4000, '7-00:00:00'),
+      },
+    '5GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      SLURM =>  $self->slurm_resource_builder('standard', 4000, '7-00:00:00'),
+      },
+    '8GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      SLURM =>  $self->slurm_resource_builder('standard', 8000, '7-00:00:00'),
+      },
+    '10GB'             => {
+      LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      SLURM =>  $self->slurm_resource_builder('standard', 10000, '7-00:00:00'),
+      },
+    'default'          => {
+      LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      SLURM =>  $self->slurm_resource_builder('standard', 900, '1-00:00:00'),
+      },
+  };
 }
 
 1;

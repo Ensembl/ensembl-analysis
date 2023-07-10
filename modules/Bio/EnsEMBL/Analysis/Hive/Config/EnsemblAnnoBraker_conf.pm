@@ -1141,7 +1141,7 @@ sub pipeline_analyses {
           'sed  -i "/genebuild/d"  #output_path#/busco_core_genome_mode_output/*.txt;' .
           'mv #output_path#/busco_core_genome_mode_output/*.txt #output_path#/busco_core_genome_mode_output/#species_strain_group#_genome_busco_short_summary.txt',
       },
-      -rc_name   => 'busco',
+      -rc_name   => '32GB',
       -flow_into => { 1 => ['fan_busco_output'] },
     },
     {
@@ -1165,7 +1165,7 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'sudo -u genebuild singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
       },
-      -rc_name         => 'braker',
+      -rc_name         => '32GB',
       -max_retry_count => 0,
       -flow_into       => {
         1 => ['run_busco_braker'],
@@ -1177,14 +1177,14 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('num_threads') . ' -o busco_core_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('cores') . ' -o busco_core_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/logs;' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/busco_downloads;' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/run*;' .
 	  'sed  -i "/genebuild/d"  #output_path#/busco_core_protein_mode_output/*.txt;' .
 	  'mv #output_path#/busco_core_protein_mode_output/*.txt #output_path#/busco_core_protein_mode_output/#species_strain_group#_busco_short_summary.txt;',
       },
-      -rc_name   => 'braker',
+      -rc_name   => '32GB',
       -flow_into => {
         1 => ['update_assembly_registry_status'],
       },
@@ -1241,14 +1241,14 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'cd #output_path#; ' .
-	  'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/busco_score_data/canonical_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('num_threads') . ' -o busco_core_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+	  'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/busco_score_data/canonical_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('cores') . ' -o busco_core_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/logs;' .
           'rm -rf  #output_path#/busco_core_protein_mode_output/busco_downloads;' .
           'rm -rf  #output_path#/busco_core_protein_mode_output/run*;' .
           'sed  -i "/genebuild/d"  #output_path#/busco_core_protein_mode_output/*.txt;' .
 	  'mv #output_path#/busco_core_protein_mode_output/*.txt #output_path#/busco_core_protein_mode_output/#species_strain_group#_busco_short_summary.txt',
       },
-      -rc_name   => 'busco',
+      -rc_name   => '32GB',
       -flow_into => { 1 => ['fan_otherfeatures_db'] },
     },
     {
@@ -1345,7 +1345,7 @@ sub pipeline_analyses {
 	  'rm -rf #output_path#/prothint/Spaln;' .
 	  'sudo -u genebuild rm -rf #output_path#/braker/GeneMark-EP;' ,
       },
-      -rc_name         => 'braker',
+      -rc_name         => '32GB',
       -max_retry_count => 0,
       -flow_into       => {
         1 => ['load_gtf_file_in_otherfeatures_db'],
@@ -1527,17 +1527,6 @@ sub pipeline_analyses {
       },
 
     },
-    #    {
-    #  -logic_name => 'otherfeatures_add_placeholder_sample_location',
-    #  -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddPlaceholderLocation',
-    #  -parameters => {
-    #    input_db => '#otherfeatures_db#',
-    #  },
-    #  -rc_name   => 'default',
-    #  -flow_into => {
-    #    1 => ['otherfeatures_populate_analysis_descriptions'],
-    #  },
-    #},
 
     {
       -logic_name => 'otherfeatures_populate_analysis_descriptions',
@@ -1558,7 +1547,7 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'sudo -u genebuild singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
       },
-      -rc_name         => 'braker',
+      -rc_name         => '32GB',
       -max_retry_count => 0,
       -flow_into       => {
         1 => ['run_busco_braker_otherfeatures'],
@@ -1570,14 +1559,14 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('num_threads') . ' -o busco_otherfeatures_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('cores') . ' -o busco_otherfeatures_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
 	  'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/logs;' .
           'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/busco_downloads;' .
           'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/run*;' .
 	  'sed  -i "/genebuild/d"  #output_path#/busco_otherfeatures_protein_mode_output/*.txt;' .
 	  'mv #output_path#/busco_otherfeatures_protein_mode_output/*.txt #output_path#/busco_otherfeatures_protein_mode_output/#species_strain_group#_busco_short_summary.txt;',
       },
-      -rc_name   => 'braker',
+      -rc_name   => '32GB',
       -flow_into => {
         1 => ['otherfeatures_sanity_checks'],
       },
@@ -1649,20 +1638,18 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{'registry_file'} ] },
-    'anno'             => { LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'num_threads'} ) },
-    'braker'           => { LSF => $self->lsf_resource_builder( 'production', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'cores'} ) },
-    'busco'            => { LSF => $self->lsf_resource_builder( 'production', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'cores'} ) },
-    '1GB'              => { LSF => $self->lsf_resource_builder( 'production', 1000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '2GB'              => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '3GB'              => { LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '4GB'              => { LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '5GB'              => { LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '8GB'              => { LSF => $self->lsf_resource_builder( 'production', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '10GB'             => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'default'          => { LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-  };
-}
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
+     'anno'             => {
+     LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ], $self->default_options->{'num_threads'} ),
+     SLURM =>  $self->slurm_resource_builder('standard',50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
+     },
+    '32GB'           => {
+     LSF => $self->lsf_resource_builder( 'production', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ], $self->default_options->{'cores'} ),
+     SLURM =>  $self->slurm_resource_builder('standard', 32000, '7-00:00:00',  $self->default_options->{'cores'} ),
+    },
+    };
+    }
 
 sub hive_capacity_classes {
   my $self = shift;
