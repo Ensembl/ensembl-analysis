@@ -771,7 +771,7 @@ sub add_xrefs {
     }
     $object->add_DBEntry($xrefs_hash->{$xref});
     if ($object->can('display_xref')) {
-      if ($xrefs_hash->{$xref}->dbname eq 'Genbank') {
+      if ($xrefs_hash->{$xref}->dbname eq 'Genbank' or $xrefs_hash->{$xref}->dbname eq 'GenBank') {
         $object->display_xref($xrefs_hash->{$xref});
       }
       elsif ($object->isa('Bio::EnsEMBL::Gene') and $xrefs_hash->{$xref}->dbname eq 'EntrezGene') {
