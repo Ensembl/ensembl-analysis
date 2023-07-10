@@ -447,6 +447,10 @@ sub resource_classes {
       LSF => $self->lsf_resource_builder( 'production', 2000),
       SLURM =>  $self->slurm_resource_builder('production', 2000, '7-00:00:00'),
       },
+    '3GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 3000),
+      SLURM =>  $self->slurm_resource_builder('production', 3000, '7-00:00:00'),
+      },  
     '4GB'              => {
       LSF => $self->lsf_resource_builder( 'production', 4000),
       SLURM =>  $self->slurm_resource_builder('production', 4000, '7-00:00:00'),
@@ -454,6 +458,10 @@ sub resource_classes {
     '5GB'              => {
       LSF => $self->lsf_resource_builder( 'production', 5000),
       SLURM =>  $self->slurm_resource_builder('production', 5000, '7-00:00:00'),
+      },  
+    '6GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 6000),
+      SLURM =>  $self->slurm_resource_builder('production', 6000, '7-00:00:00'),
       },  
     '8GB'              => {
       LSF => $self->lsf_resource_builder( 'production', 8000),
@@ -466,6 +474,10 @@ sub resource_classes {
     '15GB'             => {
       LSF => $self->lsf_resource_builder( 'production', 15000),
       SLURM =>  $self->slurm_resource_builder('production', 15000, '7-00:00:00'),
+      },  
+    '50GB'              => {
+      LSF => $self->lsf_resource_builder( 'production', 50000),
+      SLURM =>  $self->slurm_resource_builder('production', 50000, '7-00:00:00'),
       },  
     'default'          => {
       LSF => $self->lsf_resource_builder( 'production', 900),
