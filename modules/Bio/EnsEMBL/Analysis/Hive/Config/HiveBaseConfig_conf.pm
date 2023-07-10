@@ -474,6 +474,10 @@ sub resource_classes {
     '15GB'             => {
       LSF => $self->lsf_resource_builder( 'production', 15000),
       SLURM =>  $self->slurm_resource_builder('production', 15000, '7-00:00:00'),
+      }, 
+    '30GB'             => {
+      LSF => $self->lsf_resource_builder( 'production', 30000),
+      SLURM =>  $self->slurm_resource_builder('production', 30000, '7-00:00:00'),
       },  
     '50GB'              => {
       LSF => $self->lsf_resource_builder( 'production', 50000),
