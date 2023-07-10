@@ -1375,36 +1375,6 @@ sub pipeline_analyses {
         1 => ['otherfeatures_set_meta_coords'],
       },
     },
-    #    {
-    #  -logic_name => 'update_otherfeatures_db',
-    #  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-    #  -parameters => {
-    #    db_conn => '#otherfeatures_db#',
-    #    sql     => [
-		#          'DELETE FROM analysis_description WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name IN' .
-		# ' ("dust","repeatdetector","trf","cpg","eponine"))',
-		#'DELETE FROM analysis WHERE logic_name IN' .
-		# ' ("dust","repeatdetector","trf","cpg","eponine")',
-		#     'TRUNCATE analysis',
-		#  'TRUNCATE analysis_description',
-		# 'DELETE FROM meta WHERE meta_key LIKE "%.level"',
-		#'DELETE FROM meta WHERE meta_key LIKE "sample.%"',
-		#'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
-		#'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
-		#'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
-		# 'DELETE FROM meta WHERE meta_key IN' .
-		#' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date")',
-		# 'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
-		#'UPDATE meta set meta_value="BRAKER#species_prefix#" where meta_key="species.stable_id_prefix"',
-		#'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
-		# ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',
-		#  ],
-		# },
-		# -rc_name   => 'default',
-		# -flow_into => {
-		#   1 => ['otherfeatures_set_meta_coords'],
-		#},
-		#},
     {
       -logic_name => 'otherfeatures_set_meta_coords',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
