@@ -1134,7 +1134,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'cd #output_path#; ' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/#species_name#_reheadered_toplevel.fa  -m genome -l #busco_group# -c ' . $self->o('num_threads') . ' -o busco_core_genome_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/#species_name#_reheadered_toplevel.fa  -m genome -l #busco_group# -c ' . $self->o('cores') . ' -o busco_core_genome_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
           'rm -rf  #output_path#/busco_core_genome_mode_output/logs;' .
           'rm -rf  #output_path#/busco_core_genome_mode_output/busco_downloads;' .
           'rm -rf  #output_path#/busco_core_genome_mode_output/run*;' .
