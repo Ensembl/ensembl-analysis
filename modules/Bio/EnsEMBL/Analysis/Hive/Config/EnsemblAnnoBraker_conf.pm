@@ -870,7 +870,7 @@ sub pipeline_analyses {
         1 => ['load_gtf_file'],
       },
     },
-    {		    {
+    {		   
       -logic_name => 'load_gtf_file',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -1672,7 +1672,6 @@ sub pipeline_analyses {
        },
        -rc_name => 'default',
      },
-    },
   ];
 }
 
