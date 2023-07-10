@@ -312,7 +312,7 @@ sub pipeline_analyses {
         flag_small_introns  => $self->o('genblast_flag_small_introns'),
         flag_subpar_models  => $self->o('genblast_flag_subpar_models'),
       },
-      -rc_name   => 'genblast',
+      -rc_name   => '4GB',
       -flow_into => {
         -1 => ['split_genblast_jobs'],
         -2 => ['split_genblast_jobs'],
@@ -356,7 +356,7 @@ sub pipeline_analyses {
         flag_small_introns  => $self->o('genblast_flag_small_introns'),
         flag_subpar_models  => $self->o('genblast_flag_subpar_models'),
       },
-      -rc_name              => 'genblast_retry',
+      -rc_name              => '5GB',
       -can_be_empty         => 1,
       -failed_job_tolerance => 100,
       -flow_into            => {
@@ -490,13 +490,8 @@ sub pipeline_analyses {
 sub resource_classes {
   my $self = shift;
   return {
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
-    '3GB'     => { LSF => $self->lsf_resource_builder( 'production', 3000 ) },
-    '4GB'     => { LSF => $self->lsf_resource_builder( 'production', 4000 ) },
-    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
-    'genblast'       => { LSF => $self->lsf_resource_builder( 'production', 3900 ) },
-    'genblast_retry' => { LSF => $self->lsf_resource_builder( 'production', 4900 ) },
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
     }
 }
 
