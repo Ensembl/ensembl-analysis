@@ -522,11 +522,8 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
-    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
-    '5GB' => { LSF => $self->lsf_resource_builder('production', 5000)},
-    '6GB' => { LSF => $self->lsf_resource_builder('production', 6000)},
-    '10GB' => { LSF => $self->lsf_resource_builder('production', 10000)},
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
     'blast' => { LSF => $self->lsf_resource_builder('production', 2900, undef, undef, 3)},
     'blast_retry' => { LSF => $self->lsf_resource_builder('production', 5900, undef, undef, 3)},
     'filter' => { LSF => $self->lsf_resource_builder('production', 4900)},
