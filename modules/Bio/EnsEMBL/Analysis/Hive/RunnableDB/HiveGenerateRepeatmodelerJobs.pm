@@ -67,8 +67,8 @@ sub run {
 
   my $gca = $self->param_required('iid');
   my $path_to_genomic_fasta = $self->param_required('path_to_genomic_fasta');
-  my $repeatmodeler_run_count = $self->param('repeatmodeler_run_count');
-  $self->create_output_subdirs($path_to_genomic_fasta,$repeatmodeler_run_count);
+  my $run_count = $self->param('run_count');
+  $self->create_output_subdirs($path_to_genomic_fasta,$run_count);
 }
 
 
@@ -83,14 +83,14 @@ sub write_output {
 }
 
 sub create_output_subdirs {
-  my ($self,$path_to_genomic_fasta,$repeatmodeler_run_count) = @_;
+  my ($self,$path_to_genomic_fasta,$run_count) = @_;
 
   my $master_output = catfile($path_to_genomic_fasta,'output');
   if(system('mkdir -p '.$master_output)) {
     $self->throw("Could not make main output dir on path: ".$master_output);
   }
 
-  for(my $i=0; $i<$repeatmodeler_run_count; $i++) {
+  for(my $i=0; $i<$run_count; $i++) {
     my $run_subdir = catfile($master_output,$i);
     if(system('mkdir -p '.$run_subdir)) {
       $self->throw("Could not make main output dir on path: ".$master_output);
