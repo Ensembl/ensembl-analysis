@@ -138,7 +138,6 @@ sub default_options {
 
     'min_toplevel_slice_length' => 250,
     rnaseq_merge_type => 'samtools',
-    rnaseq_merge_threads => 12,
 
     # This is used for "messaging" other sub pipeline
     main_pipeline_url => undef,
@@ -194,7 +193,7 @@ sub default_options {
 
     star_threads    => 12,
     scallop_threads => 2,
-
+    rnaseq_merge_threads => 12,
     # Please assign some or all columns from the summary file to the
     # some or all of the following categories.  Multiple values can be
     # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus,
@@ -684,7 +683,7 @@ sub pipeline_analyses {
         use_threads => $self->o('rnaseq_merge_threads'),
         rename_file => 1,
       },
-      -rc_name    => '3GB_rnaseq_multithread',
+      -rc_name    => '3GB_rnaseq',
       -priority => -2,
       -max_retry_count => 0,
       -flow_into => {
@@ -812,7 +811,7 @@ sub pipeline_analyses {
         '-1' => ['blast_scallop_longseq'],
         '2'  => ['blast_scallop_longseq'],
       },
-      -rc_name => '3GB_multithread',
+      -rc_name => '3GB_3cpus',
     },
 
     {
@@ -831,7 +830,7 @@ sub pipeline_analyses {
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40',
       },
       -hive_capacity => $self->o('hc_normal'),
-      -rc_name => '10GB_multithread',
+      -rc_name => '10GB_3cpus',
     },
 
     {
@@ -1265,24 +1264,29 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '1GB'     => { LSF => $self->lsf_resource_builder( 'production', 1000 ) },
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
-    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
-    '8GB'     => { LSF => $self->lsf_resource_builder( 'production', 8000 ) },
-    '10GB'     => { LSF => $self->lsf_resource_builder( 'production', 10000 ) },
-    '50GB'     => { LSF => $self->lsf_resource_builder( 'production', 50000 ) },
-    '100GB'     => { LSF => $self->lsf_resource_builder( 'production', 100000 ) },
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
-    '3GB_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 2900, undef, undef, $self->default_options->{use_threads} ) },
-    '3GB_rnaseq_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 2900, undef, undef, $self->default_options->{rnaseq_merge_threads} ) },
-    '5GB_merge_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 5000, undef, undef, $self->default_options->{rnaseq_merge_threads} ) },
-    '10GB_multithread' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, $self->default_options->{use_threads} ) },
-    '45GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 45000, undef, undef, ( $self->default_options->{'star_threads'} + 1 ) ) },
-    '80GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 80000, undef, undef, ( $self->default_options->{'star_threads'} + 1 ) ) },
-    '10GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, $self->default_options->{'scallop_threads'} ) },
-    '50GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 50000, undef, undef, $self->default_options->{'scallop_threads'} ) },
-    '200GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 200000, undef, undef, $self->default_options->{'scallop_threads'} ) },
-    '15GB'     => { LSF => $self->lsf_resource_builder( 'production', 15000 ) },
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
+    '100GB'     => { LSF => $self->lsf_resource_builder( 'production', 100000 ),
+                     SLURM =>  $self->slurm_resource_builder('production',100000, '7-00:00:00'),
+                   },
+    '3GB_rnaseq'   => { LSF => $self->lsf_resource_builder( 'production', 2900, undef, undef, $self->default_options->{rnaseq_merge_threads} ),
+                        SLURM =>  $self->slurm_resource_builder('production',2900, '7-00:00:00', $self->default_options->{rnaseq_merge_threads} ),
+                   },
+    '45GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 45000, undef, undef, $self->default_options->{'star_threads'} ),
+                        SLURM =>  $self->slurm_resource_builder('production',45000, '7-00:00:00',$self->default_options->{'star_threads'}),
+                      },
+    '80GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 80000, undef, undef, $self->default_options->{'star_threads'} ),
+                        SLURM =>  $self->slurm_resource_builder('production',80000, '7-00:00:00', $self->default_options->{'star_threads'} ),
+                      },
+    '10GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, $self->default_options->{'scallop_threads'} ),
+                        SLURM =>  $self->slurm_resource_builder('production',10000, '7-00:00:00', $self->default_options->{'scallop_threads'} ),
+                      },
+    '50GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 50000, undef, undef, $self->default_options->{'scallop_threads'} ),
+                        SLURM =>  $self->slurm_resource_builder('production',50000, '7-00:00:00', $self->default_options->{'scallop_threads'} ),
+                      },
+    '200GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 200000, undef, undef, $self->default_options->{'scallop_threads'} ),
+                        SLURM =>  $self->slurm_resource_builder('production',200000, '7-00:00:00', $self->default_options->{'scallop_threads'} ),
+                       },
     }
 }
 
