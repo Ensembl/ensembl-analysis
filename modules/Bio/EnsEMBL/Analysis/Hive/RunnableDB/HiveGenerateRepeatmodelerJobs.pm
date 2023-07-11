@@ -77,7 +77,7 @@ sub write_output {
 
   foreach my $run_dir (@{$self->output()}) {
     my $job_params = destringify($self->input_job->input_id());
-    $job_params->{'repeatmodeler_run_dir'} = $run_dir;
+    $job_params->{'repeat_run_dir'} = $run_dir;
     $self->dataflow_output_id($job_params,2);
   }
 }
