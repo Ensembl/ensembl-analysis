@@ -524,9 +524,15 @@ sub resource_classes {
   return {
     #inherit other stuff from the base class
      %{ $self->SUPER::resource_classes() },
-    'blast' => { LSF => $self->lsf_resource_builder('production', 2900, undef, undef, 3)},
-    'blast_retry' => { LSF => $self->lsf_resource_builder('production', 5900, undef, undef, 3)},
-    'filter' => { LSF => $self->lsf_resource_builder('production', 4900)},
+    'blast' => { LSF => $self->lsf_resource_builder('production', 2900, undef, undef, 3),
+                 SLURM =>  $self->slurm_resource_builder('production',2900, '1-00:00:00', 3 ),
+               },
+    'blast_retry' => { LSF => $self->lsf_resource_builder('production', 5900, undef, undef, 3),
+                       SLURM =>  $self->slurm_resource_builder('production',5900, '1-00:00:00', 3 ),
+               },
+    'filter' => { LSF => $self->lsf_resource_builder('production', 4900),
+                  SLURM =>  $self->slurm_resource_builder('production',4900, '1-00:00:00', 3 ),
+               },
   }
 }
 
