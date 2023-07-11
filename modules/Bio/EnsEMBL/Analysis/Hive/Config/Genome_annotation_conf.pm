@@ -1927,7 +1927,7 @@ sub pipeline_analyses {
       -logic_name => 'busco_score_generation',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => $self->o('nextflow_binary') .' -C '.$self->o('enscode_root_dir').'/ensembl-genes-nf/nextflow.config run '.$self->o('enscode_root_dir').'/ensembl-genes-nf/rmd_pipe_config.nf --enscode '.$self->o('enscode_root_dir').' --csvFile '.$self->o('output_path') . 'dbname.csv --genome_file '.$self->o('output_path').'/genome_dumps/'.$self->o('species_name').'_toplevel.fa --mode protein --outDir '.$self->o('output_path').'/busco --host '.$self->o('dna_db_host').' --port '.$self->o('dna_db_port').' --user '.$self->o('user_r'),
+        cmd => $self->o('nextflow_binary') .' -C '.$self->o('enscode_root_dir').'/ensembl-genes-nf/nextflow.config run '.$self->o('enscode_root_dir').'/ensembl-genes-nf/workflows/busco_pipeline.nf --enscode '.$self->o('enscode_root_dir').' --csvFile '.$self->o('output_path') . 'dbname.csv --genome_file '.$self->o('output_path').'/genome_dumps/'.$self->o('species_name').'_toplevel.fa --outDir '.$self->o('output_path').'/busco --host '.$self->o('dna_db_host').' --port '.$self->o('dna_db_port').' --user '.$self->o('user_r'),
         
       },
       -rc_name => '4GB',
