@@ -451,6 +451,9 @@ sub resource_classes {
       LSF => $self->lsf_resource_builder( 'production', 3000),
       SLURM =>  $self->slurm_resource_builder('production', 3000, '7-00:00:00'),
       },  
+    '3GB_3cpus' => { LSF => $self->lsf_resource_builder('production', 3000, undef, undef, 3),
+                 SLURM =>  $self->slurm_resource_builder('production',3000, '7-00:00:00', 3 ),  
+      },
     '4GB'              => {
       LSF => $self->lsf_resource_builder( 'production', 4000),
       SLURM =>  $self->slurm_resource_builder('production', 4000, '7-00:00:00'),
@@ -471,6 +474,9 @@ sub resource_classes {
       LSF => $self->lsf_resource_builder( 'production', 10000),
       SLURM =>  $self->slurm_resource_builder('production', 10000, '7-00:00:00'),
       },
+    '10GB_3cpus' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, 3),
+                      SLURM =>  $self->slurm_resource_builder('production',10000, '7-00:00:00', 3 ),  
+      };
     '15GB'             => {
       LSF => $self->lsf_resource_builder( 'production', 15000),
       SLURM =>  $self->slurm_resource_builder('production', 15000, '7-00:00:00'),
@@ -506,6 +512,8 @@ sub resource_classes {
       LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder('standard', 3000, '7-00:00:00'),
       },
+    'blast' => { LSF => $self->lsf_resource_builder('production', 2900, undef, undef, 3),
+                 SLURM =>  $self->slurm_resource_builder('production',2900, '1-00:00:00', 3 ),  
     '4GB'              => {
       LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder('standard', 4000, '7-00:00:00'),
