@@ -240,7 +240,7 @@ sub pipeline_analyses {
         blast_eval => $self->o('ig_tr_genblast_eval'),
         blast_cov  => $self->o('ig_tr_genblast_cov'),
         },
-      -rc_name    => 'genblast',
+      -rc_name    => '4GB',
       -flow_into => {
         -1 => ['split_ig_tr_genblast_jobs'],
         -2 => ['split_ig_tr_genblast_jobs'],
@@ -281,7 +281,7 @@ sub pipeline_analyses {
         blast_eval => $self->o('ig_tr_genblast_eval'),
         blast_cov  => $self->o('ig_tr_genblast_cov'),
         },
-      -rc_name          => 'genblast_retry',
+      -rc_name          => '5GB',
       -can_be_empty  => 1,
       -failed_job_tolerance => 100,
       -flow_into => {
@@ -341,7 +341,7 @@ sub pipeline_analyses {
         logic_name => 'ig_tr_gene',
         logic_names_to_cluster => ['ig_tr_gene','ig_tr_gene_not_best'],
         },
-      -rc_name    => 'genblast',
+      -rc_name    => '4GB',
       -flow_into => {
         1 => ['update_ig_tr_biotypes'],
         },
@@ -402,10 +402,8 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '2GB' => { LSF => $self->lsf_resource_builder('production', 2000)},
-    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
-    'genblast' => { LSF => $self->lsf_resource_builder('production', 3900)},
-    'genblast_retry' => { LSF => $self->lsf_resource_builder('production', 4900)},
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
     }
 }
 
