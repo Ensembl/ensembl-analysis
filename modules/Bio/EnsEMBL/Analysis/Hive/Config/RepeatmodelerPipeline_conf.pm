@@ -54,7 +54,7 @@ sub default_options {
 'min_total_length'            => 50000000, # min amount of total sequence
 'sleep_length_hours'          => 1, # How long to sleep between checking for new assemblies
 'min_consensi_files'          => 1, # Min number of repeatmodeler runs for an assembly before proceeding
-'repeatmodeler_run_count'     => 1, # Number of runs of repeatmodeler per assembly
+'run_count'     => 1, # Number of runs of repeatmodeler per assembly
 'num_cores'                   => 10, # Number of cores for BLAST phase of repeatmodeler
 
 # Mostly constant stuff
@@ -159,7 +159,7 @@ sub pipeline_analyses {
       -logic_name => 'generate_repeatmodeler_jobs',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenerateRepeatmodelerJobs',
       -parameters => {
-                       repeatmodeler_run_count => $self->o('repeatmodeler_run_count'),
+                       run_count => $self->o('run_count'),
                      },
 
       -flow_into  => {
