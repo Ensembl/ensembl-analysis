@@ -506,7 +506,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '1GB',
       -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -taxon_id #species_taxon_id# ' .'-f #long_read_summary_file# -read_type long' ,
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #long_read_summary_file# --read_type long' ,
         # This is specifically for gbiab, as taxon_id is populated in the input id with
         # the actual taxon, had to add some code override. Definitely better solutions available,
         # one might be to just branch this off and then only pass the genus taxon id
