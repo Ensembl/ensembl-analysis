@@ -609,11 +609,10 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '2GB' => { LSF => $self->lsf_resource_builder('production', 2000)},
-    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
-    '8GB' => { LSF => $self->lsf_resource_builder('production', 8000)},
-    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, $self->default_options->{'use_threads'})},
-    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
+     #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
+    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, $self->default_options->{'use_threads'}),
+                            SLURM =>  $self->slurm_resource_builder('standard', 1000, '7-00:00:00',$self->default_options->{'use_threads'}),},
   }
 }
 
