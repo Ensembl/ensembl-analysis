@@ -662,35 +662,9 @@ sub pipeline_analyses {
 # Run Red (REpeat Detector)
     {
       -logic_name => 'repeatdetector',
-      -module     => 'Repeatmask_Red',
-      -language   => 'python3',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        logic_name     => $self->o('red_logic_name'),
-        red_path       => $self->o('red_path'),
-        genome_file    => $self->o('faidx_genome_file'),
-        target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_host').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
-        msk            => $self->o('red_msk'),
-        rpt            => $self->o('red_rpt'),
-        red_meta_key   => $self->o('replace_repbase_with_red_to_mask'),
-      },
-      -rc_name   => '15GB',
-      -flow_into => {
-        -1  => ['repeatdetector_50GB'],
-      },
-    },
-
-    {
-      -logic_name => 'repeatdetector_50GB',
-      -module     => 'Repeatmask_Red',
-      -language   => 'python3',
-      -parameters => {
-        logic_name     => $self->o('red_logic_name'),
-        red_path       => $self->o('red_path'),
-        genome_file    => $self->o('faidx_genome_file'),
-        target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_host').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
-        msk            => $self->o('red_msk'),
-        rpt            => $self->o('red_rpt'),
-        red_meta_key   => $self->o('replace_repbase_with_red_to_mask'),
+	    cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl_anno.py' ) .' --genome_file '. $self->o('faidx_genome_file') .' --db_details '. $self->o('dna_db_name').','.$self->o('dna_db_host').','.$self->o('dna_db_port').','.$self->o('user').','.$self->o('password')  .' --output_dir '. $self->o('output_path') .' --num_threads 20 --run_masking --load_to_ensembl_db',
       },
       -rc_name => '50GB',
     },
