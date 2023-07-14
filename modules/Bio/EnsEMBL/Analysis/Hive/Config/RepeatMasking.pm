@@ -664,9 +664,10 @@ sub pipeline_analyses {
       -logic_name => 'repeatdetector',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	    cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl_anno.py' ) .' --genome_file '. $self->o('faidx_genome_file') .' --db_details '. $self->o('dna_db_name').','.$self->o('dna_db_host').','.$self->o('dna_db_port').','.$self->o('user').','.$self->o('password')  .' --output_dir '. $self->o('output_path') .' --num_threads 20 --run_masking --load_to_ensembl_db',
+
+   	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl_anno.py' ) .' --genome_file '. $self->o('faidx_genome_file') .' --db_details '. $self->o('dna_db_name').','.$self->o('dna_db_host').','.$self->o('dna_db_port').','.$self->o('user').','.$self->o('password')  .' --output_dir '. $self->o('output_path') .' --num_threads 20 --run_masking --load_to_ensembl_db',
       },
-      -rc_name => '50GB',
+      -rc_name   => '50GB',
     },
   ];
 }
