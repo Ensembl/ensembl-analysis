@@ -776,7 +776,7 @@ sub pipeline_analyses {
       -logic_name => 'concat_pseudogenes_multi_exon_files',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'cat '.catfile('#working_dir#','multi_exon_seq*').' > '.
+        cmd => 'find  #working_dir# -maxdepth 1 -type f -name '.'"multi_exon_seq*"'.'  -print0 |xargs -0 cat > '. 
           catfile('#working_dir#','all_multi_exon_genes.fasta'),
         working_dir => $self->o('pseudogenes_path'),
       },
