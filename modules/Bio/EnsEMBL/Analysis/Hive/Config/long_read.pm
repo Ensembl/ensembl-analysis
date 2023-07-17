@@ -601,10 +601,10 @@ sub resource_classes {
     #inherit other stuff from the base class
      %{ $self->SUPER::resource_classes() },
     '20GB'    => { LSF => $self->lsf_resource_builder( 'production', 20000 ),
-                   SLURM =>  $self->slurm_resource_builder('production', 20000, '7-00:00:00'),
+                   SLURM =>  $self->slurm_resource_builder(20000, '7-00:00:00'),
                   },
     '25GB'    => { LSF => $self->lsf_resource_builder( 'production', 25000 ),
-                   SLURM =>  $self->slurm_resource_builder('production', 25000, '7-00:00:00'),
+                   SLURM =>  $self->slurm_resource_builder(25000, '7-00:00:00'),
                  },
     }
 }

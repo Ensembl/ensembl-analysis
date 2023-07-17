@@ -525,7 +525,7 @@ sub resource_classes {
     #inherit other stuff from the base class
      %{ $self->SUPER::resource_classes() },
     '6GB_3cpus' => { LSF => $self->lsf_resource_builder('production', 5900, undef, undef, 3),
-                     SLURM =>  $self->slurm_resource_builder('production',5900, '7-00:00:00', 3 ),
+                     SLURM =>  $self->slurm_resource_builder(5900, '7-00:00:00', 3 ),
                },
   }
 }

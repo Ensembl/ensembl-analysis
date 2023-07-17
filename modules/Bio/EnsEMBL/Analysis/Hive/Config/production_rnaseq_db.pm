@@ -241,6 +241,7 @@ sub pipeline_analyses {
           'DELETE FROM analysis WHERE logic_name NOT LIKE "%rnaseq%"',
           'DELETE FROM analysis WHERE logic_name LIKE "%merged%"',
           'INSERT INTO analysis (logic_name, module, created, db_version) VALUES ("other_protein", "HiveBlastRNAseq", NOW(), "#uniprot_version#")',
+          'INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, "species.annotation_source", "ensembl")',
           'UPDATE protein_align_feature paf, analysis a SET paf.analysis_id = a.analysis_id WHERE a.logic_name = "other_protein"',
           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
           'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag\.%"',
@@ -612,7 +613,7 @@ sub resource_classes {
      #inherit other stuff from the base class
      %{ $self->SUPER::resource_classes() },
     '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, $self->default_options->{'use_threads'}),
-                            SLURM =>  $self->slurm_resource_builder('standard', 1000, '7-00:00:00',$self->default_options->{'use_threads'}),},
+                            SLURM =>  $self->slurm_resource_builder(1000, '7-00:00:00',$self->default_options->{'use_threads'}),},
   }
 }
 

@@ -836,16 +836,16 @@ sub resource_classes {
 
   return {
     '2GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 2000 ), '-reg_conf ' . $self->default_options->{registry_file} ],
-                      SLURM => [ $self->slurm_resource_builder( 'production', 2000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
+                      SLURM => [ $self->slurm_resource_builder(2000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
     },
     '4GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 4000 ), '-reg_conf ' . $self->default_options->{registry_file} ],
-                      SLURM => [ $self->slurm_resource_builder( 'production', 4000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
+                      SLURM => [ $self->slurm_resource_builder(4000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
     },
     '8GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 8000 ), '-reg_conf ' . $self->default_options->{registry_file} ],
-                      SLURM => [ $self->slurm_resource_builder( 'production', 8000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
+                      SLURM => [ $self->slurm_resource_builder(8000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
   },
     '15GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 15000 ), '-reg_conf ' . $self->default_options->{registry_file} ],
-                      SLURM => [ $self->slurm_resource_builder( 'production', 15000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
+                      SLURM => [ $self->slurm_resource_builder(15000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
   },
     }
 }
