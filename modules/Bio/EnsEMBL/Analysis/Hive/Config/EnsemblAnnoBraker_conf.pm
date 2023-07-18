@@ -1644,11 +1644,11 @@ sub resource_classes {
      %{ $self->SUPER::resource_classes() },
      'anno'             => {
      LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ], $self->default_options->{'num_threads'} ),
-     SLURM =>  $self->slurm_resource_builder('production',50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
+     SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
      },
     '32GB'           => {
      LSF => $self->lsf_resource_builder( 'production', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ], $self->default_options->{'cores'} ),
-     SLURM =>  $self->slurm_resource_builder('production', 32000, '7-00:00:00',  $self->default_options->{'cores'} ),
+     SLURM =>  $self->slurm_resource_builder(32000, '7-00:00:00',  $self->default_options->{'cores'} ),
     },
     };
     }
