@@ -500,8 +500,6 @@ sub _master_config {
         }, # logic_names
         'biotypes' =>    {
           'fish_pe12_' => 20000,
-          'mammals_pe12_' => 5000,
-          'vert_pe12_' => 10000,
         }, # biotypes
       }, # genblast
       'ig_tr' => {
@@ -537,8 +535,6 @@ sub _master_config {
           'genblast'                => 10000,
         }, # logic_names
         'biotypes' =>    {
-          'vert_pe12_'       => 200,
-          'mammals_pe12_'        => 500,
           'rnaseq_tissue_'       => 14000,
         }, # biotypes
       }, # layer
