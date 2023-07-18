@@ -106,6 +106,7 @@ sub param_defaults {
     load_non_nuclear => 0,
     _agp_branch => 3,
     _coord_systems => {},
+    _skip_cache_clearing => 1,
   }
 }
 
@@ -334,8 +335,10 @@ sub run {
     binmode $fh;
     my $md5sum = $digest->addfile($fh)->hexdigest;
     close($fh) || $self->throw('Could not close '.$file);
-    $self->throw('MD5 not as expected '.$checksum{$self->param('_genome_file_name').$self->param('_genome_zip_ext')}.' but '.$md5sum)
-      unless ($md5sum eq $checksum{$self->param('_genome_file_name').$self->param('_genome_zip_ext')});
+    if ($md5sum ne $checksum{$self->param('_genome_file_name').$self->param('_genome_zip_ext')}) {
+      unlink $file; # File::Fetch will not overwrite the file, we need to delete it
+      $self->throw('Wrong MD5: '.$checksum{$self->param('_genome_file_name').$self->param('_genome_zip_ext')}.' instead of '.$md5sum)
+    }
     my ($output) = $file =~ /^(\S+)\.\w+$/;
     anyuncompress $file => $output
       or $self->throw("anyuncompress failed: $AnyUncompressError");
