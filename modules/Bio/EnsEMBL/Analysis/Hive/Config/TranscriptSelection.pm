@@ -776,7 +776,7 @@ sub pipeline_analyses {
       -logic_name => 'concat_pseudogenes_multi_exon_files',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'cat '.catfile('#working_dir#','multi_exon_seq*').' > '.
+        cmd => 'find  #working_dir# -maxdepth 1 -type f -name '.'"multi_exon_seq*"'.'  -print0 |xargs -0 cat > '. 
           catfile('#working_dir#','all_multi_exon_genes.fasta'),
         working_dir => $self->o('pseudogenes_path'),
       },
@@ -1006,14 +1006,8 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
-    '3GB'     => { LSF => $self->lsf_resource_builder( 'production', 3000 ) },
-    '4GB'     => { LSF => $self->lsf_resource_builder( 'production', 4000 ) },
-    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
-    '8GB'     => { LSF => $self->lsf_resource_builder( 'production', 8000 ) },
-    '10GB'    => { LSF => $self->lsf_resource_builder( 'production', 10000 ) },
-    '30GB'    => { LSF => $self->lsf_resource_builder( 'production', 30000 ) },
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
     }
 }
 

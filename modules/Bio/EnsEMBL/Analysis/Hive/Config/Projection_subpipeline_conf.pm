@@ -265,7 +265,7 @@ sub pipeline_analyses {
         -1 => ['wga_project_transcripts_himem'],
         -3 => ['wga_failed_projection'],
       },
-      -rc_name        => 'project_transcripts',
+      -rc_name        => '3GB',
       -batch_size     => 100,
       -hive_capacity => $self->o('hc_low'),
     },
@@ -300,7 +300,7 @@ sub pipeline_analyses {
       -flow_into => {
         -3 => ['wga_failed_projection'],
       },
-      -rc_name        => 'project_transcripts_himem',
+      -rc_name        => '10GB',
       -batch_size     => 100,
       -hive_capacity => $self->o('hc_low'),
       -can_be_empty   => 1,
@@ -558,15 +558,8 @@ sub pipeline_analyses {
 sub resource_classes {
   my $self = shift;
   return {
-    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
-    '2GB' => { LSF => $self->lsf_resource_builder('production', 2000)},
-    '3GB' => { LSF => $self->lsf_resource_builder('production', 3000)},
-    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
-    '5GB' => { LSF => $self->lsf_resource_builder('production', 5000)},
-    '15GB' => { LSF => $self->lsf_resource_builder('production', 15000)},
-    '30GB' => { LSF => $self->lsf_resource_builder('production', 30000)},
-    'project_transcripts' => { LSF => $self->lsf_resource_builder('production', 3000)},
-    'project_transcripts_himem' => { LSF => $self->lsf_resource_builder('production', 10000)},
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
   }
 }
 1;

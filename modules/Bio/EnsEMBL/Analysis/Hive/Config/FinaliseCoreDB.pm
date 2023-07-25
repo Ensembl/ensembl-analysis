@@ -575,12 +575,8 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
-    'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production', 900 ), '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '1GB'  => { LSF => $self->lsf_resource_builder( 'production', 1000 ) },
-    '4GB'  => { LSF => $self->lsf_resource_builder( 'production', 4000 ) },
-    '8GB'  => { LSF => $self->lsf_resource_builder( 'production', 8000 ) },
-    '10GB' => { LSF => $self->lsf_resource_builder( 'production', 10000 ) },
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
     }
 }
 

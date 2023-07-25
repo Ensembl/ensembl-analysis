@@ -196,7 +196,7 @@ sub pipeline_analyses {
           ' -write' .
           ' -file ' . catfile( $self->o('output_path'), 'refseq_import', '#assembly_refseq_accession#_#assembly_name#_genomic.gff' ),
       },
-      -rc_name => 'refseq_import',
+      -rc_name => '10GB',
     },
 
   ];
@@ -206,9 +206,9 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
-    'refseq_import' => { LSF => $self->lsf_resource_builder( 'production', 9900 ) },
-    }
+     #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },  
+  }
 }
 
 1;

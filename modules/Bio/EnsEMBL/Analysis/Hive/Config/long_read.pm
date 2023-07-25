@@ -444,7 +444,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
-      -rc_name   => 'blast',
+      -rc_name   => '3GB_3cpus',
       -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         -1 => ['blast_10G'],
@@ -467,7 +467,7 @@ sub pipeline_analyses {
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
       -hive_capacity => $self->o('hc_normal'),
-      -rc_name => 'blast10GB',
+      -rc_name => '10GB_3cpus',
     },
 
     {
@@ -598,14 +598,14 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
-    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
-    '10GB'    => { LSF => $self->lsf_resource_builder( 'production', 10000 ) },
-    '15GB'    => { LSF => $self->lsf_resource_builder( 'production', 15000 ) },
-    '20GB'    => { LSF => $self->lsf_resource_builder( 'production', 20000 ) },
-    '25GB'    => { LSF => $self->lsf_resource_builder( 'production', 25000 ) },
-    'blast'     => { LSF => $self->lsf_resource_builder( 'production', 2900, undef, 3 ) },
-    'blast10GB' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, 3 ) },
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
+    '20GB'    => { LSF => $self->lsf_resource_builder( 'production', 20000 ),
+                   SLURM =>  $self->slurm_resource_builder(20000, '7-00:00:00'),
+                  },
+    '25GB'    => { LSF => $self->lsf_resource_builder( 'production', 25000 ),
+                   SLURM =>  $self->slurm_resource_builder(25000, '7-00:00:00'),
+                 },
     }
 }
 

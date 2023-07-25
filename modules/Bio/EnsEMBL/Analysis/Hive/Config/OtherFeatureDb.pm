@@ -523,8 +523,8 @@ sub pipeline_analyses {
 sub resource_classes {
   my $self = shift;
   return {
-    '4GB'     => { LSF => $self->lsf_resource_builder( 'production', 4000 ) },
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
+     #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
     }
 }
 

@@ -242,7 +242,7 @@ sub pipeline_analyses {
           ' '.catfile($self->o('ncrna_dir'), 'accessions.txt').
           ' '.$self->o('filtered_rfam_cm'),
       },
-      -rc_name => 'filter',
+      -rc_name => '5GB',
     },
 
     {
@@ -322,7 +322,7 @@ sub pipeline_analyses {
         '-2' => ['rebatch_mirna'],
       },
       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-      -rc_name    => 'blast',
+      -rc_name    => '3GB_3cpus',
     },
 
     {
@@ -360,7 +360,7 @@ sub pipeline_analyses {
         '-2' => ['failed_mirna_blast_job'],
       },
       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-      -rc_name    => 'blast_retry',
+      -rc_name    => '6GB_3cpus',
     },
 
     {
@@ -380,7 +380,7 @@ sub pipeline_analyses {
         logic_name => 'filter_ncrnas',
         module     => 'HiveFilterncRNAs',
       },
-      -rc_name    => 'filter',
+      -rc_name    => '5GB',
       -flow_into => {
         '2->A' => ['run_mirna'],
         'A->1' => ['concat_rnafold_result'],
@@ -400,7 +400,7 @@ sub pipeline_analyses {
       },
       -batch_size => 20,
       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-      -rc_name    => 'filter',
+      -rc_name    => '5GB',
     },
 
     {
@@ -411,7 +411,7 @@ sub pipeline_analyses {
         data_file_pattern => catfile($self->o('ncrna_dir'), 'rna_fold_*.part'),
         output_file => catfile($self->o('ncrna_dir'), 'rna_fold_results.txt'),
       },
-      -rc_name   => 'filter',
+      -rc_name   => '5GB',
       -flow_into => {
         1 => 'fan_dump_features',
       },
@@ -442,7 +442,7 @@ sub pipeline_analyses {
           .' '.$self->o('ncrna_dir')
           .' blastmirna',
       },
-      -rc_name   => 'filter',
+      -rc_name   => '5GB',
       -flow_into => {
         1 => 'dump_annotated_dafs',
       },
@@ -458,7 +458,7 @@ sub pipeline_analyses {
         repeats_file => catfile($self->o('ncrna_dir'), 'repeats.bed'),
         genome_file => $self->o('faidx_genome_file'),
       },
-      -rc_name   => 'filter',
+      -rc_name   => '5GB',
       -flow_into => {
         1 => 'filter_mirnas'
       },
@@ -478,7 +478,7 @@ sub pipeline_analyses {
           .' '.catfile($self->o('ncrna_dir'), 'mirnas_to_delete.txt'),
         pyenv_virtualenv => 'genebuild-mirna',
       },
-      -rc_name   => 'filter',
+      -rc_name   => '5GB',
       -flow_into => {
         1 => 'delete_flagged_mirnas',
       },
@@ -497,7 +497,7 @@ sub pipeline_analyses {
           .' -idfile '.catfile($self->o('ncrna_dir'), 'mirnas_to_delete.txt'),
         target_db => $self->o('ncrna_db'),
       },
-      -rc_name   => 'filter',
+      -rc_name   => '5GB',
       -flow_into => {
         1 => 'ncrna_sanity_checks',
       },
@@ -522,14 +522,11 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
-    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
-    '5GB' => { LSF => $self->lsf_resource_builder('production', 5000)},
-    '6GB' => { LSF => $self->lsf_resource_builder('production', 6000)},
-    '10GB' => { LSF => $self->lsf_resource_builder('production', 10000)},
-    'blast' => { LSF => $self->lsf_resource_builder('production', 2900, undef, undef, 3)},
-    'blast_retry' => { LSF => $self->lsf_resource_builder('production', 5900, undef, undef, 3)},
-    'filter' => { LSF => $self->lsf_resource_builder('production', 4900)},
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
+    '6GB_3cpus' => { LSF => $self->lsf_resource_builder('production', 5900, undef, undef, 3),
+                     SLURM =>  $self->slurm_resource_builder(5900, '7-00:00:00', 3 ),
+               },
   }
 }
 

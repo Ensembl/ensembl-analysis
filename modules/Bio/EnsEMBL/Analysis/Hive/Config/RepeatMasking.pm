@@ -255,7 +255,7 @@ sub pipeline_analyses {
         genome_file         => $self->o('faidx_genome_file'),
         disconnect_jobs     => 1,
       },
-      -rc_name   => 'repeatmasker',
+      -rc_name   => '3GB',
       -flow_into => {
         '-1' => ['rebatch_repeatmasker'],
         '-2' => ['rebatch_repeatmasker'],
@@ -293,7 +293,7 @@ sub pipeline_analyses {
         genome_file         => $self->o('faidx_genome_file'),
         disconnect_jobs     => 1,
       },
-      -rc_name   => 'repeatmasker_rebatch',
+      -rc_name   => '6GB',
       -flow_into => {
         -1 => ['failed_repeatmasker_batches'],
         -2 => ['failed_repeatmasker_batches'],
@@ -335,7 +335,7 @@ sub pipeline_analyses {
         use_genome_flatfile => $self->o('use_genome_flatfile'),
         genome_file         => $self->o('faidx_genome_file'),
       },
-      -rc_name   => 'repeatmasker',
+      -rc_name   => '3GB',
       -flow_into => {
         '-1' => ['rebatch_repeatmasker_repeatmodeler'],
         '-2' => ['rebatch_repeatmasker_repeatmodeler'],
@@ -372,7 +372,7 @@ sub pipeline_analyses {
         use_genome_flatfile => $self->o('use_genome_flatfile'),
         genome_file         => $self->o('faidx_genome_file'),
       },
-      -rc_name   => 'repeatmasker_rebatch',
+      -rc_name   => '6GB',
       -flow_into => {
         -1 => ['failed_repeatmasker_repeatmodeler_batches'],
         -2 => ['failed_repeatmasker_repeatmodeler_batches'],
@@ -560,7 +560,7 @@ sub pipeline_analyses {
         module     => 'HiveDust',
         dust_path  => $self->o('dust_path'),
       },
-      -rc_name   => 'simple_features',
+      -rc_name   => '3GB',
       -flow_into => {
         1  => ['run_trf'],
         -1 => ['run_trf'],
@@ -581,7 +581,7 @@ sub pipeline_analyses {
         trf_path   => $self->o('trf_path'),
         disconnect_jobs  => 1,
       },
-      -rc_name       => 'simple_features',
+      -rc_name       => '3GB',
       -flow_into => {
 	  1 => ['fan_post_repeat_analyses'],
 	  -1 => ['fan_post_repeat_analyses'],
@@ -614,7 +614,7 @@ sub pipeline_analyses {
 	  eponine_path => $self->o('eponine_java_path'),
 	  commandline_params => '-epojar => '.$self->o('eponine_jar_path').', -threshold => 0.999',
       },
-      -rc_name    => 'simple_features',
+      -rc_name    => '3GB',
       -flow_into => {
 	  1 => ['run_cpg'],
 	  -1 => ['run_cpg'],
@@ -634,7 +634,7 @@ sub pipeline_analyses {
 	  module => 'HiveCPG',
 	  cpg_path => $self->o('cpg_path'),
       },
-      -rc_name    => 'simple_features',
+      -rc_name    => '3GB',
       -flow_into => {
 	  1 => ['run_trnascan'],
 	  -1 => ['run_trnascan'],
@@ -654,7 +654,7 @@ sub pipeline_analyses {
 	  module => 'HiveTRNAScan',
 	  trnascan_path => $self->o('trnascan_path'),
       },
-      -rc_name    => 'simple_features',
+      -rc_name    => '3GB',
       -hive_capacity => $self->o('hc_normal'),
       -batch_size => 20,
     },
@@ -664,7 +664,8 @@ sub pipeline_analyses {
       -logic_name => 'repeatdetector',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl_anno.py' ) .' --genome_file '. $self->o('faidx_genome_file') .' --db_details '. $self->o('dna_db_name').','.$self->o('dna_db_host').','.$self->o('dna_db_port').','.$self->o('user').','.$self->o('password')  .' --output_dir '. $self->o('output_path') .' --num_threads 20 --run_masking --load_to_ensembl_db',
+
+   	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl_anno.py' ) .' --genome_file '. $self->o('faidx_genome_file') .' --db_details '. $self->o('dna_db_name').','.$self->o('dna_db_host').','.$self->o('dna_db_port').','.$self->o('user').','.$self->o('password')  .' --output_dir '. $self->o('output_path') .' --num_threads 20 --run_masking --load_to_ensembl_db',
       },
       -rc_name   => '50GB',
     },
@@ -674,15 +675,8 @@ sub pipeline_analyses {
 sub resource_classes {
   my $self = shift;
   return {
-    '2GB'                  => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
-    '3GB'                  => { LSF => $self->lsf_resource_builder( 'production', 3000 ) },
-    '5GB'                  => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
-    '15GB'                 => { LSF => $self->lsf_resource_builder( 'production', 15000 ) },
-    '50GB'                 => { LSF => $self->lsf_resource_builder( 'production', 50000 ) },
-    'default'              => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
-    'repeatmasker'         => { LSF => $self->lsf_resource_builder( 'production', 2900 ) },
-    'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder( 'production', 5900 ) },
-    'simple_features'      => { LSF => $self->lsf_resource_builder( 'production', 2900 ) },
+    #inherit other stuff from the base class
+     %{ $self->SUPER::resource_classes() },
     }
 }
 
