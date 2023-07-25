@@ -75,6 +75,7 @@ sub param_defaults {
     classify_high => 6,
     classify_top => 8,
     slice_strand => 0,
+    _skip_cache_clearing => 1,
   }
 }
 
@@ -109,6 +110,7 @@ sub fetch_input {
     $target_db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
     $self->hrdb_set_con($target_db,'target_db');
   } else {
+    $source_db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
     $self->hrdb_set_con($source_db, 'target_db');
     $self->param('update_genes', 1); # If people didn't specify a target_db, we update the biotype, otherwise they have to specify a target_db
   }
@@ -239,6 +241,7 @@ sub run {
         else {
           $self->say_with_header('Gene '.$gene->display_id.' not fully supported');
         }
+        $self->dbc->disconnect_when_inactive(0);
         $self->output([$gene]);
       }
 
@@ -262,6 +265,7 @@ sub write_output {
 
   my $analysis = $self->analysis;
   my $gene_adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
+  $gene_adaptor->dbc->disconnect_when_inactive(0);
   if ($self->param('update_genes')) {
     foreach my $gene (@{$self->output}) {
       foreach my $transcript (@{$gene->get_all_Transcripts}) {
@@ -277,6 +281,9 @@ sub write_output {
       $gene->analysis($analysis);
       $gene_adaptor->store($gene);
     }
+  }
+    if($self->param('disconnect_jobs')){
+        $gene_adaptor->dbc->disconnect_when_inactive(1);
   }
 }
 
