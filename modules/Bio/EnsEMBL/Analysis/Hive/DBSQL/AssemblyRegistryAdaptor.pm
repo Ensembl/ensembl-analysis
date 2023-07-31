@@ -212,6 +212,65 @@ sub fetch_gca_by_constraints_assembly_group_no_haplotype {
   return($output_array);
 }
 
+sub fetch_gca_by_constraints_clade_group {
+  my ($self,$clade_group,$contig_n50,$scaffold_n50,$total_length,$levels,$max_version_only,$genome_rep) = @_;
+  unless($clade_group) { $clade_group = "'amphibians','aves','humans','mammalia','marsupials','primates','reptiles','rodentia','sharks','teleostei','vertebrates'";}
+  unless($contig_n50) { $contig_n50 = 0;}
+  unless($scaffold_n50) { $scaffold_n50 = 0;}
+  unless($total_length) { $total_length = 0;}
+  unless($genome_rep) { $genome_rep = 'full';}
+  unless($levels) { $levels = ['contig','scaffold','chromosome'];}
+  my $output_hash;
+  my $num = 0;
+  foreach my $level (@{$levels}) {
+    my $sql;
+    $sql = "SELECT chain,version FROM assembly JOIN meta using(assembly_id) WHERE ".
+           " contig_N50 >= ? AND total_length >= ? AND assembly_level = ? AND genome_rep = ? AND clade not in ($clade_group)";
+    unless($level eq 'contig') {
+      $sql .= " AND (scaffold_N50 >= ? || scaffold_N50 IS NULL)";
+    }
+    my $sth = $self->dbc->prepare($sql);
+    $sth->bind_param(1,$contig_n50);
+    $sth->bind_param(2,$total_length);
+    $sth->bind_param(3,$level);
+    $sth->bind_param(4,$genome_rep);
+    unless($level eq 'contig') {
+      $sth->bind_param(5,$scaffold_n50);
+    }
+    $sth->execute();
+    while (my ($chain,$version) = $sth->fetchrow_array()) {
+      unless($chain =~ /^GCA\_(\d){9}/) {
+	next;
+      }
+      unless($output_hash->{$chain}) {
+	$output_hash->{$chain} = [];
+      }
+      if($max_version_only) {
+	if((${$output_hash->{$chain}}[0])) {
+          unless(${$output_hash->{$chain}}[0] > $version) {
+            ${$output_hash->{$chain}}[0] = $version;
+	  }
+	}
+	else{
+          ${$output_hash->{$chain}}[0] = $version;
+	}
+      }
+      else {
+        push(@{$output_hash->{$chain}},$version);
+      }
+      $num++;
+    }
+  }# end while loop
+  my $output_array = [];
+  foreach my $chain (keys(%{$output_hash})) {
+    my $version_array  = $output_hash->{$chain};
+    foreach my $version (@{$version_array}) {
+      push(@{$output_array},$chain.".".$version);
+    }
+  }
+  return($output_array);
+}
+
 sub fetch_gca_by_constraints_assembly_group {
   my ($self,$assembly_group,$contig_n50,$scaffold_n50,$total_length,$levels,$max_version_only,$genome_rep) = @_;
   unless($assembly_group) { $assembly_group = 'dtol';}
@@ -348,8 +407,7 @@ sub fetch_species_name_by_gca {
   my ($self,$chain_version,$type) = @_;
 
   my ($chain,$version) = $self->split_gca($chain_version);
-
-  my $sql = "SELECT species_id FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT taxonomy FROM assembly WHERE chain=? and version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
@@ -364,9 +422,7 @@ sub fetch_species_name_by_gca {
   $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$species_id);
   $sth->execute();
-
   my ($species_name) = $sth->fetchrow();
-
   return($species_name);
 }
 
