@@ -43,6 +43,7 @@ use File::Spec::Functions;
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
+use DateTime;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -64,13 +65,12 @@ sub run {
   my $full_path = catfile($self->param_required('path_to_genomic_fasta'),'output');
   my $gca = $self->param_required('iid');
   my ($chain,$version) = $self->split_gca($gca);
-
+  
   my $assembly_output_path = catfile($self->param_required('path_to_assembly_libs'),$chain,$version);
   my $output_file = catfile($assembly_output_path,$gca.".repeatmodeler.fa");
-  if(-e $output_file) {
-	   $self->throw("Found an existing repeatmodeler file on the assembly path. Will not overwrite. Path:\n".$output_file);
+  if((-e $output_file) && (-s $output_file)){
+     $self->warning("Found an existing repeatmodeler file on the assembly path. Will overwrite. Path:\n".$output_file);
   }
-
   $self->process_assembly_files($full_path,$output_file,$assembly_output_path,$gca);
   $self->update_species_file($gca,$output_file);
   $self->update_registry($gca,$assembly_registry_dba);
@@ -269,7 +269,8 @@ sub update_registry{
   #Update registry to show that library has been generated
   my ($self,$gca,$assembly_registry_dba) = @_;
   my ($chain,$version) = $self->split_gca($gca);
-  my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
+  my $dt = DateTime->now();
+  my $date = $dt->ymd;
   my $species_name = $assembly_registry_dba->fetch_species_name_by_gca($gca);
   $species_name = lc($species_name);
   $species_name =~ s/ +$//;
@@ -285,12 +286,14 @@ sub update_registry{
     throw("Could not update repeatmodeler status for assembly with accession ".$gca);
   }
   $sql = "update repeat_library_status set date_completed = ? where assembly_accession = ?";
-  $sth->bind_param(1,DateTime->now);
+  my $sth = $assembly_registry_dba->dbc->prepare($sql);
+  $sth->bind_param(1,$date);
   $sth->bind_param(2,$gca);
   unless($sth->execute()){
     throw("Could not update complettion date for assembly with accession ".$gca);
   }
   $sql = "update repeat_library_status set library_name = ? where assembly_accession = ?";
+  my $sth = $assembly_registry_dba->dbc->prepare($sql);
   $sth->bind_param(1,$library_name);
   $sth->bind_param(2,$gca);
   unless($sth->execute()){

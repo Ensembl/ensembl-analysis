@@ -146,9 +146,11 @@ sub find_gcas_to_process {
     my ($chain,$version) = $self->split_gca($gca);
     my $sql = "insert into repeat_library_status (library_id,assembly_accession,date_started,library_status) values(?,?,?,?)";
     my $sth = $assembly_registry_dba->dbc->prepare($sql);
+    my $dt = DateTime->now();
+    my $date = $dt->ymd;
     $sth->bind_param(1,$assembly_id);
     $sth->bind_param(2,$gca);
-    $sth->bind_param(2,DateTime->now));
+    $sth->bind_param(2,$date);
     $sth->bind_param(4,'in progress');
     unless($sth->execute()){
       throw("Could not update repeatmodeler status for assembly with accession ".$gca);
