@@ -234,6 +234,7 @@ sub fetch_gca_by_constraints_clade_group {
     $sth->bind_param(2,$total_length);
     $sth->bind_param(3,$level);
     $sth->bind_param(4,$genome_rep);
+    #$sth->bind_param(5,$clade_group);
     unless($level eq 'contig') {
       $sth->bind_param(5,$scaffold_n50);
     }
