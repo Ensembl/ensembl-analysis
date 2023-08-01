@@ -148,9 +148,7 @@ sub _master_config {
         }, # logic_names
         'biotypes' =>    {
           'human_pe12_'         => 20000,
-          'aves_pe12_'          => 15000,
-          'mammals_pe12_'       => 100000,
-          'reptiles_pe12_'      => 1000,
+          'mouse_pe12_'         => 20000,
         }, # biotypes
       }, # genblast
       'projection_coding' => {
@@ -177,7 +175,6 @@ sub _master_config {
         }, # logic_names
         'biotypes' =>    {
           'human_pe12_'          => 0,#not sure what value to set
-          'mammals_pe12_'        => 12000,
           'rnaseq_tissue_'       => 149000,
         }, # biotypes
       }, # layer
