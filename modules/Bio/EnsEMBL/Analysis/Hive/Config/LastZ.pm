@@ -833,8 +833,9 @@ sub pipeline_analyses {
 
 sub resource_classes {
   my $self = shift;
-
   return {
+    #inherit other stuff from the base class
+    %{ $self->SUPER::resource_classes() },
     '2GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 2000 ), '-reg_conf ' . $self->default_options->{registry_file} ],
                       SLURM => [ $self->slurm_resource_builder(2000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}],
     },
