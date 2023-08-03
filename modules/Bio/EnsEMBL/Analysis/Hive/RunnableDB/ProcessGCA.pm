@@ -225,7 +225,7 @@ sub fetch_input {
   #my $stable_id_prefix = $s;
   $s =~ s/ENS//g;
   my $species_prefix  = uc($s);
-  my $scientific_name = $species_name;
+  my $scientific_name = chomp($species_name);
   say $species_name;
   $species_name = lc($species_name);
   say $species_name;
