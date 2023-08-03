@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-Copyright [2018-2022] EMBL-European Bioinformatics Institute
+Copyright [2018-2020] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ use File::Spec::Functions;
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
+use DateTime;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -60,18 +61,19 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
+  my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
   my $full_path = catfile($self->param_required('path_to_genomic_fasta'),'output');
   my $gca = $self->param_required('iid');
   my ($chain,$version) = $self->split_gca($gca);
-
+  
   my $assembly_output_path = catfile($self->param_required('path_to_assembly_libs'),$chain,$version);
   my $output_file = catfile($assembly_output_path,$gca.".repeatmodeler.fa");
-  if(-e $output_file) {
-    $self->throw("Found an existing repeatmodeler file on the assembly path. Will not overwrite. Path:\n".$output_file);
+  if((-e $output_file) && (-s $output_file)){
+     $self->warning("Found an existing repeatmodeler file on the assembly path. Will overwrite. Path:\n".$output_file);
   }
-
   $self->process_assembly_files($full_path,$output_file,$assembly_output_path,$gca);
   $self->update_species_file($gca,$output_file);
+  $self->update_registry($gca,$assembly_registry_dba);
 }
 
 
@@ -111,10 +113,10 @@ sub process_assembly_files {
 
      foreach my $subdir (@repeatmodeler_subdirs) {
       chomp($subdir);
-      my $run_lib_file = catfile($subdir,'consensi.fa');
+      my $run_lib_file = catfile($subdir,'consensi.fa.classified');
       my $family_lib_file = catfile($subdir,'families.stk');
       unless(-e $run_lib_file) {
-        $self->warning("Did not find a consensi.fa lib on path:\n".$run_lib_file);
+        $self->warning("Did not find a consensi.fa.classified lib on path:\n".$run_lib_file);
         next;
       }
       unless(-e $family_lib_file) {
@@ -169,8 +171,20 @@ sub process_assembly_files {
     say "Compressing family file now...";
     my $compressed_family_lib = catfile($assembly_output_path,$gca.'.families.stk.gz');
     my $cmd = "gzip -cvf $subdir > $compressed_family_lib";
-    say "line is $cmd";
-    `$cmd`;
+    if(system($cmd)) {
+       $self->throw("Could not compress stockholm files. Command used:\n".$cmd);
+    }
+    else{
+       my $del_cmd = 'rm '.$subdir; 
+       if(system($del_cmd)) {
+          $self->throw("Could not delete uncompressed stockholm files. Command used:\n".$del_cmd);
+       }
+    }
+    
+  }
+  my $copy_log = 'cp ' .$self->param('path_to_genomic_fasta').'/repeatmodeler_db-rmod.log'.' '.catfile($assembly_output_path,$gca.'.rmod.log');
+  if(system($copy_log)) {
+	  $self->throw("Failed to copy the run repeatmodeler_db-rmod.log to the assembly lib dir. Commandline useed:\n".$copy_log);
   }
 
   unless($total_consensi_files_processed >= $self->param_required('min_consensi_files')) {
@@ -188,6 +202,7 @@ sub update_species_file {
   my $species_name = $assembly_registry_dba->fetch_species_name_by_gca($gca);
   $species_name = lc($species_name);
   $species_name =~ s/ +$//; # This is an issue in the assembly registry db that needs fixing
+  $species_name =~ s/\.//g;
   $species_name =~ s/ +/\_/g;
 
   unless($species_name) {
@@ -203,9 +218,13 @@ sub update_species_file {
   }
 
   my $species_file = $species_dir_path."/".$species_name.".repeatmodeler.fa";
+  my ($chain,$version) = $self->split_gca($gca);
+  my $species_lib = $self->param('path_to_assembly_libs')."/".$chain."/".$version."/".$gca."*";
+  $self->param('species_name', $species_name);
+  $self->param('species_lib', $species_lib);
   unless(-e $species_file) {
     if(system('cp '.$output_file.' '.$species_file)) {
-      $self->throw("Could not copy output files to species output dir. Path copy was attemted to:\n".$output_file);
+      $self->throw("Could not copy output files to species output dir. Path copy was attempted to:\n".$output_file);
     }
   } else {
     my $updated_species_hash = $self->update_lib($species_file,$output_file);
@@ -246,6 +265,41 @@ sub update_lib {
   return($updated_species_hash);
 }
 
+sub update_registry{
+  #Update registry to show that library has been generated
+  my ($self,$gca,$assembly_registry_dba) = @_;
+  my ($chain,$version) = $self->split_gca($gca);
+  my $dt = DateTime->now();
+  my $date = $dt->ymd;
+  my $species_name = $assembly_registry_dba->fetch_species_name_by_gca($gca);
+  $species_name = lc($species_name);
+  $species_name =~ s/ +$//;
+  $species_name =~ s/\.//g;
+  $species_name =~ s/\'//g;
+  $species_name =~ s/ +/\_/g;
+  my $library_name = $species_name . '.repeatmodeler.fa';
+  my $sql = "update repeat_library_status set library_status = ? where assembly_accession = ?";
+  my $sth = $assembly_registry_dba->dbc->prepare($sql);
+  $sth->bind_param(1,'completed');
+  $sth->bind_param(2,$gca);
+  unless($sth->execute()){
+    throw("Could not update repeatmodeler status for assembly with accession ".$gca);
+  }
+  $sql = "update repeat_library_status set date_completed = ? where assembly_accession = ?";
+  my $sth = $assembly_registry_dba->dbc->prepare($sql);
+  $sth->bind_param(1,$date);
+  $sth->bind_param(2,$gca);
+  unless($sth->execute()){
+    throw("Could not update complettion date for assembly with accession ".$gca);
+  }
+  $sql = "update repeat_library_status set library_name = ? where assembly_accession = ?";
+  my $sth = $assembly_registry_dba->dbc->prepare($sql);
+  $sth->bind_param(1,$library_name);
+  $sth->bind_param(2,$gca);
+  unless($sth->execute()){
+    throw("Could not update complettion date for assembly with accession ".$gca);
+  }
+}
 
 sub split_gca {
   my ($self,$chain_version) = @_;

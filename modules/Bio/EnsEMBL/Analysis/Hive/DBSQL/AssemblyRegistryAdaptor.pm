@@ -349,7 +349,7 @@ sub fetch_species_name_by_gca {
 
   my ($chain,$version) = $self->split_gca($chain_version);
 
-  my $sql = "SELECT species_id FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT taxonomy FROM assembly WHERE chain=? and version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
