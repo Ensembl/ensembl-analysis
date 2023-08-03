@@ -207,7 +207,6 @@ sub _master_config {
         'biotypes' =>    {
           'IG_'                  => 0,
           'TR_'                  => 0,
-          'protein_coding'      => 15000,
           'miRNA'               => 100,
           'misc_RNA'            => 3,
           'ribozyme'            => 0,
@@ -329,7 +328,6 @@ sub _master_config {
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
-          'protein_coding'      => 19000,
           'miRNA'               => 500,
           'misc_RNA'            => 1000,
           'ribozyme'            => 0,
@@ -428,7 +426,7 @@ sub _master_config {
           'ensembl'             => 19000,
         }, # logic_names
 	 'biotypes' =>    {
-        }, # biotypes  
+        }, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
@@ -452,7 +450,6 @@ sub _master_config {
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
-          'protein_coding'      => 19000,
           'miRNA'               => 500,
           'misc_RNA'            => 1000,
           'ribozyme'            => 0,
