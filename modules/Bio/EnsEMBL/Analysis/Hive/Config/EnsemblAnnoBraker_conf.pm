@@ -540,7 +540,7 @@ sub pipeline_analyses {
       -logic_name => 'create_lr_fastq_download_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
-        column_names => $self->o('long_read_columns'),
+        column_names => $self->o('file_columns'),
         delimiter    => '\t',
       },
       -flow_into => {
