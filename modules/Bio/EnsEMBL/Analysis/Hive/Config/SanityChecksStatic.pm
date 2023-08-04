@@ -246,26 +246,25 @@ sub _master_config {
           'protein_coding'         => 5000,
         },
       }, # rnaseq_final
-    }, # birdss_basic
+    }, # birds_basic
     'mammals_basic' => {
       'genblast' => {
         'logic_names' => {
-          'genblast'            => 125000,
-          'genblast_not_best'   => 100000,
+          'genblast'            => 10000,
+          'genblast_not_best'   => 10000,
         }, # logic_names
         'biotypes' =>    {
-          'human_pe12_'         => 20000,
-          'mouse_pe12_'      => 50000,
-          'mammals_pe12_'       => 100000,
+          'human_pe12_'         => 5000,
+          'mouse_pe12_'      => 5000,
         }, # biotypes
       }, # genblast
       'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 40,
+          'ig_tr_gene'          => 20,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 20,
-          'TR_'                 => 20,
+          'IG_'                 => 10,
+          'TR_'                 => 10,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
@@ -291,12 +290,9 @@ sub _master_config {
         'logic_names' =>    {
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 0,
-          'TR_'                  => 0,
-          'human_pe12_'          => 0,#not sure what value to set
-          'mouse_pe12_'       => 15000,
-          'mammals_pe12_'        => 12000,
-          'rnaseq_tissue_'       => 149000,
+          'human_pe12_'          => 5000,
+          'mouse_pe12_'       => 5000,
+          'rnaseq_tissue_'       => 10000,
         }, # biotypes
       }, # layer
       'genebuilder' => {
@@ -308,33 +304,22 @@ sub _master_config {
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
-          'ncrna' => 1200,
+          'ncrna' => 1000,
         }, # logic_names
-        'biotypes' =>    {
-          'miRNA'               => 100,
-          'misc_RNA'            => 300,
-          'ribozyme'            => 0,
-          'rRNA'                => 190,
-          'scaRNA'              => 0,
-          'snoRNA'              => 200,
-          'snRNA'               => 400,
+        'biotypes' =>    {#these numbers are very low, it's simply a check that something is there
+          'miRNA'               => 10,
+          'misc_RNA'            => 10,
+          'rRNA'                => 10,
+          'snoRNA'              => 10,
+          'snRNA'               => 10,
         }, # biotypes
       }, # ncrna
       'final' => {
         'logic_names' => {
           'ensembl'             => 18000,
-          'ncrna'               => 1200,
+          'ncrna'               => 1000,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'miRNA'               => 500,
-          'misc_RNA'            => 1000,
-          'ribozyme'            => 0,
-          'rRNA'                => 200,
-          'scaRNA'              => 0,
-          'snoRNA'              => 200,
-          'snRNA'               => 400,
         }, # biotypes
       }, # final
       'core' => {
@@ -343,23 +328,12 @@ sub _master_config {
           'ncrna'               => 1300,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
           'protein_coding'       => 19000,
-          'pseudogene'           => 50,
-          'processed_pseudogene' => 0,
-          'miRNA'                => 500,
-          'misc_RNA'             => 1000,
-          'ribozyme'             => 0,
-          'rRNA'                 => 200,
-          'scaRNA'               => 0,
-          'snoRNA'               => 200,
-          'snRNA'                => 400,
         }, # biotypes
       }, # core
       'otherfeatures' => {
         'logic_names' => {
-          'refseq_import'          => 30000,
+          'refseq_import'          => 20000,
         },
       }, # otherfeatures
       'rnaseq_final' => {
