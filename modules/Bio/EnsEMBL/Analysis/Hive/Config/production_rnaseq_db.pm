@@ -138,7 +138,8 @@ sub default_options {
     delete_genes_prefix => catfile($self->o('delete_genes_dir'), 'genes_to_delete.'),
     optimise_dir => catdir($self->o('rnaseq_dir'),'optimise_rnaseq'),
     production_ftp_dir => '/nfs/production/flicek/ensembl/production/ensemblftp/rapid-release/',
-
+    species_list => '/nfs/production/flicek/ensembl/genebuild/main_species.csv',
+	
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -591,17 +592,40 @@ sub pipeline_analyses {
        cmd => "sudo -u genebuild find " .catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name'))). " -user genebuild -exec chmod g+w {} \\;"},
      -rc_name    => '2GB',
      -flow_into => {
-	1 => ['delete_data_files'],
+        1 => ['check_main'],
      },
    },
 
+   {
+      -logic_name => 'check_main',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+         cmd => 'if [[ $(#search_query#) ]]; then exit 0; else exit 42;fi',
+         return_codes_2_branches => {'42' => 2},
+         search_query => 'grep -w '. "'".$self->o('species_name')."' ".$self->o('species_list') . ' | cut -f 2',
+
+      },
+    -rc_name => '2GB',
+    -flow_into => {
+         1 => ['copy_to_main_ftp'],
+         2 => ['delete_data_files'],
+     }
+   },
+      
    { 
      -logic_name => 'delete_data_files',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
      -parameters => { 
         cmd => 'rm -r '. $self->o('merge_dir') . '/* ' .$self->o('output_dir') . '/* ',
      },
-    },
+   },
+
+   { #for now we won't do anything with the file, need to get SOP for moving to the main FTP space
+      -logic_name => 'copy_to_main_ftp',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+      -rc_name => 'default',
+   }
+      
   ];
 }
 
