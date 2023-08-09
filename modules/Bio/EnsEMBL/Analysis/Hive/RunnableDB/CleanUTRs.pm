@@ -149,7 +149,7 @@ sub pre_cleanup {
     my $db = $self->get_database_by_name('target_db');
     my $slice = $db->get_SliceAdaptor->fetch_by_name($self->input_id);
     my $gene_adaptor = $db->get_GeneAdaptor;
-    foreach my $gene (@{$slice->fetch_all_Genes}) {
+    foreach my $gene (@{$slice->get_all_Genes}) {
       $self->warning('Deleting gene '.$gene->dbID);
       $gene_adaptor->remove($gene);
     }
