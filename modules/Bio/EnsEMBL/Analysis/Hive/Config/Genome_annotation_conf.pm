@@ -116,6 +116,8 @@ sub default_options {
     load_toplevel_only               => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     custom_toplevel_file_path        => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
 
+	email_address					 => '' || $ENV{USER}.'@ebi.ac.uk',
+
 ###############################
 # Sub pipeline configurations
 ###############################
