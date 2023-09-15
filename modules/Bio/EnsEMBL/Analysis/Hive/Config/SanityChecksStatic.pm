@@ -280,7 +280,6 @@ sub _master_config {
         # substring of the other. At the moment it's really just a check that theres'
         # some stuff in there
         'logic_names' => {
-#          $species.'_merged_rnaseq' => 10000,
         }, # logic_names
         'biotypes' =>    {
           'rnaseq'              => 10000,
@@ -317,7 +316,7 @@ sub _master_config {
       'final' => {
         'logic_names' => {
           'ensembl'             => 18000,
-          'ncrna'               => 1000,
+          'ncrna'               => 600,
         }, # logic_names
         'biotypes' =>    {
         }, # biotypes
@@ -325,7 +324,7 @@ sub _master_config {
       'core' => {
         'logic_names' => {
           'ensembl'             => 18000,
-          'ncrna'               => 1300,
+          'ncrna'               => 600,
         }, # logic_names
         'biotypes' =>    {
           'protein_coding'       => 19000,
@@ -335,13 +334,18 @@ sub _master_config {
         'logic_names' => {
           'refseq_import'          => 20000,
         },
+	 'biotypes' =>    {
+        }, # biotypes
       }, # otherfeatures
       'rnaseq_final' => {
-        'biotypes' => {
+        'logic_names' => {
+        }, # logic_names
+	'biotypes' => {
           'protein_coding'         => 5000,
         },
       }, # rnaseq_final
     }, # mammals_basic
+	
     'primates_basic' => {
       'genblast' => {
         'logic_names' => {
