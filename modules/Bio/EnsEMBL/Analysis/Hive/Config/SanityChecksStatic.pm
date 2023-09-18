@@ -137,23 +137,24 @@ sub _master_config {
        'eponine'                    => [30000, 'simple'],
        'trnascan'                   => [300, 'simple'],
      },
-   },
-
-  'gene_db_checks' => {
-    'bird_basic' => {
+      },
+      
+'gene_db_checks' => {
+	  
+    'birds_basic' => {
       'genblast' => {
         'logic_names' => {
-          'genblast'            => 200000,
-          'genblast_not_best'   => 250000,
+          'genblast'            => 10000,
+          'genblast_not_best'   => 10000,
         }, # logic_names
         'biotypes' =>    {
-          'human_pe12_'         => 20000,
-          'mouse_pe12_'         => 20000,
+          'human_pe12_'         => 5000,
+          'mouse_pe12_'         => 5000,
         }, # biotypes
       }, # genblast
       'projection_coding' => {
         'logic_names' => {
-          'project_transcripts' => 30000,
+          'project_transcripts' => 20000,
         }, # logic_names
         'biotypes' =>    {
           'projection'          => 10000,
@@ -164,7 +165,6 @@ sub _master_config {
         # substring of the other. At the moment it's really just a check that theres'
         # some stuff in there
         'logic_names' => {
-#          $species.'_merged_rnaseq' => 10000,
         }, # logic_names
         'biotypes' =>    {
           'rnaseq'              => 10000,
@@ -174,8 +174,9 @@ sub _master_config {
         'logic_names' =>    {
         }, # logic_names
         'biotypes' =>    {
-          'human_pe12_'          => 0,#not sure what value to set
-          'rnaseq_tissue_'       => 149000,
+          'human_pe12_'          => 5000,
+          'mouse_pe12_'       => 5000,
+          'rnaseq_tissue_'       => 10000,
         }, # biotypes
       }, # layer
       'genebuilder' => {
@@ -190,13 +191,10 @@ sub _master_config {
           'ncrna' => 400,
         }, # logic_names
         'biotypes' =>    {
-          'miRNA'               => 100,
-          'misc_RNA'            => 3,
-          'ribozyme'            => 0,
-          'rRNA'                => 100,
-          'scaRNA'              => 5,
-          'snoRNA'              => 200,
-          'snRNA'               => 60,
+          'miRNA'               => 10,
+          'rRNA'                => 10,
+          'snoRNA'              => 10,
+          'snRNA'               => 10,
         }, # biotypes
       }, # ncrna
       'final' => {
@@ -205,48 +203,34 @@ sub _master_config {
           'ncrna'               => 400,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 0,
-          'TR_'                  => 0,
-          'miRNA'               => 100,
-          'misc_RNA'            => 3,
-          'ribozyme'            => 0,
-          'rRNA'                => 100,
-          'scaRNA'              => 5,
-          'snoRNA'              => 200,
-          'snRNA'               => 60,
+
         }, # biotypes
       }, # final
       'core' => {
         'logic_names' => {
           'ensembl'             => 15000,
-          'ncrna'               => 600,
+          'ncrna'               => 400,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 0,
-          'TR_'                  => 0,
           'protein_coding'       => 15000,
-          'pseudogene'           => 50,
-          'processed_pseudogene' => 0,
-          'miRNA'                => 100,
-          'misc_RNA'             => 3,
-          'ribozyme'             => 0,
-          'rRNA'                 => 100,
-          'scaRNA'               => 0,
-          'snoRNA'               => 200,
-          'snRNA'                => 60,
         }, # biotypes
       }, # core
       'otherfeatures' => {
         'logic_names' => {
-          'refseq_import'          => 30000,
+          'refseq_import'          => 20000,
         },
+	  'biotypes' =>    {
+        }, # biotypes
       }, # otherfeatures
-      'rnaseq_final' => {
-        'biotypes' => {
-          'protein_coding'         => 5000,
-        },
+       'rnaseq_final' => {
+	   'logic_names' => {
+	   }, # logic_names
+	   'biotypes' => {
+	       'protein_coding'         => 5000,
+	   },
       }, # rnaseq_final
     }, # birds_basic
+	
     'mammals_basic' => {
       'genblast' => {
         'logic_names' => {
