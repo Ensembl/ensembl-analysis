@@ -467,7 +467,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_short_read_download',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -e "#inputfile#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#inputfile#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -526,7 +526,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_long_read_download',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -e "#inputfile#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#inputfile#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -679,7 +679,7 @@ sub pipeline_analyses {
       -logic_name => 'check_load_meta_info',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -e "#rnaseq_summary_file#" ] || [ -e "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -816,7 +816,7 @@ sub pipeline_analyses {
       -logic_name => 'check_transcriptomic_data',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -e "#rnaseq_summary_file#" ] || [ -e "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -1023,7 +1023,7 @@ sub pipeline_analyses {
       -logic_name => 'check_run_stable_ids',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -e "#rnaseq_summary_file#" ] || [ -e "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -1151,7 +1151,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         #cmd                     => 'if '.$self->o('run_braker').'==1] ; then exit 0; else exit 42;fi',
-        cmd                     => 'if [ -e "#rnaseq_summary_file#" ] || [ -e "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -1257,7 +1257,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_otherfeatures_db',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -e "#rnaseq_summary_file#" ] || [ -e "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
