@@ -147,13 +147,16 @@ sub fetch_input {
   $runnable->genblast_program($self->param('genblast_program')) if ($self->param_is_defined('genblast_program'));
   $runnable->timer($self->param('timer'));
   $self->runnable($runnable);
-
+  if ($self->param('disconnect_jobs')) {
+     $dba->dbc->disconnect_when_inactive(1);
+  }
   return 1;
 }
 
 
 sub run {
   my ($self) = @_;
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   my $runnable = shift(@{$self->runnable});
   $self->runnable_failed(0);
   eval {
@@ -173,7 +176,7 @@ sub run {
   } else {
     $self->output($runnable->output);
   }
-
+  $self->dbc->disconnect_when_inactive(0);
   return 1;
 }
 
@@ -195,7 +198,7 @@ sub write_output{
 
   my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
-
+  $slice_adaptor->dbc->disconnect_when_inactive(0);
   if($self->runnable_failed == 1) {
     # Flow out on -2 or -3 based on how the failure happened
     my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');

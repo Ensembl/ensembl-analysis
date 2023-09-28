@@ -365,7 +365,8 @@ sub fetch_input {
     $self->throw("Different number of elements in parent_genes, unique_translateable_transcripts and transcript_align_slices arrays.");
   }
   if ($self->param('disconnect_jobs')) {
-    $target_dna_dba->dbc->disconnect_when_inactive(1);
+    $source_transcript_dba->dbc->disconnect_when_inactive(1);
+    $target_transcript_dba->dbc->disconnect_when_inactive(1);
   }
 }
 
