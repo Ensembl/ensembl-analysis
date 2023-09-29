@@ -311,6 +311,7 @@ sub pipeline_analyses {
         blast_cov           => $self->o('genblast_cov'),
         flag_small_introns  => $self->o('genblast_flag_small_introns'),
         flag_subpar_models  => $self->o('genblast_flag_subpar_models'),
+        disconnect_jobs     => '1',
       },
       -rc_name   => '4GB',
       -flow_into => {
@@ -355,6 +356,7 @@ sub pipeline_analyses {
         blast_cov           => $self->o('genblast_cov'),
         flag_small_introns  => $self->o('genblast_flag_small_introns'),
         flag_subpar_models  => $self->o('genblast_flag_subpar_models'),
+        disconnect_jobs     => '1',
       },
       -rc_name              => '5GB',
       -can_be_empty         => 1,

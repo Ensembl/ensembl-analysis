@@ -129,8 +129,9 @@ sub fetch_input{
   }
 
   # Make  the runnable
-
-  say "Fetch input finished";
+   if ($self->param('disconnect_jobs')) {
+     $repeat_dba->dbc->disconnect_when_inactive(1);
+  }
   return 1;
 }
 
@@ -145,13 +146,13 @@ sub fetch_input{
 
 sub run{
   my ($self) = @_;
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   foreach my $runnable (@{$self->runnable}) {
     $self->throw("Runnable module not set") unless ($runnable->isa("Bio::EnsEMBL::Analysis::Runnable"));
     $runnable->run();
     $self->output($runnable->output);
   }
-
-  say "Run finished";
+  $self->dbc->disconnect_when_inactive(0);
   return 1;
 }
 
@@ -170,6 +171,7 @@ sub write_output{
   my ($self) = @_;
 
   my $adaptor = $self->hrdb_get_con('output_db');
+  $adaptor->dbc->disconnect_when_inactive(0);
   my $aa = $adaptor->get_AttributeAdaptor;
   my $dbea = $adaptor->get_DBEntryAdaptor;
   my $gene_adaptor = $adaptor->get_GeneAdaptor;

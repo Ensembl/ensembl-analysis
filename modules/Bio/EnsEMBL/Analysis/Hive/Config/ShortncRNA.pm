@@ -277,6 +277,7 @@ sub pipeline_analyses {
         rfam_cm => $self->o('filtered_rfam_cm'),
         blast_db_dir_path => $self->o('ncrna_blast_path').'/',
         output_dir => $self->o('ncrna_dir'),
+        disconnect_jobs => '1',
       },
       -hive_capacity => 900,
       -rc_name    => '5GB',
