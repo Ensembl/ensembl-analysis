@@ -198,7 +198,7 @@ sub write_output{
 
   my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
-  $slice_adaptor->dbc->disconnect_when_inactive(0);
+  $adaptor->dbc->disconnect_when_inactive(0);
   if($self->runnable_failed == 1) {
     # Flow out on -2 or -3 based on how the failure happened
     my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
