@@ -116,12 +116,15 @@ sub fetch_input {
     $self->input_job->autoflow(0);
     $self->complete_early('No selenoprotein to use');
   }
+ if ($self->param('disconnect_jobs')) {
+     $db->dbc->disconnect_when_inactive(1);
+  }
 }
 
 
 sub run {
   my ($self) = @_;
-
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   my $minimum_identity = $self->param('minimum_identity');
   my $coverage_threshold = $self->param('coverage_threshold')/100;
@@ -223,6 +226,7 @@ sub run {
     }
     $self->output(\@selenocysteine_transcripts);
   }
+  $self->dbc->disconnect_when_inactive(0);
 }
 
 
@@ -308,6 +312,7 @@ sub write_output {
   my ($self) = @_;
 
   my $gene_adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
+  $gene_adaptor->dbc->disconnect_when_inactive(0);
   my $analysis = $self->analysis;
   my $biotype = $self->param('biotype');
   foreach my $transcript (@{$self->output}) {
