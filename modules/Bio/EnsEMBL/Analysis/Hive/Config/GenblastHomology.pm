@@ -287,6 +287,7 @@ sub pipeline_analyses {
         sequence_table_name => $self->o('uniprot_table_name'),
         biotype             => 'seleno_other',
         missmatch_allowed   => 10,
+        disconnect_jobs     => 1,
       },
       -rc_name => '3GB',
     },
