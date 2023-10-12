@@ -46,8 +46,9 @@ sub default_options {
 
 'base_blast_db_path'     => $ENV{BLASTDB_DIR},
 'uniprot_version'        => 'uniprot_2018_07',
-'protein_blast_db'       => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'),
-'protein_blast_index'    => '' || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'),
+'protein_blast_db_file'	 => '',
+'protein_blast_db'       => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file')),
+'protein_blast_index'    => '' || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file')),
 
 'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
 'uniprot_blast_exe_path' => catfile($self->o('binary_base'), 'blastp'),

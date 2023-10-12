@@ -67,7 +67,7 @@ sub default_options {
     'cpc2_txt_file'             => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_cpc2.txt' ),
     'release_number' => '' || $self->o('ensembl_release'),
     'is_non_vert'    => '' || $self->o('is_non_vert'),
-    'protein_blast_db_file' => 'PE12_vertebrata', # use PE12 for non-vertebrates'. Note there must also be a PE12_index file in the same directory.
+    'protein_blast_db_file' => '',
     'protein_entry_loc_file' => 'entry_loc',
     'species_name'        => '',                                                                                      # e.g. mus_musculus
     'production_name'     => '',                                                                                      # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names

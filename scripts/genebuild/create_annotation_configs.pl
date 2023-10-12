@@ -269,7 +269,14 @@ foreach my $accession (@accession_array) {
     $clade = 'distant_vertebrate';
   }
   $assembly_hash->{'clade'} = $clade;
-
+  #set a db for validating models from transcriptomic data
+  if ($clade eq 'mammals'){
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_mammalia_sp';
+  }
+  else{
+      $general_hash->{'protein_blast_db_file'} = 'PE12_vertebrata';
+  }
+  
   # Get stable id start
   my $stable_id_start;
   if (exists ($general_hash->{'stable_id_start'}) && $general_hash->{'stable_id_start'} >=0) {
