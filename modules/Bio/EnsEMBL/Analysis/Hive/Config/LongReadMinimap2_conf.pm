@@ -62,7 +62,8 @@ sub default_options {
 'binary_base'           => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin',
 'clone_db_script_path'  => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
 'default_mem'           => '1900',
-
+'cleaner_path'                => catfile($self->o('output_path'), 'clean_genes'),
+	
      'dna_db' => {
        -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
        -host   => $self->o('dna_db_server'),
@@ -429,7 +430,51 @@ sub pipeline_analyses {
       },
     },
 
+    {
+      -logic_name => 'fetch_single_exon_transcript_ids',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+	  cmd => 'mysql -u '
+	      .$self->o('user')
+	      .' -h '
+	      .$self->o('long_read_collapse_db', '-host')
+	      .' -P '
+	      .$self->o('long_read_collapse_db', '-port')
+	      .' '
+	      .$self->o('long_read_collapse_db', '-dbname')
+	      .' -NB -e \"select t.transcript_id from transcript as t where (select count(*) from exon_transcript as et where et.transcript_id=t.transcript_id)=1\" >'
+	      .catfile( $self->o('cleaner_path'), 'single_exon_transcript_ids_to_remove.txt' ),
+        ],
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        1 => ['delete_flagged_transcripts'],
+      },
+    },
 
+    {
+      -logic_name => 'delete_flagged_transcripts',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts',
+      -parameters => {
+        dbhost              => $self->o( 'long_read_collapse_db', '-host' ),
+        dbname              => $self->o( 'long_read_collapse_db', '-dbname' ),
+        dbuser              => $self->o('user'),
+        dbpass              => $self->o('password'),
+        dbport              => $self->o( 'long_read_collapse_db', '-port' ),
+        transcript_ids_file => catfile( $self->o('cleaner_path'), 'single_exon_transcript_ids_to_remove.txt' ),
+        delete_transcripts_path => catdir( $self->o('ensembl_analysis_script'), 'genebuild/' ),
+        delete_genes_path       => catdir( $self->o('ensembl_analysis_script'), 'genebuild/' ),
+        delete_transcripts_script_name => '/delete_transcripts.pl',
+        delete_genes_script_name       => '/delete_genes.pl',
+        output_path                    => $self->o('cleaner_path'),
+        output_file_name               => 'single_exon_delete_transcripts.out',
+      },
+      -max_retry_count => 0,
+      -flow_into       => {
+        1 => ['blast_long_read'],
+      },
+    },
+      
     {
       -logic_name => 'blast_long_read',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
