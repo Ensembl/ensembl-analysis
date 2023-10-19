@@ -405,7 +405,7 @@ sub _master_config {
             {
               ID         => 'LAYER5',
               BIOTYPES   => [
-		             'cdna'
+		             'cdna',
 		             'rnaseq_tissue',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
