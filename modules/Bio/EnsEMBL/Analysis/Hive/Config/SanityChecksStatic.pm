@@ -149,9 +149,19 @@ sub _master_config {
         }, # logic_names
         'biotypes' =>    {
           'human_pe12_'         => 5000,
-          'mammals_pe12_'         => 5000,
+          'mammals_pe12_'       => 5000,
+          'aves_pe12_'          => 5000,
         }, # biotypes
       }, # genblast
+     'ig_tr' => {
+        'logic_names' => {
+          'ig_tr_gene'          => 0,
+        }, # logic_names
+        'biotypes' =>    {
+          'IG_'                 => 0,
+          'TR_'                 => 0,
+        }, # biotypes
+      }, # ig_tr
       'projection_coding' => {
         'logic_names' => {
           'project_transcripts' => 20000,
@@ -177,6 +187,7 @@ sub _master_config {
           'human_pe12_'          => 5000,
           'mammals_pe12_'         => 5000,
           'rnaseq_tissue_'       => 10000,
+          'aves_pe12_'          => 5000,
         }, # biotypes
       }, # layer
       'genebuilder' => {
@@ -188,7 +199,7 @@ sub _master_config {
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
-          'ncrna' => 400,
+          'ncrna' => 350,
         }, # logic_names
         'biotypes' =>    {
           'miRNA'               => 10,
