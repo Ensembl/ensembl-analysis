@@ -274,7 +274,7 @@ foreach my $accession (@accession_array) {
       $general_hash->{'protein_blast_db_file'} = 'uniprot_mammalia_sp';
   }
   else{
-      $general_hash->{'protein_blast_db_file'} = 'PE12_vertebrata';
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrata_sp';
   }
   
   # Get stable id start
