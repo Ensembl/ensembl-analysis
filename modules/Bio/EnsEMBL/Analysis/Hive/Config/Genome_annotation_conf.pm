@@ -81,7 +81,7 @@ sub default_options {
     species_url                      => '', # sets species.url meta key
     species_division                 => 'EnsemblVertebrates', # sets species.division meta key
     is_non_vert                      => '0', # Setting this will indicate that the assembly corresponds to a non-vertebrate species.
-    protein_blast_db_file            => 'PE12_vertebrata', # use PE12 for non-vertebrates. Note there must also be a PE12_index file available in the same directory.
+    protein_blast_db_file            => '', # use PE12 for non-vertebrates. Note there must also be a PE12_index file available in the same directory.
     protein_entry_loc_file           => 'entry_loc',
 
     repbase_logic_name               => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
@@ -1938,6 +1938,7 @@ sub pipeline_analyses {
       -logic_name => 'skip_otherfeatures_db',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
+
         cmd => 'if [[ -n "#assembly_refseq_accession#" ]] || [[ -n $(#long_read_query#) ]] || [[ $(#cdna_query#) -gt #cdna_threshold# ]]; then exit 0; else exit 42;fi',
         return_codes_2_branches => {'42' => 2},
         cdna_query => 'mysql -h #expr(#cdna_db#->{-host})expr# -P #expr(#cdna_db#->{-port})expr# -u #expr(#cdna_db#->{-user})expr# -p#expr(#cdna_db#->{-pass})expr# #expr(#cdna_db#->{-dbname})expr# -NB -e "SELECT COUNT(*) FROM gene"',

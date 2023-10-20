@@ -249,8 +249,9 @@ sub _master_config {
           'genblast_not_best'   => 10000,
         }, # logic_names
         'biotypes' =>    {
-          'human_pe12_'         => 5000,
-          'mouse_pe12_'      => 5000,
+          'human_pe12_'         => 1000,
+	  'mouse_pe12_'      => 1000,
+	  'mammals_pe12_'      => 500,    
         }, # biotypes
       }, # genblast
       'ig_tr' => {
@@ -284,8 +285,8 @@ sub _master_config {
         'logic_names' =>    {
         }, # logic_names
         'biotypes' =>    {
-          'human_pe12_'          => 5000,
-          'mouse_pe12_'       => 5000,
+          'human_pe12_'          => 1000,
+          'mouse_pe12_'       => 1000,
           'rnaseq_tissue_'       => 10000,
         }, # biotypes
       }, # layer

@@ -269,7 +269,14 @@ foreach my $accession (@accession_array) {
     $clade = 'distant_vertebrate';
   }
   $assembly_hash->{'clade'} = $clade;
-
+  #set a db for validating models from transcriptomic data
+  if ($clade eq 'mammals'){
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_mammalia_sp';
+  }
+  else{
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrata_sp';
+  }
+  
   # Get stable id start
   my $stable_id_start;
   if (exists ($general_hash->{'stable_id_start'}) && $general_hash->{'stable_id_start'} >=0) {
@@ -615,7 +622,7 @@ sub clade_settings {
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
       'sanity_set'         => 'mammals_basic',      
-      'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
+      'ig_tr_fasta_file'    => 'imgt_mammals_ig_tr.fa',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -625,7 +632,7 @@ sub clade_settings {
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
       'sanity_set'         => 'mammals_basic',      
-      'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
+      'ig_tr_fasta_file'    => 'imgt_mammals_ig_tr.fa',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
