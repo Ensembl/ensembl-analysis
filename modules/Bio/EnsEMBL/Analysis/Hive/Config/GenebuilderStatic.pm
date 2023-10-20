@@ -114,8 +114,8 @@ sub _master_config {
                              'human_pe12_tr_1',
 	                     'human_pe12_sp_2',
                              'human_pe12_tr_2',
-	                     'primates_pe12_sp_1'
-		             'primates_pe12_sp_2'
+	                     'primates_pe12_sp_1',
+		             'primates_pe12_sp_2',
 	                     'projection_3',
                              'projection_4',
 	                     'projection_5',
