@@ -141,7 +141,7 @@ sub _master_config {
       
 'gene_db_checks' => {
 	  
-    'birds_basic' => {
+    'aves_basic' => {
       'genblast' => {
         'logic_names' => {
           'genblast'            => 10000,
@@ -155,11 +155,11 @@ sub _master_config {
       }, # genblast
      'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 0,
+          'ig_tr_gene'          => 20,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 0,
-          'TR_'                 => 0,
+          'IG_'                 => 10,
+          'TR_'                 => 10,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
@@ -240,7 +240,7 @@ sub _master_config {
 	       'protein_coding'         => 5000,
 	   },
       }, # rnaseq_final
-    }, # birds_basic
+    }, # aves_basic
 	
     'mammals_basic' => {
       'genblast' => {
