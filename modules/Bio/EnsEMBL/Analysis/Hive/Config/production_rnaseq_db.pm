@@ -139,7 +139,7 @@ sub default_options {
     optimise_dir => catdir($self->o('rnaseq_dir'),'optimise_rnaseq'),
     production_ftp_dir => '/nfs/production/flicek/ensembl/production/ensemblftp/rapid-release/',
     species_list => '/nfs/production/flicek/ensembl/genebuild/main_species.csv',
-	
+
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -205,7 +205,7 @@ sub pipeline_wide_parameters {
 
   return {
     %{$self->SUPER::pipeline_wide_parameters},
-    production_ftp_dir => $self->o('production_ftp_dir'),	
+    production_ftp_dir => $self->o('production_ftp_dir'),
   }
 }
 
@@ -548,7 +548,7 @@ sub pipeline_analyses {
         1 => ['create_species_ftp_dir'],
       },
     },
-    
+
     {
       -logic_name => 'create_species_ftp_dir',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -584,7 +584,7 @@ sub pipeline_analyses {
       1 => ['set_dir_permission'],
     },
   },
- 
+
    {
      -logic_name => 'set_dir_permission',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -611,11 +611,11 @@ sub pipeline_analyses {
          2 => ['delete_data_files'],
      }
    },
-      
-   { 
+
+   {
      -logic_name => 'delete_data_files',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-     -parameters => { 
+     -parameters => {
         cmd => 'rm -r '. $self->o('merge_dir') . '/* ' .$self->o('output_dir') . '/* ',
      },
    },
@@ -625,7 +625,7 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
       -rc_name => 'default',
    }
-      
+
   ];
 }
 
@@ -637,7 +637,7 @@ sub resource_classes {
      #inherit other stuff from the base class
      %{ $self->SUPER::resource_classes() },
     '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, $self->default_options->{'use_threads'}),
-                            SLURM =>  $self->slurm_resource_builder(1000, '7-00:00:00',$self->default_options->{'use_threads'}),},
+                            SLURM =>  $self->slurm_resource_builder(10000, '7-00:00:00',$self->default_options->{'use_threads'}),},
   }
 }
 
