@@ -21,6 +21,8 @@ addons:
         - graphviz
 
 before_install:
+    - cpan install App::cpanminus
+    - cpan DBD::mysql
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-variation.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-taxonomy.git

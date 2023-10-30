@@ -247,7 +247,7 @@ sub _master_config {
 
              },
 
-      birds_basic => {
+      aves_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
                             taxon_id  => '#taxon_id#',
