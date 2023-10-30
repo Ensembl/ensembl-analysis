@@ -157,9 +157,9 @@ sub default_options {
     projection_source_db_port    => '4240',
     projection_source_production_name => '',
 
-    compara_db_name => 'leanne_ensembl_compara_95',
-    compara_db_host => 'mysql-ens-genebuild-prod-5',
-    compara_db_port => 4531,
+    compara_db_name => 'gb_ensembl_compara_112',
+    compara_db_host => 'mysql-ens-genebuild-prod-1',
+    compara_db_port => 4527,
 
     projection_db_host    => $self->o('databases_host'),
     projection_db_port    => $self->o('databases_port'),
