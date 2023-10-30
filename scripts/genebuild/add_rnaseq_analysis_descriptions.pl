@@ -207,7 +207,7 @@ sub get_values {
     rnaseq_bam  => ucfirst($sample_name)." RNA-seq alignments",
     rnaseq_ise  => ucfirst($sample_name)." intron-spanning reads",
     rnaseq_daf  => ucfirst($sample_name)." intron-spanning reads",
-    isoseq => ucfirst($sample_name).' PacBio lond reads',
+    isoseq => ucfirst($sample_name).' PacBio long reads',
         	    );
 
   my %web_data_zmenu = (
