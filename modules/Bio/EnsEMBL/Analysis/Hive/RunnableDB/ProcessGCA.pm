@@ -488,8 +488,8 @@ sub get_clade_params {
 	  $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
 	  $clade_params->{'species_division'}     = 'EnsemblMetazoa',
 	  $clade_params->{'busco_group'}          = 'endopterygota_odb10',;
-  }  elsif ( $clade eq 'orthoptera' ) {
-      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/orthoptera_uniprot_proteins.fa',
+  }  elsif ( $clade eq 'polyneoptera' ) {
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/polyneoptera_uniprot_proteins.fa',
           $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hexapoda_orthodb11v0_proteins.fa',
           $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
           $clade_params->{'species_division'}     = 'EnsemblMetazoa',
