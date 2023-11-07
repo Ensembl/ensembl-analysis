@@ -547,6 +547,8 @@ sub _master_config {
 
     insects_basic => [],
 
+    lophotrochozoa_basic => [],
+
     self_patch => [
                 'self_pe12_sp_95',
                 'self_pe12_sp_80',
