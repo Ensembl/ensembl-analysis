@@ -103,10 +103,6 @@ sub _master_config {
                    # Insects
                    'dicondylia_taxon_id'   => '85512',
                    'monocondylia_taxon_id' => '554674',
-		   #Flatworms
-                   'platyhelminthes_taxon_id'   => '6157',
-                   'rhabditophora_taxon_id' => '147100',
-
                  };
   my %config = (
     default => {},
@@ -429,49 +425,6 @@ sub _master_config {
 
              },
 
-          lophotrochozoa_basic => {
-              self_pe12 =>{
-                            file_name => 'self_pe12.fasta',
-                            taxon_id  => '#taxon_id#',
-                            dest_dir  => '#output_path#',
-                            compress  => 0,
-                            pe_level  => [1,2],
-                          },
-
-              platyhelminthes_pe12 => {
-                                     file_name  => 'platyhelminthes_pe12.fasta',
-                                     taxon_id   => $taxon_ids->{'platyhelminthes_taxon_id'},
-                                     exclude_id => ['#taxon_id#'],
-                                     dest_dir   => '#output_path#',
-                                     compress   => 0,
-                                     pe_level   => [1,2],
-                                   },
-
-             rhabditophora_pe12 => {
-                                   file_name  => 'rhabditophora_pe12.fasta',
-                                   taxon_id   => $taxon_ids->{'rhabditophora_taxon_id'},
-                                   exclude_id => ['#taxon_id#'],
-                                   dest_dir   => '#output_path#',
-                                   compress   => 0,
-                                   pe_level   => [1,2],
-                                 },
-
-              self_pe3 =>{
-                           file_name => 'self_pe3.fasta',
-                           taxon_id  => '#taxon_id#',
-                           dest_dir  => '#output_path#',
-                           compress  => 0,
-                           pe_level  => [3],
-                         },
-                         
-              human_pe12 => {
-                              file_name => 'human_pe12.fasta',
-                              taxon_id  => $taxon_ids->{'human_taxon_id'},
-                              dest_dir  => '#output_path#',
-                              compress  => 0,
-                              pe_level  => [1,2],
-                            },
-           },
 
           insects_basic => {
               self_pe12 =>{
