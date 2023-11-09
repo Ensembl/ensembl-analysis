@@ -84,6 +84,7 @@ sub fetch_input {
   # For the combine files option we don't actually need to do anything in fetch input
 
   my $dirs_to_create    = [];
+  my $custom_loading = 0;
   my $current_genebuild = $self->param('current_genebuild');
   #my $current_genebuild  = 0;
   my $output_dir_base    = $self->param('base_output_dir');
@@ -137,8 +138,15 @@ sub fetch_input {
   my $sth;
   my $general_hash = {};
   my ($stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start);
+  
+  # Check for .INI custom loading configuration file and required params are present.
   if ( -e $init_file ) {
     open( IN, $init_file ) || throw("Could not open $init_file");
+    
+    # Switch to custom loading
+    say "Using custom loading .ini file.\n";
+    $custom_loading = 1;
+
     while (<IN>) {
       my $line = $_;
 
@@ -225,16 +233,13 @@ sub fetch_input {
   #my $stable_id_prefix = $s;
   $s =~ s/ENS//g;
   my $species_prefix  = uc($s);
-  my $scientific_name = $species_name;
-  say $species_name;
+  my $scientific_name = chomp($species_name);
+  say "Orignal species name: $species_name\n";
   $species_name = lc($species_name);
-  say $species_name;
   $species_name =~ s/ +/\_/g;
-  say $species_name;
   $species_name =~ s/\_$//;                # This cropped up
-  say $species_name;
   $species_name =~ /([^\_]+)\_([^\_]+)/;
-  say $species_name;
+  say "Formatted species name: $species_name\n";
   my $p1                    = $1;
   my $p2                    = $2;
   my $binomial_species_name = $p1 . "_" . $p2;
@@ -385,10 +390,14 @@ sub fetch_input {
     $self->create_registry_entry( $new_registry_file, $core_db_details, $otherfeatures_db_details, $production_name );
   }
 
-  #Check genebuild status of assembly
+  #Check genebuild status of assembly unless custom loading no need to check registry
   if ( $current_genebuild == 1 ) {
     $self->update_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
-  } else {
+  }
+  elsif( $custom_loading == 1 ){
+      print "Custom loading, skipping assembly registry check\n";
+  }
+  else {
     #it will stop the pipeline if there is already an annotation in progress for this assembly
     say "UPDATE REGISTRY";
     $self->check_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
@@ -656,6 +665,7 @@ sub update_annotation_status {
       throw( "Could not update annotation status for assembly with accession " . $accession );
     }
   }
+  say "Creating new assembly annotation status in registry...\n";
   $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id,is_current,annotation_source) values(?,?,?,?,?,?,?)";
   $sth = $registry_dba->dbc->prepare($sql);
   $sth->bind_param( 1, $accession );
@@ -665,7 +675,7 @@ sub update_annotation_status {
   $sth->bind_param( 5, $assembly_id );
   $sth->bind_param( 6, 1 );
   $sth->bind_param( 7, 'pending' );
-  say "Accession being worked on is $accession";
+  say "SQL Successful. Accession being worked on is $accession";
 
   unless ( $sth->execute() ) {
     throw( "Could not update annoation status for assembly with accession " . $accession );
@@ -687,6 +697,7 @@ sub check_annotation_status {
       throw( "A genebuild entry already exists for this assembly. " . "$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3]\nAnnotation source: $status[4]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
     }
     else {
+      print "Attempting to update annotation status on $accession accession\n";
       $self->update_annotation_status( $registry_dba, $accession, $current_genebuild ); 
     }
 }
