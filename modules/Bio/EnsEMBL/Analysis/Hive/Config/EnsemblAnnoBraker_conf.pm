@@ -855,16 +855,19 @@ sub pipeline_analyses {
       -logic_name => 'run_braker_ep_mode',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'mkdir #output_path#/prothint;' .
-          'cd #output_path#/prothint;' .
-          'singularity exec -H /hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data:/home --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
-          'cd #output_path#/;' .
-      'sudo -u genebuild rm -rf ' . $self->o('augustus_config_path') . '/species/#assembly_accession#_#species_name#;' .
-          'sudo -u genebuild singularity exec -H /hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data:/home --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
-      'rm -rf #output_path#/prothint/diamond;' .
+        cmd =>'rm -rf #output_path#/prothint;' .
+          'rm -rf #output_path#/augustus_config_light;' .
+          'rm -rf #output_path#/braker;' .
+          'cp -r '. $self->o('augustus_config_path') . ' #output_path#;' .
+          'mkdir -p #output_path#/prothint;' .
+          'cd #output_path#/prothint;'.
+          'singularity exec -H '. $self->o('gb_user_data_folder') . ':/home --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file#;' .
+          'cd #output_path#;' .
+          'singularity exec -H '. $self->o('gb_user_data_folder') . ':/home --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=#output_path#/augustus_config_light/config --cores ' . $self->o('cores') . ';' .
+          'rm -rf #output_path#/prothint/diamond;' .
           'rm -rf #output_path#/prothint/GeneMark_ES;' .
           'rm -rf #output_path#/prothint/Spaln;' .
-          'sudo -u genebuild rm -rf #output_path#/braker/GeneMark-EP;' ,
+          'rm -rf #output_path#/braker/GeneMark-EP;' ,
       },
       -rc_name         => '32GB',
       -max_retry_count => 0,
@@ -1150,7 +1153,6 @@ sub pipeline_analyses {
       -logic_name => 'fan_busco_output',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        #cmd                     => 'if '.$self->o('run_braker').'==1] ; then exit 0; else exit 42;fi',
         cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
@@ -1336,16 +1338,19 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cp #output_path#/red_output/mask_output/#species_name#_reheadered_toplevel.msk #output_path#/#species_name#_softmasked_toplevel.fa;' .
-          'mkdir #output_path#/prothint;' .
-          'cd #output_path#/prothint;' .
-          'singularity exec -H /hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data:/home --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
-          'cd #output_path#/;' .
-	  'sudo -u genebuild rm -rf ' . $self->o('augustus_config_path') . '/species/#assembly_accession#_#species_name#;' .
-          'sudo -u genebuild singularity exec -H /hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data:/home --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
-	  'rm -rf #output_path#/prothint/diamond;' .
-	  'rm -rf #output_path#/prothint/GeneMark_ES;' .
-	  'rm -rf #output_path#/prothint/Spaln;' .
-	  'sudo -u genebuild rm -rf #output_path#/braker/GeneMark-EP;' ,
+          'rm -rf #output_path#/prothint;' .
+          'rm -rf #output_path#/augustus_config_light;' .
+          'rm -rf #output_path#/braker;' .
+          'cp -r '. $self->o('augustus_config_path') . ' #output_path#;' .
+          'mkdir -p #output_path#/prothint;' .
+          'cd #output_path#/prothint;'.
+          'singularity exec -H '. $self->o('gb_user_data_folder') . ':/home --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file#;' .
+          'cd #output_path#;' .
+          'singularity exec -H '. $self->o('gb_user_data_folder') . ':/home --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=#output_path#/augustus_config_light/config --cores ' . $self->o('cores') . ';' .
+          'rm -rf #output_path#/prothint/diamond;' .
+          'rm -rf #output_path#/prothint/GeneMark_ES;' .
+          'rm -rf #output_path#/prothint/Spaln;' .
+          'rm -rf #output_path#/braker/GeneMark-EP;' ,
       },
       -rc_name         => '32GB',
       -max_retry_count => 0,
@@ -1648,7 +1653,7 @@ sub resource_classes {
      },
     '32GB'           => {
      LSF => $self->lsf_resource_builder( 'production', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ], $self->default_options->{'cores'} ),
-     SLURM =>  $self->slurm_resource_builder(32000, '7-00:00:00',  $self->default_options->{'cores'} ),
+     SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
     },
     };
     }
