@@ -182,6 +182,10 @@ sub _master_config {
       }, # rnaseq_blast
       'layer' => {
         'logic_names' =>    {
+          'genblast'                => 100,
+          'best_targetted'          => 100,
+          'genblast_rnaseq_support' => 1000,
+          'project_transcripts' => 2000,
         }, # logic_names
         'biotypes' =>    {
           'human_pe12_'          => 5000,
@@ -283,6 +287,10 @@ sub _master_config {
       }, # rnaseq_blast
       'layer' => {
         'logic_names' =>    {
+          'genblast'                => 100,
+          'best_targetted'          => 100,
+          'genblast_rnaseq_support' => 1000,
+          'project_transcripts' => 10000,
         }, # logic_names
         'biotypes' =>    {
           'human_pe12_'          => 1000,
@@ -383,7 +391,10 @@ sub _master_config {
       'layer' => {
 	  # This is pretty variable so we need to think of a sensible plan for the logic_name checks
 	  'logic_names' =>    {
-
+          'genblast'                => 100,
+          'best_targetted'          => 100,
+          'genblast_rnaseq_support' => 1000,
+          'project_transcripts' => 10000,
         }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 20,
@@ -501,6 +512,9 @@ sub _master_config {
       'layer' => {
         'logic_names' =>    {
           'genblast'                => 10000,
+          'best_targetted'          => 100,
+          'genblast_rnaseq_support' => 1000,
+          'project_transcripts' => 10000,
         }, # logic_names
         'biotypes' =>    {
           'rnaseq_tissue_'       => 14000,
@@ -607,6 +621,7 @@ sub _master_config {
           'genblast'                => 100,
           'best_targetted'          => 100,
           'genblast_rnaseq_support' => 1000,
+          'project_transcripts' => 30000,
         }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 20,
@@ -729,6 +744,10 @@ sub _master_config {
       }, # rnaseq_blast
       'layer' => {
 	  'logic_names' =>    {
+          'genblast'                => 1000,
+          'best_targetted'          => 1000,
+          'genblast_rnaseq_support' => 1000,
+          'project_transcripts' => 10000,
 	  },
 	  'biotypes' =>    {
 	      'verts_pe12_'        => 20000,
