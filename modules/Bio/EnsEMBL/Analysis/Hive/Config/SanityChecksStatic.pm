@@ -183,7 +183,6 @@ sub _master_config {
       'layer' => {
         'logic_names' =>    {
           'genblast'                => 100,
-          'best_targetted'          => 100,
           'genblast_rnaseq_support' => 1000,
           'project_transcripts' => 2000,
         }, # logic_names
