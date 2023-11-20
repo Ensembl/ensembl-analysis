@@ -404,7 +404,7 @@ sub _master_config {
                              'cdna',
     ],
 
-    birds_basic => [
+    aves_basic => [
                              'IG_C_gene',
                              'IG_J_gene',
                              'IG_V_gene',

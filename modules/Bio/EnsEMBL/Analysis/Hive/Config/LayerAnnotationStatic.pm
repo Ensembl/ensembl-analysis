@@ -703,7 +703,7 @@ sub _master_config {
 
 
 
-  birds_basic => [
+  aves_basic => [
 		  {
                ID         => 'LAYER1',
                BIOTYPES   => [
