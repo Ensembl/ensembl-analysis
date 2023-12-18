@@ -266,7 +266,7 @@ sub default_options {
     repeat_types_script     => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
     registry_status_update_script     => catfile($self->o('ensembl_analysis_script'), 'update_assembly_registry.pl'),
 
-    hive_beekeeper_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'beekeeper.pl'),
+    hive_beekeeper_script => catfile($ENV{EHIVE_ROOT_DIR}, 'scripts', 'beekeeper.pl'),
 
     rnaseq_dir    => catdir($self->o('output_path'), 'rnaseq'),
     long_read_dir => catdir($self->o('output_path'),'long_read'),
@@ -770,7 +770,8 @@ sub pipeline_analyses {
         databases => ['reference_db', 'dna_db'],
         reference_db => $self->o('reference_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -865,7 +866,8 @@ sub pipeline_analyses {
         databases => ['refseq_db', 'dna_db'],
         refseq_db => $self->o('refseq_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -923,7 +925,8 @@ sub pipeline_analyses {
         databases => ['reference_db', 'dna_db'],
         reference_db => $self->o('reference_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1032,7 +1035,8 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineInit',
       -parameters => {
         hive_config => $self->o('hive_transcript_finalisation_config'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         databases => ['final_geneset_db', 'ncrna_db', 'dna_db'],
         final_geneset_db => $self->o('final_geneset_db'),
         ncrna_db => $self->o('ncrna_db'),
@@ -1227,7 +1231,8 @@ sub pipeline_analyses {
         projection_source_db => $self->o('projection_source_db'),
         compara_db => $self->o('compara_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1310,7 +1315,8 @@ sub pipeline_analyses {
         projection_source_db => $self->o('projection_source_db'),
         projection_lastz_db => $lastz_pipe_db,
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1372,7 +1378,8 @@ sub pipeline_analyses {
         genblast_nr_db => $self->o('genblast_nr_db'),
         killlist_db => $self->o('killlist_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1435,7 +1442,8 @@ sub pipeline_analyses {
         best_targeted_db => $self->o('best_targeted_db'),
         killlist_db => $self->o('killlist_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1495,7 +1503,8 @@ sub pipeline_analyses {
         databases => ['ig_tr_db', 'dna_db'],
         ig_tr_db => $self->o('ig_tr_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1579,7 +1588,8 @@ sub pipeline_analyses {
         databases => ['ncrna_db', 'dna_db'],
         ncrna_db => $self->o('ncrna_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1665,7 +1675,8 @@ sub pipeline_analyses {
         rnaseq_refine_db => $self->o('rnaseq_for_layer_nr_db'),
         genblast_rnaseq_support_nr_db => $self->o('genblast_rnaseq_support_nr_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1719,7 +1730,8 @@ sub pipeline_analyses {
         dna_db => $self->o('dna_db'),
 	pcp_db => $self->o('pcp_db'),
 	pcp_nr_db => $self->o('pcp_nr_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1809,7 +1821,8 @@ sub pipeline_analyses {
         databases => ['long_read_final_db', 'dna_db'],
         long_read_final_db => $self->o('long_read_final_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1873,7 +1886,8 @@ sub pipeline_analyses {
         reference_db => $self->o('reference_db'),
         final_geneset_db => $self->o('final_geneset_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -1978,7 +1992,8 @@ sub pipeline_analyses {
         databases => ['otherfeatures_db', 'dna_db'],
         otherfeatures_db => $self->o('otherfeatures_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
@@ -2055,7 +2070,8 @@ sub pipeline_analyses {
         rnaseq_refine_db => $self->o('rnaseq_refine_db'),
         rnaseq_blast_db => $self->o('rnaseq_blast_db'),
         dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
+		ehive_root_dir => $ENV{EHIVE_ROOT_DIR},
+		enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),

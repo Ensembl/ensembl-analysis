@@ -1225,7 +1225,7 @@ sub pipeline_analyses {
           param => 'rnaseq_refine_db',
           data => $self->o('scallop_blast_db'),
         }],
-        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+        tweak_script => catfile($self->o('ehive_root_dir'), 'scripts', 'tweak_pipeline.pl'),
       },
       -rc_name    => 'default',
     },
@@ -1250,7 +1250,7 @@ sub pipeline_analyses {
           update => 1,
         },
         ],
-        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+        tweak_script => catfile($self->o('ehive_root_dir'), 'scripts', 'tweak_pipeline.pl'),
       },
       -rc_name   => 'default',
       -flow_into => {

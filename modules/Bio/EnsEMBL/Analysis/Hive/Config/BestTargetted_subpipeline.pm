@@ -965,7 +965,7 @@ sub pipeline_analyses {
           data => $self->o('cdna_db'),
           update => 1,
         }],
-        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+        tweak_script => catfile($self->o('ehive_root_dir'), 'scripts', 'tweak_pipeline.pl'),
       },
       -rc_name    => 'default',
     },

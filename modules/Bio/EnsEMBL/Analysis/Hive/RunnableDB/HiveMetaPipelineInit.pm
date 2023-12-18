@@ -61,7 +61,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    hive_init_script => catfile('#enscode_root_dir#', 'ensembl-hive', 'scripts', 'init_pipeline.pl'),
+    hive_init_script => catfile('#ehive_root_dir#', 'scripts', 'init_pipeline.pl'),
   }
 }
 
@@ -111,6 +111,7 @@ sub fetch_input {
     '-pipe_db_name', $pipeline_db->{'-dbname'},
     '-pipeline_name', $self->param_required('pipeline_name'));
   push(@cmd, '-enscode_root_dir', $self->param('enscode_root_dir'));
+  push(@cmd, '-ehive_root_dir', $self->param('ehive_root_dir'));
   if ($dna_db) {
     $self->warning('Your dna dbname has upper case character, it might cause problems, '.$dna_db->{'-dbname'})
       if ($dna_db->{'-dbname'} =~ /[[:upper:]]/);

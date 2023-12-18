@@ -285,7 +285,7 @@ sub pipeline_analyses {
       -logic_name => 'notification_pipeline_is_done',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
       -parameters => {
-        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+        tweak_script => catfile($self->o('ehive_root_dir'), 'scripts', 'tweak_pipeline.pl'),
         messages   => [
         {
           url => $self->o('transcript_selection_url'),
