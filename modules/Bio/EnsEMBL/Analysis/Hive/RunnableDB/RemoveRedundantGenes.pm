@@ -49,6 +49,7 @@ use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+my $delete_manually;
 
 sub fetch_input {
   my ($self) = @_;
@@ -161,10 +162,15 @@ sub run {
       # If there's no equivalent biotype in layering then we should just remove the gene
       # There is a key called 'unrecognised_biotype' that has the worst priority that could be used
       # if we ever want to do anything with these
-      unless(exists $self->param('biotype_priorities')->{$transcript->biotype}) {
-        push(@genes_to_delete, $gene);
-        next;
+      if ($transcript){
+        unless(exists $self->param('biotype_priorities')->{$transcript->biotype}) {
+          push(@genes_to_delete, $gene);
+          next;
+        }
       }
+	  else {
+        $delete_manually .= "Manually delete this gene_id: " . $gene->display_id . "\n";
+	  }
 
       unless($transcript_strings->{$transcript_string}) {
         $transcript_strings->{$transcript_string} = $gene;
@@ -188,6 +194,9 @@ sub write_output {
 
   foreach my $gene (@{$self->output}) {
     $gene->adaptor->remove($gene);
+  }
+  if ($delete_manually != ''){
+  	die "Found some issues..." . "\n" . $delete_manually;
   }
 }
 
