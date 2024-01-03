@@ -39,7 +39,7 @@ sub default_options {
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
     'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
     'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
-
+    'gb_user_data_folder'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data', #it stores gm_key for GenMark and it is set as Braker's home dir
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
