@@ -64,7 +64,7 @@ sub default_options {
     'assembly_name'             => '',                                  # Name (as it appears in the assembly report file)
     'assembly_accession'        => '',                                  # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'uniprot_version'           => 'uniprot_2021_04',                   # What UniProt data dir to use for various analyses
-
+    'sanity_set'                => '',
     # Keys for custom loading, only set/modify if that's what you're doing
     'protein_entry_loc' => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),    # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
@@ -474,7 +474,7 @@ sub pipeline_analyses {
         target_db                  => $self->o('otherfeatures_db'),
         sanity_check_type          => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks' )->{'otherfeatures'},
+          'gene_db_checks' )->{ $self->o('sanity_set') }->{'otherfeatures'},
       },
       -rc_name   => '4GB',
       -flow_into => {
