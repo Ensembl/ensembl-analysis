@@ -72,7 +72,7 @@ sub default_options {
     'mapping_db'                => '', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
 
     'uniprot_version'           => 'uniprot_2021_04', # What UniProt data dir to use for various analyses
-
+    'sanity_set'                => '',
     # Keys for custom loading, only set/modify if that's what you're doing
     'protein_entry_loc'            => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
@@ -394,7 +394,7 @@ sub pipeline_analyses {
         target_db => $self->o('rnaseq_db'),
         sanity_check_type => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks')->{'rnaseq_final'},
+          'gene_db_checks')->{ $self->o('sanity_set') }->{'rnaseq_final'},
       },
 
       -rc_name    => '8GB',
