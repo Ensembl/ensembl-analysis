@@ -415,6 +415,105 @@ sub _master_config {
 
     ],
 
+      sharks_basic => [
+	  {
+	      ID         => 'LAYER1',
+	      BIOTYPES   => [
+		  'IG_C_gene',
+		  'IG_J_gene',
+		  'IG_V_gene',
+		  'IG_D_gene',
+		  'TR_C_gene',
+		  'TR_J_gene',
+		  'TR_V_gene',
+		  'TR_D_gene',
+		  'seleno_self',
+		  'self_pe12_seleno_1',
+		  'self_pe12_seleno_2',
+		  'self_pe12_seleno_3',
+		  'self_pe12_seleno_4',
+		  ],
+	      DISCARD    => 0,
+	  },
+
+	  {
+	      ID         => 'LAYER2',
+	      BIOTYPES   => [
+		  'cdna2genome',
+		  'edited',
+		  'gw_gtag',
+		  'gw_exo',
+		  'rnaseq_tissue_1',
+		  'rnaseq_tissue_2',
+		  'rnaseq_tissue_3',
+		  'rnaseq_tissue_4',
+		  'cdna_1',
+		  'cdna_2',
+		  'cdna_3',
+		  'cdna_4',
+		  'self_pe12_sp_1',
+		  'self_pe12_tr_1',
+		  'self_pe12_sp_2',
+		  'self_pe12_tr_2',
+		  'human_pe12_sp_1',
+		  'human_pe12_sp_2',
+		  'human_pe12_tr_1',
+		  'human_pe12_tr_2',
+		  'genblast_rnaseq_top',
+		  'genblast_rnaseq_high',
+		  'fish_pe12_sp_1',
+		  'fish_pe12_tr_1',
+		  'fish_pe12_sp_2',
+		  'fish_pe12_tr_2',
+		  ],
+	      FILTER_AGAINST => ['LAYER1'],
+	      DISCARD    => 0,
+	  },
+
+	  {
+	      ID         => 'LAYER3',
+	      BIOTYPES   => [
+		  'human_pe12_sp_3',
+		  'human_pe12_sp_4',
+		  'fish_pe12_sp_3',
+		  'fish_pe12_sp_4',
+		  'genblast_rnaseq_medium',
+		  ],
+	      FILTER_AGAINST => ['LAYER1','LAYER2'],
+	      DISCARD    => 0,
+	  },
+	  {
+	      ID         => 'LAYER4',
+	      BIOTYPES   => [
+		  'human_pe12_sp_5',
+		  'fish_pe12_sp_5',
+		  'fish_pe3_sp_1',
+		  'fish_pe3_sp_2',
+		  'fish_pe3_sp_3',
+		  'fish_pe3_sp_4',
+		  'vert_pe12_sp_1',
+		  'vert_pe12_sp_2',
+		  'vert_pe12_sp_3',
+		  'vert_pe12_sp_4',
+
+		  ],
+	      FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+	      DISCARD    => 0,
+	  },
+
+	  {
+	      ID         => 'LAYER5',
+	      BIOTYPES   => [
+		  'cdna',
+		  'rnaseq_tissue',
+		  ],
+	      FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+	      DISCARD    => 0,
+	  },
+
+
+	      ],# end sharks_basic
+      
     distant_vertebrate => [
              {
               ID         => 'LAYER1',

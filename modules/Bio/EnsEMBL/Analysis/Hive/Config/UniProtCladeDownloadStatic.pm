@@ -247,6 +247,58 @@ sub _master_config {
 
              },
 
+      sharks_basic => {
+	  self_pe12 =>{
+	      file_name => 'self_pe12.fasta',
+	      taxon_id  => '#taxon_id#',
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+
+	  self_pe3 =>{
+	      file_name => 'self_pe3.fasta',
+	      taxon_id  => '#taxon_id#',
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [3],
+	  },
+
+	  human_pe12 => {
+	      file_name => 'human_pe12.fasta',
+	      taxon_id  => $taxon_ids->{'human_taxon_id'},
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+
+	  fish_pe12 => {
+	      file_name => 'fish_pe12.fasta',
+	      taxon_id  => $taxon_ids->{'fish_taxon_id'},
+	      exclude_id => ['#taxon_id#'],
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+	  
+          fish_pe3 => {
+	      file_name => 'fish_pe12.fasta',
+	      taxon_id  => $taxon_ids->{'fish_taxon_id'},
+	      exclude_id => ['#taxon_id#'],
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+	  
+	  vert_pe12 => {
+	      file_name => 'vert_pe12.fasta',
+	      taxon_id  => $taxon_ids->{'vert_taxon_id'},
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+      },
+      
       aves_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
