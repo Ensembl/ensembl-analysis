@@ -242,8 +242,16 @@ sub _master_config {
                              dest_dir  => '#output_path#',
                              compress  => 0,
                              pe_level  => [1,2],
-                           },
-
+	      },
+	      
+               vert_pe12 => {
+                              file_name  => 'vert_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'vert_taxon_id'},
+                              exclude_id => [$taxon_ids->{fish_taxon_id}],
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
 
              },
 
