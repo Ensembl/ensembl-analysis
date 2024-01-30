@@ -233,7 +233,8 @@ sub fetch_input {
   #my $stable_id_prefix = $s;
   $s =~ s/ENS//g;
   my $species_prefix  = uc($s);
-  my $scientific_name = chomp($species_name);
+  chomp($species_name);
+  my $scientific_name = $species_name;
   say "Orignal species name: $species_name\n";
   $species_name = lc($species_name);
   $species_name =~ s/ +/\_/g;
