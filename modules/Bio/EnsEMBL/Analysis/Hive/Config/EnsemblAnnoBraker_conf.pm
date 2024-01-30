@@ -33,7 +33,7 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BRAKER parameters
-    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config',
+    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config_light',
     'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config/species/',
     'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-braker2_es_ep_etp.simg',
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
