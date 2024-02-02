@@ -273,6 +273,9 @@ foreach my $accession (@accession_array) {
   if ($clade eq 'mammals'){
       $general_hash->{'protein_blast_db_file'} = 'uniprot_mammalia_sp';
   }
+  elsif ($clade eq 'teleostei' || $clade eq 'sharks'){
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrataSP_plus_fishTR';
+  }
   else{
       $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrata_sp';
   }
