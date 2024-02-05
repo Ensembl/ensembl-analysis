@@ -564,7 +564,7 @@ sub get_clade_params {
       $clade_params->{'species_division'}     = 'EnsemblPlants',
       $clade_params->{'busco_group'}          = 'eudicots_odb10',;
    } elsif ( $clade eq 'porifera' ) { #sponges
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/metazoa_uniprot_proteins.fa',
+    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/porifera_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/metazoa_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_porifera_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
