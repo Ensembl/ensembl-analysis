@@ -681,13 +681,10 @@ sub pipeline_analyses {
   return [
     {
       -logic_name => 'download_rnaseq_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        study_accession => $self->o('rnaseq_study_accession'),
-        taxon_id => $self->o('species_taxon_id'),
-        inputfile => $self->o('rnaseq_summary_file'),
-        paired_end_only => $self->o('paired_end_only'),
+	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .'-f ' . $self->o('rnaseq_summary_file') . ' --read_type short' ,
       },
       -flow_into => {
         1 => ['download_genus_rnaseq_csv'],
@@ -703,12 +700,10 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'download_genus_rnaseq_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        study_accession => $self->o('rnaseq_study_accession'),
-        taxon_id => $self->o('genus_taxon_id'),
-        inputfile => $self->o('rnaseq_summary_file_genus'),
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .'-f ' . $self->o('rnaseq_summary_file_genus') . ' --read_type short' ,
       },
       -flow_into => {
         1 => ['download_long_read_csv'],
@@ -717,13 +712,10 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'download_long_read_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        study_accession => $self->o('long_read_study_accession'),
-        taxon_id => $self->o('species_taxon_id'),
-        inputfile => $self->o('long_read_summary_file'),
-        read_type => 'isoseq',
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .'-f ' . $self->o('long_read_summary_file') . ' --read_type long' ,
       },
       -flow_into => {
         1 => ['download_genus_long_read_csv'],
@@ -732,14 +724,10 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'download_genus_long_read_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        study_accession => $self->o('long_read_study_accession'),
-        taxon_id => $self->o('genus_taxon_id'),
-        inputfile => $self->o('long_read_summary_file_genus'),
-        read_type => 'isoseq',
-      },
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .'-f ' . $self->o('long_read_summary_file_genus') . ' --read_type long' ,	            },
       -flow_into => {
         1 => ['create_load_assembly_pipeline_job'],
       },
