@@ -473,6 +473,8 @@ sub _master_config {
 	  {
 	      ID         => 'LAYER3',
 	      BIOTYPES   => [
+		  'self_pe12_tr_3',
+		  'self_pe12_tr_4',
 		  'human_pe12_sp_3',
 		  'human_pe12_sp_4',
 		  'fish_pe12_sp_3',
@@ -480,7 +482,9 @@ sub _master_config {
 		  'vert_pe12_sp_1',
                   'vert_pe12_sp_2',
 		  'fish_pe12_tr_3',
+		  'human_pe12_tr_3',
 		  'genblast_rnaseq_medium',
+		  'rnaseq_tissue_5',
 		  ],
 	      FILTER_AGAINST => ['LAYER1','LAYER2'],
 	      DISCARD    => 0,
@@ -496,14 +500,24 @@ sub _master_config {
 	      FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
 	      DISCARD    => 0,
 	  },
-
+          {
+              ID         => 'LAYER5',
+              BIOTYPES   => [
+		  'vert_pe12_tr_1',
+		  'vert_pe12_tr_2',
+		  'vert_pe12_tr_3',
+		  'rnaseq_tissue_6',
+                  ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+          },
 	  {
-	      ID         => 'LAYER5',
+	      ID         => 'LAYER6',
 	      BIOTYPES   => [
 		  'cdna',
 		  'rnaseq_tissue',
 		  ],
-	      FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+	      FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
 	      DISCARD    => 0,
 	  },
 
