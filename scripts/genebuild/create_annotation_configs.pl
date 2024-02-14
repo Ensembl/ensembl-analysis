@@ -270,8 +270,11 @@ foreach my $accession (@accession_array) {
   }
   $assembly_hash->{'clade'} = $clade;
   #set a db for validating models from transcriptomic data
-  if ($clade eq 'mammalia'){
+  if ($clade eq 'mammalia' || $clade eq 'rodentia' || $clade eq 'primates' || $clade eq 'marsupials'){
       $general_hash->{'protein_blast_db_file'} = 'uniprot_mammalia_sp';
+  }
+  elsif ($clade eq 'teleostei' || $clade eq 'sharks'){
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrataSP_plus_fishTR';
   }
   else{
       $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrata_sp';
