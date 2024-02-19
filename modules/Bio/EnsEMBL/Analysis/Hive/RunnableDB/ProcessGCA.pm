@@ -300,6 +300,7 @@ sub fetch_input {
   $otherfeatures_db_details->{'-dbname'} = $otherfeatures_dbname;
 
   my $rnaseq_summary_file    = catfile( $short_read_dir, $production_name . '.csv' );
+  my $rnaseq_summary_file_genus    = catfile( $short_read_dir, $production_name . '_gen.csv' );
   my $long_read_summary_file = catfile( $long_read_dir,  $production_name . '_long_read.csv' );
 
   my $toplevel_genome_file            = catfile( $output_dir, $species_name . "_toplevel.fa" );
@@ -437,6 +438,7 @@ sub fetch_input {
   $output_params->{'strain_type'}                     = $strain_type;
   $output_params->{'production_name'}                 = $production_name;
   $output_params->{'rnaseq_summary_file'}             = $rnaseq_summary_file;               # Problematic
+  $output_params->{'rnaseq_summary_file_genus'}       = $rnaseq_summary_file_genus;
   $output_params->{'long_read_summary_file'}          = $long_read_summary_file;            # Problematic
   $output_params->{'protein_file'}                    = $protein_file;
   $output_params->{'busco_protein_file'}              = $busco_protein_file;
