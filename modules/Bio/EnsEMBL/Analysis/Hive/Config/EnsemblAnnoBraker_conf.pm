@@ -436,8 +436,7 @@ sub pipeline_analyses {
       -analysis_capacity => 1,
       -input_ids         => [
         #{'assembly_accession' => 'GCA_910591885.1'},
-        #	{'assembly_accession' => 'GCA_905333015.1'},
-      ],
+	  ],
     },
 
 
@@ -447,22 +446,28 @@ sub pipeline_analyses {
       -rc_name    => '1GB',
       -parameters => {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short' ,
-        # This is specifically for gbiab, as taxon_id is populated in the input id with
-        # the actual taxon, had to add some code override. Definitely better solutions available,
-        # one might be to just branch this off and then only pass the genus taxon id
-        #override_taxon_id => 1,
-        #taxon_id          => '#genus_taxon_id#',
-        #inputfile         => '#rnaseq_summary_file#',
-        #input_dir         => $self->o('use_existing_short_read_dir'),
+        
       },
 
       -flow_into => {
-        '1->A' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
+        1 => ['download_genus_rnaseq_csv'],
+      },
+    },
+      
+    {
+      -logic_name => 'download_genus_rnaseq_csv',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '1GB',
+      -parameters => {
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 50' ,
+       },
+      -flow_into => {
+	'1->A' => WHEN ('-s "#rnaseq_summary_file#"' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
+		        '! -s  "#rnaseq_summary_file#"' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#short_read_dir#' } }),
         'A->1' => ['download_long_read_csv'],
       },
     },
-
-
+      
     {
       -logic_name => 'fan_short_read_download',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
