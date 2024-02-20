@@ -1158,7 +1158,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_busco_output',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
