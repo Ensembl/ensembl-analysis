@@ -400,7 +400,7 @@ sub _master_config {
               BIOTYPES   => [
 		             'self_pe3_sp_4',
 		             'rnaseq_tissue_5',
-		             'cdna_5'
+		             'cdna_5',
 		             'self_pe12_sp_5',
 		             'human_pe12_sp_5',
 		             'fish_pe12_sp_5',
@@ -419,7 +419,7 @@ sub _master_config {
               ID         => 'LAYER5',
               BIOTYPES   => [
                             'rnaseq_tissue_6',
-                            'cdna_6'
+                            'cdna_6',
 		            'self_pe12_tr_3',
                             'self_pe12_tr_4',
                             'fish_pe12_tr_3',
