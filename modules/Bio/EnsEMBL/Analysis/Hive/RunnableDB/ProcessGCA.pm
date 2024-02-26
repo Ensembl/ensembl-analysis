@@ -94,6 +94,8 @@ sub fetch_input {
   my $output_dir         = catdir( $output_dir_base, $assembly_accession );
   my $genome_files_dir   = catdir( $output_dir,      'genome_files' );
   my $short_read_dir     = catdir( $output_dir,      'short_read_fastq' );
+  my $long_read_dir      = catdir( $output_dir, 'long_read_fastq' );
+  my $gst_dir            = catdir( $output_dir,      'gst' );
   if ( $self->param('use_existing_short_read_dir') and -d $self->param('use_existing_short_read_dir') ) {
     $short_read_dir = $self->param('use_existing_short_read_dir');
   }
@@ -104,8 +106,7 @@ sub fetch_input {
       $self->throw( "Failed to create dir: " . $output_dir );
     }
   
-  my $long_read_dir = catdir( $output_dir, 'long_read_fastq' );
-  push( @$dirs_to_create, ($genome_files_dir, $short_read_dir, $long_read_dir ) );
+  push( @$dirs_to_create, ($genome_files_dir, $short_read_dir, $long_read_dir, $gst_dir) );
 
   foreach my $dir (@$dirs_to_create) {
     my $result = system( 'mkdir -p ' . $dir );
@@ -430,6 +431,7 @@ sub fetch_input {
   $output_params->{'reheadered_toplevel_genome_file'} = $reheadered_toplevel_genome_file;
   $output_params->{'short_read_dir'}                  = $short_read_dir;
   $output_params->{'long_read_dir'}                   = $long_read_dir;
+  $output_params->{'gst_dir'}                         = $gst_dir;
   $output_params->{'species_url'}                     = $species_url;
   $output_params->{'species_division'}                = $species_division;
   $output_params->{'species_display_name'}            = $species_display_name;
@@ -590,7 +592,13 @@ sub get_clade_params {
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_cnidaria_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  } else {
+  } elsif ( $clade eq 'echinodermata' ) {
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/echinodermata_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/metazoa_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_echinodermata_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'metazoa_odb10',;
+  }else {
     $self->throw( 'Clade parameters not found for clade: ' . $clade );
   }
 
