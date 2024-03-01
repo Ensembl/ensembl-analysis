@@ -388,7 +388,7 @@ sub _master_config {
 		  'fish_pe12_sp_int_3',
 		  'human_pe12_sp_int_3',
 		  'mammals_pe12_sp_int_3',
-		  'vert_pe12_sp_int_3'
+		  'vert_pe12_sp_int_3',
                      'cdna',
                      'rnaseq_tissue',
 

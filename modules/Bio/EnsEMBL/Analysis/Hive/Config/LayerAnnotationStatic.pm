@@ -474,7 +474,7 @@ sub _master_config {
 		  'fish_pe12_sp_int_3',
 		  'human_pe12_sp_int_3',
 		  'mammals_pe12_sp_int_3',
-		  'vert_pe12_sp_int_3'
+		  'vert_pe12_sp_int_3',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
               DISCARD    => 0,
