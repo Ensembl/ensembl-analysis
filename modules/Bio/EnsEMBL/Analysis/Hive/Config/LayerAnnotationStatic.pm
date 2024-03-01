@@ -438,7 +438,9 @@ sub _master_config {
 		            'vert_pe12_tr_1',
                        	    'vert_pe12_tr_2',
                        	    'self_pe12_tr_5',
-                       	    'self_pe12_tr_6',		  
+		            'self_pe12_tr_6',
+		            'mammals_pe12_sp_4',
+		            'vert_pe12_sp_4',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
               DISCARD    => 0,
@@ -447,10 +449,44 @@ sub _master_config {
             {
               ID         => 'LAYER7',
               BIOTYPES   => [
+		  'fish_pe12_sp_int_1',
+		  'human_pe12_sp_int_1',
+		  'mammals_pe12_sp_int_1',
+		  'vert_pe12_sp_int_1',
+		  'fish_pe12_sp_int_2',
+		  'human_pe12_sp_int_2',
+		  'mammals_pe12_sp_int_2',
+		  'vert_pe12_sp_int_2',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER8',
+              BIOTYPES   => [
+		  'fish_pe12_tr_5',
+		  'human_pe12_tr_5',
+		  'mammals_pe12_sp_5',
+		  'vert_pe12_sp_5',
+		  'mammals_pe12_tr_3',
+		  'vert_pe12_tr_3',
+		  'fish_pe12_sp_int_3',
+		  'human_pe12_sp_int_3',
+		  'mammals_pe12_sp_int_3',
+		  'vert_pe12_sp_int_3'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
+              DISCARD    => 0,
+            },
+	
+            {
+              ID         => 'LAYER9',
+              BIOTYPES   => [
                      'cdna',
                      'rnaseq_tissue',
                             ],
-              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8'],
               DISCARD    => 0,
             },
 
