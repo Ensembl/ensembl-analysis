@@ -473,6 +473,7 @@ sub pipeline_analyses {
       -parameters => {
         target_db                  => $self->o('otherfeatures_db'),
         sanity_check_type          => 'gene_db_checks',
+        skip_analysis              => 1,
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
           'gene_db_checks' )->{ $self->o('sanity_set') }->{'otherfeatures'},
       },
