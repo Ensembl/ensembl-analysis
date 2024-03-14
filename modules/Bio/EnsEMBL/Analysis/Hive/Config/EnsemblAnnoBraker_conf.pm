@@ -100,7 +100,6 @@ sub default_options {
     'provider_url'  => 'www.ensembl.org',
 
     'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('pipeline_name') . '_pipe_' . $self->o('release_number'),
-    #'pipe_db_name'                  => $self->o('pipeline_name') . 'f_pipe_' . '105',
     'dna_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_core_' . $self->o('release_number'),
 
 
@@ -119,7 +118,9 @@ sub default_options {
     frameshift_attrib_script          => catfile( $self->o('ensembl_misc_script'),     'frameshift_transcript_attribs.pl' ),
     select_canonical_script           => catfile( $self->o('ensembl_misc_script'),     'canonical_transcripts', 'select_canonical_transcripts.pl' ),
     print_protein_script_path         => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'print_translations.pl' ),
-
+    ensembl_gst_script                => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'pipelines' , 'gene_symbol_classifier'  ),   
+    gst_dump_proteins_script          => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
+    gst_load_symbols_script          => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),	
     registry_status_update_script => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
 
 ########################
@@ -462,8 +463,8 @@ sub pipeline_analyses {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 50' ,
        },
       -flow_into => {
-	'1->A' => WHEN (' -s "#rnaseq_summary_file#" ' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
-		        ' ! -s  "#rnaseq_summary_file#" ' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#short_read_dir#' } }),
+	'1->A' => WHEN ('-s "#rnaseq_summary_file#"' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
+		        '! -s  "#rnaseq_summary_file#"' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#short_read_dir#' } }),
         'A->1' => ['download_long_read_csv'],
       },
     },
@@ -821,7 +822,7 @@ sub pipeline_analyses {
       -logic_name => 'check_transcriptomic_data',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -1031,7 +1032,7 @@ sub pipeline_analyses {
       -logic_name => 'check_run_stable_ids',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -1158,7 +1159,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_busco_output',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -1195,7 +1196,7 @@ sub pipeline_analyses {
       },
       -rc_name   => '32GB',
       -flow_into => {
-        1 => ['update_assembly_registry_status'],
+        1 => ['gst_dump_protein_sequences'],
       },
     },
     {
@@ -1264,7 +1265,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_otherfeatures_db',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -1608,24 +1609,66 @@ sub pipeline_analyses {
       },
       -max_retry_count => 0,
       -rc_name         => '4GB',
-      -flow_into       => { 1 => ['update_assembly_registry_status'], },
+      -flow_into       => { 1 => ['gst_dump_protein_sequences'], },
     },
+
     {
-      -logic_name => 'update_assembly_registry_status',
+      -logic_name => 'gst_dump_protein_sequences',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'perl ' . $self->o('registry_status_update_script') .
-          ' -user ' . $self->o('user') .
-          ' -pass ' . $self->o('password') .
-          ' -assembly_accession ' . '#assembly_accession#' .
-          ' -registry_host ' . $self->o('registry_db_server') .
-          ' -registry_port ' . $self->o('registry_db_port') .
-          ' -registry_db ' . $self->o('registry_db_name'),
+	  cmd => 'perl ' . $self->o('gst_dump_proteins_script') . '--group core --species #production_name# --registry #registry_file# --output_file #gst_dir#/#production_name#_protein_sequences.fa',
       },
-      -rc_name => 'default',
-      -flow_into       => { 1 => ['delete_short_reads'], },
+	  -rc_name => 'default_registry',
+	  -flow_into       => { 1 => ['gst_assign_gene_symbols'], },
 
     },
+
+    {
+      -logic_name => 'gst_assign_gene_symbols',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+	  cmd => 'singularity run --bind /hps/software/users/ensembl/genebuild/gene_symbol_classifier/data:/app/checkpoints --bind #gst_dir#:/app/data /hps/software/users/ensembl/genebuild/gene_symbol_classifier/singularity/gene_symbol_classifier_0.12.1.sif --checkpoint /app/checkpoints/mlp_10_min_frequency_2022-01-29_03.08.32.ckpt --sequences_fasta /app/data/#production_name#_protein_sequences.fa --scientific_name #species_name#',
+      },
+	  -rc_name => 'default_registry',
+	  -flow_into       => { 1 => ['gst_filter_assignments'], },
+    },
+
+    {
+     -logic_name => 'gst_filter_assignments',
+     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+     -parameters => {
+	 cmd => 'singularity run --bind #gst_dir#:/app/data /hps/software/users/ensembl/genebuild/gene_symbol_classifier/singularity/gene_symbol_classifier_filter_0.3.0.sif --symbol_assignments /app/data/#production_name#_protein_sequences_symbols.csv --threshold 0.7',
+     },
+	 -rc_name => 'default_registry',
+	 -flow_into       => { 1 => ['gst_load_gene_symbols'], },	 
+    },
+
+    {
+     -logic_name => 'gst_load_gene_symbols',
+     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+     -parameters => {
+	 cmd => 'perl ' . $self->o('gst_load_symbols_script') . ' --species #production_name# --group core --registry #registry_file# --symbol_assignments #gst_dir#/#production_name#_protein_sequences_symbols_filtered.csv --primary_ids_file /hps/software/users/ensembl/genebuild/gene_symbol_classifier/data/display_name_dbprimary_acc_105.dat --program_version 0.12.1',
+     },
+	 -rc_name => 'default_registry',
+	 -flow_into       => { 1 => ['update_assembly_registry_status'], },
+    },
+
+  {
+    -logic_name => 'update_assembly_registry_status',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+	cmd => 'perl ' . $self->o('registry_status_update_script') .
+	    ' -user ' . $self->o('user') .
+	    ' -pass ' . $self->o('password') .
+	    ' -assembly_accession ' . '#assembly_accession#' .
+	    ' -registry_host ' . $self->o('registry_db_server') .
+	    ' -registry_port ' . $self->o('registry_db_port') .
+	    ' -registry_db ' . $self->o('registry_db_name'),
+    },
+	-rc_name => 'default',
+	-flow_into       => { 1 => ['delete_short_reads'], },
+  },
+      
      {
       -logic_name => 'delete_short_reads',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
