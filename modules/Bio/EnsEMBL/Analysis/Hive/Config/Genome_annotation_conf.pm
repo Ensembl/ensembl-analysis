@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2022] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -1996,6 +1996,7 @@ sub pipeline_analyses {
           assembly_name => $self->o('assembly_name'),
           assembly_accession => $self->o('assembly_accession'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
+          sanity_set => $self->o('sanity_set'),
         },
       },
       -rc_name      => 'default',
@@ -2073,6 +2074,7 @@ sub pipeline_analyses {
           assembly_name => $self->o('assembly_name'),
           assembly_accession => $self->o('assembly_accession'),
           annotation_source => $self->o('annotation_source'),
+          sanity_set => $self->o('sanity_set'),
         },
       },
       -rc_name      => 'default',

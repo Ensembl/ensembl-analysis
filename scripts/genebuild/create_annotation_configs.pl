@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [2017-2022] EMBL-European Bioinformatics Institute
+# Copyright [2017-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -270,7 +270,7 @@ foreach my $accession (@accession_array) {
   }
   $assembly_hash->{'clade'} = $clade;
   #set a db for validating models from transcriptomic data
-  if ($clade eq 'mammals'){
+  if ($clade eq 'mammalia' || $clade eq 'rodentia' || $clade eq 'primates' || $clade eq 'marsupials'){
       $general_hash->{'protein_blast_db_file'} = 'uniprot_mammalia_sp';
   }
   elsif ($clade eq 'teleostei' || $clade eq 'sharks'){
