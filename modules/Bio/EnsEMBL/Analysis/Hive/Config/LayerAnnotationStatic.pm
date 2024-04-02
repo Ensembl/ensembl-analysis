@@ -134,6 +134,10 @@ sub _master_config {
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
+		             'self_pe12_sp_3',
+                             'self_pe12_tr_3',
+                             'self_pe12_sp_4',
+                             'self_pe12_tr_4',
                              'cdna_4',
                              'rnaseq_tissue_4',
                              'human_pe12_sp_1',
@@ -147,6 +151,8 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
+	                     'human_pe12_sp_3',
+                             'human_pe12_sp_4',
                              'human_pe12_tr_1',
 		             'human_pe12_tr_2',
                              'primates_pe12_sp_1',
@@ -167,7 +173,9 @@ sub _master_config {
               BIOTYPES   => [
 		             'genblast_rnaseq_medium',
                              'primates_pe12_sp_3',
-                       	     'primates_pe12_sp_4',		  
+		             'primates_pe12_sp_4',
+		             'rnaseq_tissue_5',
+		             'cdna_5',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
