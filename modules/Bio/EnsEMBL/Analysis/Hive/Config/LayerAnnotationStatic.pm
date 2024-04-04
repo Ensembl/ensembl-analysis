@@ -568,7 +568,7 @@ sub _master_config {
 		  'rnaseq_tissue_5',
 		  'cdna_5',
 		  ],
-	   c   FILTER_AGAINST => ['LAYER1','LAYER2'],
+	      FILTER_AGAINST => ['LAYER1','LAYER2'],
 	      DISCARD    => 0,
 	  },
 	  {
