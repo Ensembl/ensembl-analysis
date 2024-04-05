@@ -322,7 +322,7 @@ sub _master_config {
     ],
 
 
-    fish_basic => [
+  fish_basic => [
              {
                ID         => 'LAYER1',
                BIOTYPES   => [
@@ -356,9 +356,8 @@ sub _master_config {
 		             'rnaseq_tissue_4',
                              'cdna_1',
                              'cdna_2',
-                             'cdna_3',
-                       	     'cdna_4',
-
+		             'cdna_3',
+		             'cdna_4',
                              'self_pe12_sp_1',
                              'self_pe12_tr_1',
                              'self_pe12_sp_2',
@@ -493,7 +492,7 @@ sub _master_config {
 
 
     ],
-
+    
       sharks_basic => [
 	  {
 	      ID         => 'LAYER1',
