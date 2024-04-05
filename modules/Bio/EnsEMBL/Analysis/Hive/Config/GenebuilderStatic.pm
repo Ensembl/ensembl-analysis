@@ -387,8 +387,6 @@ sub _master_config {
 		  'vert_pe12_sp_int_3',
                      'cdna',
                      'rnaseq_tissue',
-
-
     ],
       sharks_basic => [
                  'IG_C_gene',
