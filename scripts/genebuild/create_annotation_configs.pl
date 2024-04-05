@@ -237,7 +237,7 @@ foreach my $accession (@accession_array) {
   unless($accession =~ /GCA_([\d]{3})([\d]{3})([\d]{3})\.\d+/) {
     throw("Found an assembly accession that did not match the regex. Offending accession: ".$accession);
   }
-  
+
   #Check genebuild status of assembly
   if ($current_genebuild == 1) {
   } else {
@@ -279,7 +279,7 @@ foreach my $accession (@accession_array) {
   else{
       $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrata_sp';
   }
-  
+
   # Get stable id start
   my $stable_id_start;
   if (exists ($general_hash->{'stable_id_start'}) && $general_hash->{'stable_id_start'} >=0) {
@@ -330,7 +330,7 @@ foreach my $accession (@accession_array) {
   my $species_url = $assembly_hash->{'species_name'};
   $species_url = ucfirst($species_url).'_'.$accession;
   $assembly_hash->{'species_url'} = $species_url;
-  
+
   #Set up taxonomy adaptor to fetch rank of species using NCBI taxonomy database
   my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
   my $taxon_node = $node_adaptor->fetch_by_taxon_id($assembly_hash->{'taxon_id'});
@@ -491,7 +491,7 @@ sub parse_assembly_report {
 
 =head1 Description of method
 
-This method updates the registry database with the timestamp of when the annotation started. 
+This method updates the registry database with the timestamp of when the annotation started.
 It also updates the registry with the status of the annotation as well as the user who started it.
 
 =cut
@@ -531,7 +531,7 @@ sub update_annotation_status{
 
 =head1 Description of method
 
-This method checks if there is an existing genebuild entry for the assembly.  
+This method checks if there is an existing genebuild entry for the assembly.
 If yes, genebuilder must decide whether to continue annotation or not.
 If genebuilder decides to continue, then rerun with option: -current_genebuild 1
 This would automatically make this new genebuild the current annotation for tracking purposes
@@ -615,7 +615,7 @@ sub clade_settings {
       'repbase_library'    => 'rodentia',
       'repbase_logic_name' => 'rodentia',
       'uniprot_set'        => 'mammals_basic',
-      'sanity_set'         => 'rodentia_basic',     
+      'sanity_set'         => 'rodentia_basic',
       'ig_tr_fasta_file'    => 'imgt_mammals_ig_tr.fa',
       'projection_source_production_name' => 'mus_musculus',
       'projection_source_db_name' => current_projection_source_db('mus_musculus'),
@@ -625,7 +625,7 @@ sub clade_settings {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
-      'sanity_set'         => 'mammals_basic',      
+      'sanity_set'         => 'mammals_basic',
       'ig_tr_fasta_file'    => 'imgt_mammals_ig_tr.fa',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
@@ -635,7 +635,7 @@ sub clade_settings {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
-      'sanity_set'         => 'mammals_basic',      
+      'sanity_set'         => 'mammals_basic',
       'ig_tr_fasta_file'    => 'imgt_mammals_ig_tr.fa',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
@@ -645,7 +645,7 @@ sub clade_settings {
       'repbase_library'    => 'Birds',
       'repbase_logic_name' => 'aves',
       'uniprot_set'        => 'aves_basic',
-      'sanity_set'         => 'aves_basic',      
+      'sanity_set'         => 'aves_basic',
       'ig_tr_fasta_file'    => 'imgt_mammals_aves_ig_tr.fa',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
@@ -655,7 +655,8 @@ sub clade_settings {
       'repbase_library'    => 'vertebrates',
       'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'reptiles_basic',
-      'sanity_set'         => 'reptiles_basic',      
+      'sanity_set'         => 'reptiles_basic',
+      'ig_tr_fasta_file'   => 'imgt_mammals_aves_ig_tr.fa',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
       'projection_source_production_name' => 'homo_sapiens',
@@ -666,7 +667,7 @@ sub clade_settings {
       'repbase_library'     => 'Teleostei',
       'repbase_logic_name'  => 'teleost',
       'uniprot_set'         => 'fish_basic',
-      'sanity_set'          => 'fish_basic',      
+      'sanity_set'          => 'fish_basic',
       'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
@@ -700,7 +701,7 @@ sub clade_settings {
       'repbase_library'    => 'vertebrates',
       'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'distant_vertebrate',
-      'sanity_set'         => 'distant_vertebrate',      
+      'sanity_set'         => 'distant_vertebrate',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
       'projection_source_production_name' => 'homo_sapiens',
@@ -715,7 +716,7 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
-      'sanity_set'         => 'insects_basic',      
+      'sanity_set'         => 'insects_basic',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -724,7 +725,7 @@ sub clade_settings {
       'repbase_library'    => 'lepidoptera',
       'repbase_logic_name' => 'lepidoptera',
       'uniprot_set'        => 'lepidoptera_basic',
-      'sanity_set'         => 'lepidoptera_basic',      
+      'sanity_set'         => 'lepidoptera_basic',
       'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP',
       'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP_index',
       'skip_projection'    => 1,
@@ -738,7 +739,7 @@ sub clade_settings {
       'repbase_library'    => 'hymenoptera',
       'repbase_logic_name' => 'hymenoptera',
       'uniprot_set'        => 'hymenoptera_basic',
-      'sanity_set'         => 'hymenoptera_basic',      
+      'sanity_set'         => 'hymenoptera_basic',
       'skip_projection'    => 1,
       'skip_lastz'         => 1,
       # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a hymenoptera annotation
@@ -750,7 +751,7 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
-      'sanity_set'         => 'insects_basic',      
+      'sanity_set'         => 'insects_basic',
       'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016',
       'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016_index',
       'skip_projection'    => 1,
@@ -763,7 +764,7 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
-      'sanity_set'         => 'insects_basic',      
+      'sanity_set'         => 'insects_basic',
       'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB',
       'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB_index',
       'skip_projection'    => 1,
@@ -776,7 +777,7 @@ sub clade_settings {
       'repbase_library'    => 'non_vertebrates',
       'repbase_logic_name' => 'non_vertebrates',
       'uniprot_set'        => 'non_vertebrates_basic',
-      'sanity_set'         => 'non_vertebrates_basic',      
+      'sanity_set'         => 'non_vertebrates_basic',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -785,7 +786,7 @@ sub clade_settings {
       'repbase_library'    => 'fungi',
       'repbase_logic_name' => 'fungi',
       'uniprot_set'        => 'fungi_basic',
-      'sanity_set'         => 'fungi_basic',      
+      'sanity_set'         => 'fungi_basic',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -794,7 +795,7 @@ sub clade_settings {
       'repbase_library'    => 'metazoa',
       'repbase_logic_name' => 'metazoa',
       'uniprot_set'        => 'metazoa_basic',
-      'sanity_set'         => 'metazoa_basic',      
+      'sanity_set'         => 'metazoa_basic',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -803,7 +804,7 @@ sub clade_settings {
       'repbase_library'    => 'plants',
       'repbase_logic_name' => 'plants',
       'uniprot_set'        => 'plants_basic',
-      'sanity_set'         => 'plants_basic',      
+      'sanity_set'         => 'plants_basic',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -812,7 +813,7 @@ sub clade_settings {
       'repbase_library'    => 'protists',
       'repbase_logic_name' => 'protists',
       'uniprot_set'        => 'protists_basic',
-      'sanity_set'         => 'protists_basic',      
+      'sanity_set'         => 'protists_basic',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -1131,10 +1132,10 @@ sub check_compara_release_version {
   }
 }
 
-=head2 
+=head2
 
  Arg [1]    : Species name, e.g. mus_musculus
- Description: Looks for the most recent core on the mirror server for the given 
+ Description: Looks for the most recent core on the mirror server for the given
               species - to be used as reference for projection.
  Returntype : String
  Exceptions : Warning if no core exists on mirror for given species

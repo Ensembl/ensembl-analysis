@@ -150,7 +150,7 @@ sub _master_config {
                              'human_pe12_tr_1',
 		             'human_pe12_tr_2',
                              'primates_pe12_sp_1',
-                       	     'primates_pe12_sp_2',		  
+                       	     'primates_pe12_sp_2',
                              'self_pe3_sp_1',
                              'self_pe3_tr_1',
                              'genblast_rnaseq_high',
@@ -167,7 +167,7 @@ sub _master_config {
               BIOTYPES   => [
 		             'genblast_rnaseq_medium',
                              'primates_pe12_sp_3',
-                       	     'primates_pe12_sp_4',		  
+                       	     'primates_pe12_sp_4',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
@@ -322,7 +322,7 @@ sub _master_config {
     ],
 
 
-    fish_basic => [
+  fish_basic => [
              {
                ID         => 'LAYER1',
                BIOTYPES   => [
@@ -492,7 +492,7 @@ sub _master_config {
 
 
     ],
-
+    
       sharks_basic => [
 	  {
 	      ID         => 'LAYER1',
@@ -754,7 +754,7 @@ sub _master_config {
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
 	     },
-	
+
 	     {
               ID         => 'LAYER8',
               BIOTYPES   => [
@@ -765,7 +765,7 @@ sub _master_config {
               DISCARD    => 0,
             },
 
-	
+
     ],
 
 
@@ -802,6 +802,12 @@ sub _master_config {
                              'rnaseq_tissue_2',
                              'rnaseq_tissue_3',
                              'rnaseq_tissue_4',
+                             'genblast_rnaseq_top',
+                             'genblast_rnaseq_high',
+                             'cdna_1',
+                             'cdna_2',
+                             'cdna_3',
+                             'cdna_4',
                              'self_pe12_sp_1',
                              'self_pe12_tr_1',
                              'self_pe12_sp_2',
@@ -822,7 +828,7 @@ sub _master_config {
                              'reptiles_pe12_tr_1',
                              'reptiles_pe12_tr_2',
                              'reptiles_pe12_sp_2',
-                             'genblast_rnaseq_top',
+                             'genblast_rnaseq_medium',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
@@ -847,7 +853,6 @@ sub _master_config {
                              'reptiles_tr_3',
                              'reptiles_sp_4',
                              'reptiles_tr_4',
-                             'genblast_rnaseq_high',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
@@ -861,7 +866,6 @@ sub _master_config {
                              'mammals_pe12_sp_1',
                              'mammals_pe12_sp_2',
                              'self_pe3_sp_1',
-                             'genblast_rnaseq_medium',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
@@ -921,6 +925,7 @@ sub _master_config {
            {
               ID         => 'LAYER9',
               BIOTYPES   => [
+                             'cdna',
                              'rnaseq_tissue',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8'],

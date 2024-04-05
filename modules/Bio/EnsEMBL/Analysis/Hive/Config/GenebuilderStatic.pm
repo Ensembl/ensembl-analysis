@@ -228,6 +228,7 @@ sub _master_config {
                              'self_pe12_tr_2',
                              'projection_1',
                              'projection_2',
+                             'rnaseq_tissue_5',
                              'reptiles_pe12_sp_1',
                              'reptiles_pe12_tr_1',
                              'reptiles_pe12_tr_2',
@@ -255,20 +256,15 @@ sub _master_config {
                              'mammals_pe12_sp_1',
                              'mammals_pe12_sp_2',
                              'self_pe3_sp_1',
-                             'self_pe3_tr_1',
                              'genblast_rnaseq_medium',
                              'human_pe12_sp_3',
                              'human_pe12_tr_3',
                              'human_pe12_sp_4',
                              'human_pe12_tr_4',
                              'aves_pe12_sp_3',
-                             'aves_pe12_tr_3',
                              'aves_pe12_sp_4',
-                             'aves_pe12_tr_4',
                              'amphibians_sp_3',
-                             'amphibians_tr_3',
                              'amphibians_sp_4',
-                             'amphibians_tr_4',
                              'mammals_pe12_sp_3',
                              'mammals_pe12_sp_4',
                              'human_pe12_sp_5',
@@ -286,14 +282,14 @@ sub _master_config {
                              'projection_3_pseudo',
                              'projection_4_pseudo',
                              'rnaseq_tissue',
-	                     'cdna_1',
+	                         'cdna_1',
                              'cdna_2',
                              'cdna_3',
                              'cdna_4',
                              'cdna',
       ],
 
-    fish_basic => [
+     fish_basic => [
 	                     'IG_C_gene',
                              'IG_J_gene',
                                'IG_V_gene',
@@ -393,7 +389,6 @@ sub _master_config {
                      'rnaseq_tissue',
 
     ],
-
       sharks_basic => [
                  'IG_C_gene',
                   'IG_J_gene',
