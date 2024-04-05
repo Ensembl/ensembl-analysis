@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [2017-2022] EMBL-European Bioinformatics Institute
+# Copyright [2017-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -265,14 +265,17 @@ foreach my $accession (@accession_array) {
   }
   say "Fetched the following clade for ".$accession.": ".$clade;
   #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
-  if (($clade eq 'amphibians') || ($clade eq 'sharks') || ($clade eq 'vertebrates')){
+  if (($clade eq 'amphibians') || ($clade eq 'vertebrates')){
     $clade = 'distant_vertebrate';
   }
   $assembly_hash->{'clade'} = $clade;
   #set a db for validating models from transcriptomic data
-  if ($clade eq 'mammalia'){
+  if ($clade eq 'mammalia' || $clade eq 'rodentia' || $clade eq 'primates' || $clade eq 'marsupials'){
       $general_hash->{'protein_blast_db_file'} = 'uniprot_mammalia_sp';
   }
+  elsif ($clade eq 'teleostei' || $clade eq 'sharks'){
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrataSP_plus_fishTR';
+  } 
   else{
       $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrata_sp';
   }
@@ -675,6 +678,23 @@ sub clade_settings {
       'projection_source_db_name' => current_projection_source_db('danio_rerio'),
       # need a different value for creating repeatmasker slices
       repeatmasker_slice_size => 500000,
+    },
+
+	'sharks' => {
+	    'repbase_library'     => 'Teleostei',
+		'repbase_logic_name'  => 'teleost',
+		'uniprot_set'         => 'sharks_basic',
+		'sanity_set'          => 'fish_basic',
+		'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
+		'masking_timer_long'  => '6h',
+		'masking_timer_short' => '3h',
+		'skip_projection'    => 1,
+		'skip_lastz'         => 1,
+		# need a default projection source db set
+		'projection_source_production_name' => 'danio_rerio',
+		'projection_source_db_name' => current_projection_source_db('danio_rerio'),
+		# need a different value for creating repeatmasker slices
+		repeatmasker_slice_size => 500000,
     },
 
     'distant_vertebrate' => {

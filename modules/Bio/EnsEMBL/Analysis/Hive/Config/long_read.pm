@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2022] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -65,8 +65,8 @@ sub default_options {
     'uniprot_version' => 'uniprot_2021_04',                                                                                           # What UniProt data dir to use for various analyses
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12' : 'PE12_vertebrata' ),    # Blast database for comparing the final models to.
-    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12_index' : 'PE12_vertebrata_index' ),    # Indicate Index for the blast database.
+    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file') ), # Blast database for comparing the final models to.
+    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file').'_index' ), # Indicate Index for the blast database.
 
     ########################
     # Pipe and ref db info
@@ -419,6 +419,7 @@ sub pipeline_analyses {
         source_dbs            => [ $self->o('long_read_initial_db') ],
         biotypes              => [ "isoseq", "cdna" ],
         reduce_large_clusters => 1,
+        disconnect_jobs       => 1,
       },
       -rc_name   => '5GB',
       -flow_into => {

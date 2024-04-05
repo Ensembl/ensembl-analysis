@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-Copyright [2017-2022] EMBL-European Bioinformatics Institute
+Copyright [2017-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -461,7 +461,6 @@ sub _master_config {
         'logic_names' =>    {
           'genblast'                => 100,
           'best_targetted'          => 100,
-          'genblast_rnaseq_support' => 1000,
           'project_transcripts' => 10000,
         }, # logic_names
         'biotypes' =>    {
