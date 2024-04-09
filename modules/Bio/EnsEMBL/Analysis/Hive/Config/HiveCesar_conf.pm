@@ -192,7 +192,7 @@ sub pipeline_analyses {
                          'compara_db' => $self->o('compara_db'),
                          'method_link_type' => $self->o('method_link_type'),
                          'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '3', # mem in GB to be used by cesar (parameter --max-memory)
+                         'cesar_mem' => '10', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {
