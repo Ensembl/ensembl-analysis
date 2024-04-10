@@ -1616,7 +1616,7 @@ sub pipeline_analyses {
       -logic_name => 'gst_dump_protein_sequences',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	  cmd => 'perl ' . $self->o('gst_dump_proteins_script') . '--group core --species #production_name# --registry #registry_file# --output_file #gst_dir#/#production_name#_protein_sequences.fa',
+	  cmd => 'perl ' . $self->o('gst_dump_proteins_script') . ' --group core --species #production_name# --registry #registry_file# --output_file #gst_dir#/#production_name#_protein_sequences.fa',
       },
 	  -rc_name => 'default_registry',
 	  -flow_into       => { 1 => ['gst_assign_gene_symbols'], },
