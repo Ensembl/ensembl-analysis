@@ -114,6 +114,12 @@ sub _master_config {
        'trf'                        => [150000, 'repeat']
      },
 
+    'sharks_basic' => {
+       'dust'                       => [500000, 'repeat'],
+       'repeatmask_repbase_teleost' => [50000, 'repeat'],
+       'trf'                        => [150000, 'repeat']
+     },
+
      'insects_basic' => {
        # repeats
        'dust'                       => [500000, 'repeat'],
@@ -759,6 +765,119 @@ sub _master_config {
         }, # biotypes
       }, # rnaseq_final
     }, # fish_basic
+
+    'sharks_basic' => {
+      'genblast' => {
+        'logic_names' => {
+          'genblast'            => 20000,
+          'genblast_not_best'   => 40000,
+        }, # logic_names
+        'biotypes' =>    {
+          'fish_pe12_' => 20000,
+          'human_pe12_'=> 10000,
+        }, # biotypes
+      }, # genblast
+      'ig_tr' => {
+        'logic_names' => {
+          'ig_tr_gene'          => 0,
+        }, # logic_names
+        'biotypes' =>    {
+          'IG_'                 => 0,
+          'TR_'                 => 0,
+        }, # biotypes
+      }, # ig_tr
+      'rnaseq_blast' =>  {
+        # This one is an issue, logic names, counts are varied and one biotype is a
+        # substring of the other. At the moment it's really just a check that theres'
+        # some stuff in there
+        'logic_names' => {
+        }, # logic_names
+        'biotypes' =>    {
+          'rnaseq'              => 10000,
+         }, # biotypes
+      }, # rnaseq_blast
+      'layer' => {
+        'logic_names' =>    {
+          'genblast'                => 10000,
+          'genblast_rnaseq_support' => 20000,
+      }, # logic_names
+        'biotypes' =>    {
+          'IG_'                  => 10,
+          'TR_'                  => 1,
+          'fish_pe12_'          => 10000,
+          'human_pe12_'          => 1000,
+          'rnaseq_tissue_'       => 20000,
+        }, # biotypes
+      }, # layer
+      'genebuilder' => {
+        'logic_names' => {
+          'ensembl'             => 18000,
+        }, # logic_names
+	'biotypes' =>    {
+	    'rnaseq_tissue_'      => 10000,
+        }, # biotypes
+      }, # genebuilder
+      'ncrna' => {
+        'logic_names' => {
+          'ncrna' => 300,
+        }, # logic_names
+        'biotypes' =>    {
+          'miRNA'               => 1,
+          'misc_RNA'            => 5,
+          'rRNA'                => 10,
+          'snoRNA'              => 80,
+          'snRNA'               => 80,
+        }, # biotypes
+      }, # ncrna
+      'final' => {
+        'logic_names' => {
+          'ensembl'             => 18000,
+          'ncrna'               => 500,
+        }, # logic_names
+        'biotypes' =>    {
+          'fish_pe12_'          => 5000,
+          'human_pe12_'         => 1000,
+          'rnaseq_tissue_'      => 15000,
+          'lncRNA'              => 1000,
+          'miRNA'               => 1,
+          'misc_RNA'            => 5,
+          'rRNA'                => 50,
+          'snoRNA'              => 50,
+          'snRNA'               => 100,
+        }, # biotypes
+      }, # final
+      'core' => {
+        'logic_names' => {
+          'ensembl'             => 18000,
+          'ncrna'               => 400,
+        }, # logic_names
+        'biotypes' =>    {
+          'protein_coding'       => 18000,
+          'pseudogene'           => 20,
+          'miRNA'                => 1,
+          'misc_RNA'             => 5,
+          'rRNA'                 => 50,
+          'snoRNA'               => 50,
+          'snRNA'                => 75,
+        }, # biotypes
+      }, # core
+      'otherfeatures' => {
+        'logic_names' => {
+          'refseq_import'          => 18000,
+        },
+        'biotypes' =>    {
+        }, # biotypes
+      }, # otherfeatures
+      'rnaseq_final' => {
+        'logic_names' => {
+       }, # logic_names
+        'biotypes' => {
+          'protein_coding'      => 50000,
+        }, # biotypes
+      }, # rnaseq_final
+    }, # shark_basic
+
+	
     'rodentia_basic' => {
       'genblast' => {
         'logic_names' => {
