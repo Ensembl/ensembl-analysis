@@ -684,7 +684,7 @@ sub clade_settings {
 	    'repbase_library'     => 'Teleostei',
 		'repbase_logic_name'  => 'teleost',
 		'uniprot_set'         => 'sharks_basic',
-		'sanity_set'          => 'fish_basic',
+		'sanity_set'          => 'sharks_basic',
 		'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
 		'masking_timer_long'  => '6h',
 		'masking_timer_short' => '3h',
