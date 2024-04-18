@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2022] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -192,7 +192,7 @@ sub pipeline_analyses {
                          'compara_db' => $self->o('compara_db'),
                          'method_link_type' => $self->o('method_link_type'),
                          'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '3', # mem in GB to be used by cesar (parameter --max-memory)
+                         'cesar_mem' => '10', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {

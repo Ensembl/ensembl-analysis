@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2022] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -681,13 +681,10 @@ sub pipeline_analyses {
   return [
     {
       -logic_name => 'download_rnaseq_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        study_accession => $self->o('rnaseq_study_accession'),
-        taxon_id => $self->o('species_taxon_id'),
-        inputfile => $self->o('rnaseq_summary_file'),
-        paired_end_only => $self->o('paired_end_only'),
+	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
       },
       -flow_into => {
         1 => ['download_genus_rnaseq_csv'],
@@ -703,12 +700,10 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'download_genus_rnaseq_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        study_accession => $self->o('rnaseq_study_accession'),
-        taxon_id => $self->o('genus_taxon_id'),
-        inputfile => $self->o('rnaseq_summary_file_genus'),
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('rnaseq_summary_file_genus') . ' --read_type short --tree -l 100' ,
       },
       -flow_into => {
         1 => ['download_long_read_csv'],
@@ -717,13 +712,10 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'download_long_read_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        study_accession => $self->o('long_read_study_accession'),
-        taxon_id => $self->o('species_taxon_id'),
-        inputfile => $self->o('long_read_summary_file'),
-        read_type => 'isoseq',
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('long_read_summary_file') . ' --read_type long --tree' ,
       },
       -flow_into => {
         1 => ['download_genus_long_read_csv'],
@@ -732,13 +724,10 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'download_genus_long_read_csv',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        study_accession => $self->o('long_read_study_accession'),
-        taxon_id => $self->o('genus_taxon_id'),
-        inputfile => $self->o('long_read_summary_file_genus'),
-        read_type => 'isoseq',
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('long_read_summary_file_genus') . ' --read_type long --tree -l 100' ,
       },
       -flow_into => {
         1 => ['create_load_assembly_pipeline_job'],
@@ -2011,6 +2000,7 @@ sub pipeline_analyses {
           assembly_name => $self->o('assembly_name'),
           assembly_accession => $self->o('assembly_accession'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
+          sanity_set => $self->o('sanity_set'),
         },
       },
       -rc_name      => 'default',
@@ -2089,6 +2079,7 @@ sub pipeline_analyses {
           assembly_name => $self->o('assembly_name'),
           assembly_accession => $self->o('assembly_accession'),
           annotation_source => $self->o('annotation_source'),
+          sanity_set => $self->o('sanity_set'),
         },
       },
       -rc_name      => 'default',

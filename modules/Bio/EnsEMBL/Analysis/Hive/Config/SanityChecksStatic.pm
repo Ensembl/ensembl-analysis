@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-Copyright [2017-2022] EMBL-European Bioinformatics Institute
+Copyright [2017-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -114,6 +114,12 @@ sub _master_config {
        'trf'                        => [150000, 'repeat']
      },
 
+    'sharks_basic' => {
+       'dust'                       => [500000, 'repeat'],
+       'repeatmask_repbase_teleost' => [50000, 'repeat'],
+       'trf'                        => [150000, 'repeat']
+     },
+
      'insects_basic' => {
        # repeats
        'dust'                       => [500000, 'repeat'],
@@ -124,6 +130,19 @@ sub _master_config {
        'cpg'                        => [2000, 'simple'],
        'eponine'                    => [30000, 'simple'],
        'trnascan'                   => [300, 'simple'],
+     },
+
+     'reptiles_basic' => {
+       # repeats
+       'dust'                           => [2000000,'repeat'],
+       'repeatmask_repbase_vertebrates' => [400000,'repeat'],
+       'trf'                            => [400000,'repeat'],
+
+       # simple features
+       'cpg'                         => [20000,'simple'],
+       'trnascan'                    => [1000,'simple'],
+       'eponine'                     => [40000,'simple'],
+
      },
 
     'distant_vertebrate' => {
@@ -138,9 +157,9 @@ sub _master_config {
        'trnascan'                   => [300, 'simple'],
      },
       },
-      
+
 'gene_db_checks' => {
-	  
+
     'aves_basic' => {
       'genblast' => {
         'logic_names' => {
@@ -244,7 +263,167 @@ sub _master_config {
 	   },
       }, # rnaseq_final
     }, # aves_basic
-	
+
+     'reptiles_basic' => {
+	      'genblast' => {
+	        'logic_names' => {
+	          'genblast'            => 10000,
+	          'genblast_not_best'   => 10000,
+	        }, # logic_names
+	        'biotypes' =>    {
+	          'human_pe12_'         => 50000,
+	          'mammals_pe12_'       => 300000,
+			  'amphibians_pe12_'    => 50000,
+			  'reptiles_pe12_'      => 1200,
+	          'aves_pe12_'          => 50000,
+	        }, # biotypes
+	      }, # genblast
+
+
+	     'ig_tr' => {
+	        'logic_names' => {
+	          'ig_tr_gene'          => 5,
+	        }, # logic_names
+	        'biotypes' =>    {
+	          'IG_'                 => 5,
+	          'TR_'                 => 5,
+	        }, # biotypes
+	      }, # ig_tr
+
+
+	      'projection_coding' => {
+	        'logic_names' => {
+			  'cesar'               => 15000,
+	          'project_transcripts' => 20000,
+	        }, # logic_names
+	        'biotypes' =>    {
+	          'projection'          => 40000,
+	        }, # biotypes
+	      }, # projection_coding
+
+
+	      'rnaseq_blast' =>  {
+	        # This one is an issue, logic names, counts are varied and one biotype is a
+	        # substring of the other. At the moment it's really just a check that theres'
+	        # some stuff in there
+	        'logic_names' => {
+	        }, # logic_names
+	        'biotypes' =>    {
+	          'rnaseq'              => 100000,
+	         }, # biotypes
+	      }, # rnaseq_blast
+
+
+
+	      'layer' => {
+	        'logic_names' =>    {
+	          'genblast'                => 1600,
+	          'genblast_rnaseq_support' => 5000,
+	          'project_transcripts' => 600,
+	        }, # logic_names
+	        'biotypes' =>    {
+	          'human_pe12_'         => 3000,
+	          'mammals_pe12_'       => 800,
+	          'rnaseq_tissue_'      => 30000,
+			  'reptiles_pe12_'      => 50,
+	          'aves_pe12_'          => 300,
+	        }, # biotypes
+	      }, # layer
+
+
+	      'genebuilder' => {
+	        'logic_names' => {
+		    'ensembl'             => 15000,
+		},
+		'biotypes' =>    {
+		     'rnaseq_tissue_'      => 20000,
+		}, # biotypes
+	      }, # genebuilder
+
+
+	      'ncrna' => {
+	        'logic_names' => {
+	          'ncrna' => 700,
+	        }, # logic_names
+	        'biotypes' =>    {
+	          'miRNA'               => 100,
+			  'misc_RNA'			=> 10,
+			  'ribozyme'            => 5,
+	          'rRNA'                => 20,
+			  'scaRNA'              => 15,
+	          'snoRNA'              => 200,
+	          'snRNA'               => 200,
+	        }, # biotypes
+	      }, # ncrna
+
+
+	      'final' => {
+	        'logic_names' => {
+	          'ensembl'             => 17000,
+	          'ncrna'               => 700,
+	        }, # logic_names
+	        'biotypes' =>    {
+				 'IG_'                 => 10,
+				 'TR_'                 => 10,
+				 'human_pe12_'         => 1800,
+				 'lncRNA'              => 4000,
+				 'aves_pe12_'          => 250,
+				 'mammals_pe12_'       => 1000,
+				 'miRNA'               => 120,
+				 'misc_RNA'            => 10,
+				 'rnaseq_tissue_'      => 20000,
+				 'ribozyme'            => 10,
+				 'rRNA'                => 20,
+				 'scaRNA'              => 15,
+				 'snoRNA'              => 200,
+				 'snRNA'               => 200,
+	        }, # biotypes
+	      }, # final
+
+
+	      'core' => {
+	        'logic_names' => {
+	          'ensembl'             => 20000,
+	          'ncrna'               => 700,
+	        }, # logic_names
+	        'biotypes' =>    {
+			  'IG_'                  => 10,
+			  'TR_'                  => 10,
+			  'lncRNA'               => 4000,
+			  'protein_coding'       => 21000,
+			  'pseudogene'           => 50,
+			  'processed_pseudogene' => 10,
+			  'miRNA'                => 80,
+			   'misc_RNA'             => 10,
+			   'ribozyme'             => 8,
+			   'rRNA'                 => 20,
+			   'scaRNA'               => 10,
+			   'snoRNA'               => 100,
+			   'snRNA'                => 100,
+	        }, # biotypes
+	      }, # core
+
+
+	      'otherfeatures' => {
+	        'logic_names' => {
+	          'refseq_import'          => 20000,
+	        },
+		  'biotypes' =>    {
+	        }, # biotypes
+	      }, # otherfeatures
+
+
+	       'rnaseq_final' => {
+		   'logic_names' => {
+		   }, # logic_names
+		   'biotypes' => {
+		       'protein_coding'         => 5000,
+		   },
+	      }, # rnaseq_final
+	    }, # reptiles_basic
+
+
+
     'mammals_basic' => {
       'genblast' => {
         'logic_names' => {
@@ -254,7 +433,7 @@ sub _master_config {
         'biotypes' =>    {
           'human_pe12_'         => 1000,
 	  'mouse_pe12_'      => 1000,
-	  'mammals_pe12_'      => 500,    
+	  'mammals_pe12_'      => 500,
         }, # biotypes
       }, # genblast
       'ig_tr' => {
@@ -288,7 +467,6 @@ sub _master_config {
         'logic_names' =>    {
           'genblast'                => 100,
           'best_targetted'          => 100,
-          'genblast_rnaseq_support' => 1000,
           'project_transcripts' => 10000,
         }, # logic_names
         'biotypes' =>    {
@@ -348,7 +526,7 @@ sub _master_config {
         },
       }, # rnaseq_final
     }, # mammals_basic
-	
+
     'primates_basic' => {
       'genblast' => {
         'logic_names' => {
@@ -464,6 +642,8 @@ sub _master_config {
         }, # biotypes
       }, # core
    'rnaseq_final' => {
+       'logic_names' => {
+       }, # logic_names
        'biotypes' => {
 	   'protein_coding'         => 5000,
        },
@@ -478,25 +658,18 @@ sub _master_config {
         }, # logic_names
         'biotypes' =>    {
           'fish_pe12_' => 20000,
+          'human_pe12_'=> 10000,
         }, # biotypes
       }, # genblast
       'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 1,
+          'ig_tr_gene'          => 10,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 1,
-          'TR_'                 => 0,
+          'IG_'                 => 10,
+          'TR_'                 => 1,
         }, # biotypes
       }, # ig_tr
-      'projection_coding' => {
-        'logic_names' => {
-          'project_transcripts' => 10000,
-        }, # logic_names
-        'biotypes' =>    {
-          'projection'          => 30000,
-        }, # biotypes
-      }, # projection_coding
       'rnaseq_blast' =>  {
         # This one is an issue, logic names, counts are varied and one biotype is a
         # substring of the other. At the moment it's really just a check that theres'
@@ -511,12 +684,14 @@ sub _master_config {
       'layer' => {
         'logic_names' =>    {
           'genblast'                => 10000,
-          'best_targetted'          => 100,
-          'genblast_rnaseq_support' => 1000,
-          'project_transcripts' => 10000,
-        }, # logic_names
+          'genblast_rnaseq_support' => 20000,
+      }, # logic_names
         'biotypes' =>    {
-          'rnaseq_tissue_'       => 14000,
+          'IG_'                  => 10,
+          'TR_'                  => 1,
+          'fish_pe12_'          => 10000,
+          'human_pe12_'          => 1000,
+          'rnaseq_tissue_'       => 20000,
         }, # biotypes
       }, # layer
       'genebuilder' => {
@@ -532,7 +707,7 @@ sub _master_config {
           'ncrna' => 300,
         }, # logic_names
         'biotypes' =>    {
-          'miRNA'               => 50,
+          'miRNA'               => 20,
           'misc_RNA'            => 5,
           'rRNA'                => 10,
           'snoRNA'              => 80,
@@ -541,11 +716,15 @@ sub _master_config {
       }, # ncrna
       'final' => {
         'logic_names' => {
-          'ensembl'             => 12000,
+          'ensembl'             => 18000,
           'ncrna'               => 500,
         }, # logic_names
         'biotypes' =>    {
-          'rnaseq_tissue_'      => 10000,
+          'IG_'                 => 10,
+          'TR_'                 => 2,
+          'fish_pe12_'          => 5000,
+          'human_pe12_'         => 1000,
+          'rnaseq_tissue_'      => 20000,
           'lncRNA'              => 2000,
           'miRNA'               => 30,
           'misc_RNA'            => 5,
@@ -556,25 +735,149 @@ sub _master_config {
       }, # final
       'core' => {
         'logic_names' => {
-          'ensembl'             => 13000,
+          'ensembl'             => 18000,
           'ncrna'               => 400,
         }, # logic_names
         'biotypes' =>    {
           'protein_coding'       => 19000,
+          'IG_'                 => 10,
+          'TR_'                 => 2,
           'pseudogene'           => 50,
-          'miRNA'                => 30,
+          'miRNA'                => 25,
           'misc_RNA'             => 5,
           'rRNA'                 => 50,
           'snoRNA'               => 50,
-          'snRNA'                => 100,
+          'snRNA'                => 75,
         }, # biotypes
       }, # core
+      'otherfeatures' => {
+        'logic_names' => {
+          'refseq_import'          => 18000,
+        },
+        'biotypes' =>    {
+        }, # biotypes
+      }, # otherfeatures
       'rnaseq_final' => {
+        'logic_names' => {
+       }, # logic_names
         'biotypes' => {
           'protein_coding'      => 50000,
         }, # biotypes
       }, # rnaseq_final
     }, # fish_basic
+
+    'sharks_basic' => {
+      'genblast' => {
+        'logic_names' => {
+          'genblast'            => 20000,
+          'genblast_not_best'   => 40000,
+        }, # logic_names
+        'biotypes' =>    {
+          'fish_pe12_' => 20000,
+          'human_pe12_'=> 10000,
+        }, # biotypes
+      }, # genblast
+      'ig_tr' => {
+        'logic_names' => {
+          'ig_tr_gene'          => 0,
+        }, # logic_names
+        'biotypes' =>    {
+          'IG_'                 => 0,
+          'TR_'                 => 0,
+        }, # biotypes
+      }, # ig_tr
+      'rnaseq_blast' =>  {
+        # This one is an issue, logic names, counts are varied and one biotype is a
+        # substring of the other. At the moment it's really just a check that theres'
+        # some stuff in there
+        'logic_names' => {
+        }, # logic_names
+        'biotypes' =>    {
+          'rnaseq'              => 10000,
+         }, # biotypes
+      }, # rnaseq_blast
+      'layer' => {
+        'logic_names' =>    {
+          'genblast'                => 10000,
+          'genblast_rnaseq_support' => 20000,
+      }, # logic_names
+        'biotypes' =>    {
+          'IG_'                  => 10,
+          'TR_'                  => 1,
+          'fish_pe12_'          => 10000,
+          'human_pe12_'          => 1000,
+          'rnaseq_tissue_'       => 20000,
+        }, # biotypes
+      }, # layer
+      'genebuilder' => {
+        'logic_names' => {
+          'ensembl'             => 18000,
+        }, # logic_names
+	'biotypes' =>    {
+	    'rnaseq_tissue_'      => 10000,
+        }, # biotypes
+      }, # genebuilder
+      'ncrna' => {
+        'logic_names' => {
+          'ncrna' => 300,
+        }, # logic_names
+        'biotypes' =>    {
+          'miRNA'               => 1,
+          'misc_RNA'            => 5,
+          'rRNA'                => 10,
+          'snoRNA'              => 80,
+          'snRNA'               => 80,
+        }, # biotypes
+      }, # ncrna
+      'final' => {
+        'logic_names' => {
+          'ensembl'             => 18000,
+          'ncrna'               => 500,
+        }, # logic_names
+        'biotypes' =>    {
+          'fish_pe12_'          => 5000,
+          'human_pe12_'         => 1000,
+          'rnaseq_tissue_'      => 15000,
+          'lncRNA'              => 1000,
+          'miRNA'               => 1,
+          'misc_RNA'            => 5,
+          'rRNA'                => 50,
+          'snoRNA'              => 50,
+          'snRNA'               => 100,
+        }, # biotypes
+      }, # final
+      'core' => {
+        'logic_names' => {
+          'ensembl'             => 18000,
+          'ncrna'               => 400,
+        }, # logic_names
+        'biotypes' =>    {
+          'protein_coding'       => 18000,
+          'pseudogene'           => 20,
+          'miRNA'                => 1,
+          'misc_RNA'             => 5,
+          'rRNA'                 => 50,
+          'snoRNA'               => 50,
+          'snRNA'                => 75,
+        }, # biotypes
+      }, # core
+      'otherfeatures' => {
+        'logic_names' => {
+          'refseq_import'          => 18000,
+        },
+        'biotypes' =>    {
+        }, # biotypes
+      }, # otherfeatures
+      'rnaseq_final' => {
+        'logic_names' => {
+       }, # logic_names
+        'biotypes' => {
+          'protein_coding'      => 50000,
+        }, # biotypes
+      }, # rnaseq_final
+    }, # shark_basic
+
+	
     'rodentia_basic' => {
       'genblast' => {
         'logic_names' => {
@@ -618,7 +921,6 @@ sub _master_config {
       'layer' => {
         'logic_names' =>    {
           'genblast'                => 100,
-          'best_targetted'          => 100,
           'genblast_rnaseq_support' => 1000,
           'project_transcripts' => 30000,
         }, # logic_names
@@ -661,10 +963,12 @@ sub _master_config {
           'IG_'                 => 20,
           'TR_'                 => 20,
           'human_pe12_'         => 1000,
+          'lncRNA'              => 2000,
           'mouse_pe12_'         => 1000,
           'mammals_pe12_'       => 1000,
           'miRNA'               => 100,
           'misc_RNA'            => 10,
+          'rnaseq_tissue_'      => 20000,
           'ribozyme'            => 10,
           'rRNA'                => 20,
           'scaRNA'              => 10,
@@ -692,12 +996,16 @@ sub _master_config {
           'snRNA'                => 100,
         }, # biotypes
       }, # core
-      otherfeatures => {
+      'otherfeatures' => {
         'logic_names' => {
           'refseq_import'          => 20000,
         },
+        'biotypes' =>    {
+        }, # biotypes
       }, # otherfeatures
-      rnaseq_final => {
+      'rnaseq_final' => {
+        'logic_names' => {
+       }, # logic_names
         'biotypes' => {
           'protein_coding'         => 5000,
         },
