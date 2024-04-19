@@ -519,7 +519,7 @@ sub pipeline_analyses {
      -logic_name => 'gst_filter_assignments',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
      -parameters => {
-	 cmd => 'singularity run --bind #gst_dir#:/app/data /hps/software/users/ensembl/genebuild/gene_symbol_classifier/singularity/gene_symbol_classifier_filter_0.3.0.sif --symbol_assignments /app/data/' . $self->o('production_name') . '_protein_sequences_symbols.csv --threshold 0.7',
+	 cmd => 'singularity run --bind  ' . $self->o('gst_dir') . ':/app/data /hps/software/users/ensembl/genebuild/gene_symbol_classifier/singularity/gene_symbol_classifier_filter_0.3.0.sif --symbol_assignments /app/data/' . $self->o('production_name') . '_protein_sequences_symbols.csv --threshold 0.7',
      },
 	 -rc_name => 'default_registry',
 	 -flow_into       => { 1 => ['gst_load_gene_symbols'], },	 
@@ -529,7 +529,7 @@ sub pipeline_analyses {
      -logic_name => 'gst_load_gene_symbols',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
      -parameters => {
-	 cmd => 'perl ' . $self->o('gst_load_symbols_script') . ' --species ' . $self->o('production_name') . ' --group core --registry ' . $self->o('registry_file') . ' --symbol_assignments #gst_dir#/' . $self->o('production_name') . '_protein_sequences_symbols_filtered.csv --primary_ids_file /hps/software/users/ensembl/genebuild/gene_symbol_classifier/data/display_name_dbprimary_acc_105.dat --program_version 0.12.1',
+	 cmd => 'perl ' . $self->o('gst_load_symbols_script') . ' --species ' . $self->o('production_name') . ' --group core --registry ' . $self->o('registry_file') . ' --symbol_assignments ' .  $self->o('gst_dir') . '/' . $self->o('production_name') . '_protein_sequences_symbols_filtered.csv --primary_ids_file /hps/software/users/ensembl/genebuild/gene_symbol_classifier/data/display_name_dbprimary_acc_105.dat --program_version 0.12.1',
      },
 	 -rc_name => 'default_registry',
 	 -flow_into       => { 1 => ['add_placeholder_sample_location'], },
