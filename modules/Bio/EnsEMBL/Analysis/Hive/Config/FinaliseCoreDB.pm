@@ -261,7 +261,10 @@ sub pipeline_analyses {
             ' WHERE analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ncrna")',
           'UPDATE dna_align_feature SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name = "cdna_alignment_core")'.
             ' WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name IN ("exonerate","cdna2genome","best_targetted"))',
-          'UPDATE intron_supporting_evidence SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "rnaseq_intron_support")',
+	    'UPDATE intron_supporting_evidence SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "rnaseq_intron_support")',
+	    'UPDATE repeat_feature SET repeat_start = 1 WHERE repeat_start < 1',
+	    'UPDATE repeat_feature SET repeat_end = 1 WHERE repeat_end < 1',
+	    'UPDATE repeat_feature JOIN seq_region USING(seq_region_id) SET seq_region_end = length WHERE seq_region_end > length',
         ],
       },
       -rc_name   => 'default',
