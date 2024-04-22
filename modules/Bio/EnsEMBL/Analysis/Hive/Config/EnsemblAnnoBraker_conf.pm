@@ -477,8 +477,8 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-          1 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#input_dir#' } },
-          2 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#input_dir#' } },
+          1 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
+          2 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#short_read_dir#' } },
       },
     },
       
@@ -491,7 +491,7 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => { 'create_sr_fastq_download_jobs' => { 'inputfile' => '#inputfile#', 'input_dir' => '#input_dir#' } },
+        1 => { 'create_sr_fastq_download_jobs' => { 'inputfile' => '#inputfile#', 'input_dir' => '#input_dir#'} },
       },
     },
 
@@ -504,7 +504,7 @@ sub pipeline_analyses {
         delimiter    => '\t',
       },
       -flow_into => {
-        2 => { 'download_short_read_fastqs' => { 'iid' => '#filename#', 'input_dir' => '#input_dir#' } },
+        2 => { 'download_short_read_fastqs' => { 'iid' => '#filename#', 'input_dir' => '#input_dir#'} },
       },
     },
 
