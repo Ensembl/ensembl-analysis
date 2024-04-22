@@ -463,9 +463,22 @@ sub pipeline_analyses {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 50' ,
        },
       -flow_into => {
-	'1->A' => WHEN ('-s "#rnaseq_summary_file#"' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
-		        '! -s  "#rnaseq_summary_file#"' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#short_read_dir#' } }),
-        'A->1' => ['download_long_read_csv'],
+         '1->A' => ['fan_csv_file'],
+         'A->1' => ['download_long_read_csv'],
+      },
+    },
+
+   {
+      -logic_name => 'fan_csv_file',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ]; then exit 0; else exit 42;fi',
+        return_codes_2_branches => { '42' => 2 },
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+          1 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#input_dir#' } },
+          2 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#input_dir#' } },
       },
     },
       
