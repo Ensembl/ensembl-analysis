@@ -1,5 +1,5 @@
 
-=head1 LICENSE
+=Head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 Copyright [2016-2024] EMBL-European Bioinformatics Institute
@@ -495,51 +495,11 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['run_meta_updates'],
+        1 => ['gst_dump_protein_sequences'],
       },
     },
 
     {
-      -logic_name => 'run_meta_updates',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o ' . $self->o('output_path') . ' -d '  . $self->o('reference_db_name') . ' -s ' . $self->o('reference_db_host') . ' -p ' .$self->o('reference_db_port'),
-      },
-      -rc_name => '1GB',
-      -flow_into       => { 1 => ['load_meta_updates'], },
-    },
-
-    {
-      -logic_name => 'load_meta_updates',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/' .$self->o('reference_db_name') . '.sql',
-      },
-      -rc_name => 'default_registry',
-      -flow_into       => { 1 => ['run_core_stats'], },
-    },
-
-    {
-      -logic_name => 'run_core_stats',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname '  . $self->o('reference_db_name') . ' -host ' .  $self->o('reference_db_host') . ' -port ' .$self->o('reference_db_port') ' -production_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('output_path'),
-      },
-      -rc_name => '5GB',
-      -flow_into       => { 1 => ['load_core_stats'], },
-    },
-
-    {
-      -logic_name => 'load_core_stats',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_name') . ' <'	. $self->o('output_path') . '/stats_'	.$self->o('reference_db_name') . '.sql',
-      },
-      -rc_name => 'default_registry',
-      -flow_into       => { 1 => ['gst_dump_protein_sequences'], },
-    },
-
-      {
       -logic_name => 'gst_dump_protein_sequences',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -601,10 +561,52 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default_registry',
       -flow_into => {
-        1 => ['core_gene_set_sanity_checks'],
+        1 => ['run_meta_updates'],
       },
     },
 
+    {
+      -logic_name => 'run_meta_updates',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o ' . $self->o('output_path') . ' -d '  . $self->o('reference_db_name') . ' -s ' . $self->o('reference_db_host') . ' -p ' .$self->o
+('reference_db_port'),
+      },
+      -rc_name => '1GB',
+      -flow_into       => { 1 => ['load_meta_updates'], },
+    },
+
+    {
+      -logic_name => 'load_meta_updates',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/' .$self->o('reference_db_name') . '.sql',
+      },
+      -rc_name => 'default_registry',
+      -flow_into       => { 1 => ['run_core_stats'], },
+    },
+
+    {
+      -logic_name => 'run_core_stats',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname '  . $self->o('reference_db_name') . ' -host ' .  $self->o('reference_db_host') . ' -port ' .$self->o('reference_db_port') . ' -p
+roduction_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('output_path'),
+      },
+      -rc_name => '5GB',
+      -flow_into       => { 1 => ['load_core_stats'], },
+    },
+
+    {
+      -logic_name => 'load_core_stats',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/stats_'   .$self->o('reference_db_name') . '.sql',
+      },
+      -rc_name => 'default_registry',
+      -flow_into       => { 1 => ['core_gene_set_sanity_checks'], },
+    },
+      
     {
       -logic_name => 'core_gene_set_sanity_checks',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
