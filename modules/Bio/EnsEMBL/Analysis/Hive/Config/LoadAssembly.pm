@@ -119,7 +119,7 @@ sub default_options {
 ########################
 # Executable paths
 ########################
-    samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
+    samtools_path => 'samtools', #You may need to specify the full path to the samtools binary
 
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
