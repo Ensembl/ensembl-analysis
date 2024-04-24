@@ -101,7 +101,7 @@ sub default_options {
     long_read_summary_file           => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     long_read_summary_file_genus     => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     long_read_fastq_dir              => '' || catdir($self->o('long_read_dir'),'input'),
-
+	
     skip_repeatmodeler               => '', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
     skip_post_repeat_analyses        => '0', # Will skip everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     skip_projection                  => '0', # Will skip projection process if 1
@@ -270,7 +270,8 @@ sub default_options {
 
     rnaseq_dir    => catdir($self->o('output_path'), 'rnaseq'),
     long_read_dir => catdir($self->o('output_path'),'long_read'),
-
+    gst_dir       => catfile($self->o('output_path'), 'gst'),
+	
     blast_type => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     cdna_threshold => 10, # The lowest number of genes using the cdna_db in the otherfeatures_db
 
@@ -523,6 +524,7 @@ sub pipeline_create_commands {
       @{$self->SUPER::pipeline_create_commands},
       'mkdir -p '.$self->o('rnaseq_dir'),
       'mkdir -p '.$self->o('long_read_fastq_dir'),
+      'mkdir -p '.$self->o('gst_dir'),	
     ];
 }
 
