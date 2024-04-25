@@ -31,6 +31,7 @@ We recommend that you clone all the repositories into one directory
 | ensembl-metadata | default | https://github.com/Ensembl/ensembl-metadata.git |
 | ensembl-io | default | https://github.com/Ensembl/ensembl-io.git |
 | ensembl-variation | default | https://github.com/Ensembl/ensembl-variation.git |
+| core_meta_updates | default | https://github.com/Ensembl/core_meta_updates.git |
 
 For each of these repository, you will need to install their dependencies using the cpanfile provided in their Git repositories
 
