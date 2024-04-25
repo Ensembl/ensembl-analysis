@@ -388,6 +388,7 @@ sub _master_config {
                      'cdna',
                      'rnaseq_tissue',
 
+
     ],
       sharks_basic => [
                  'IG_C_gene',
