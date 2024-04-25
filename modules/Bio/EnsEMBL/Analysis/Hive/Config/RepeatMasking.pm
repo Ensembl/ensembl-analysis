@@ -123,15 +123,15 @@ sub default_options {
 ########################
 
     'blast_type'        => 'ncbi',                                               # It can be 'ncbi', 'wu', or 'legacy_ncbi'
-    'dust_path'         => catfile( $self->o('binary_base'), 'dustmasker' ),
-    'trf_path'          => catfile( $self->o('binary_base'), 'trf' ),
-    'repeatmasker_path' => catfile( $self->o('binary_base'), 'RepeatMasker' ),
-    red_path            => catfile($self->o('binary_base'), 'Red'),
-    samtools_path       => catfile( $self->o('binary_base'), 'samtools' ),       #You may need to specify the full path to the samtools binary
-    'eponine_java_path' => catfile($self->o('binary_base'), 'java'),
-    'eponine_jar_path' => catfile($self->o('linuxbrew_home_path'), 'opt', 'eponine', 'libexec', 'eponine-scan.jar'),
-    'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
-    'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
+    'dust_path'         => 'dustmasker',
+    'trf_path'          => 'trf',
+    'repeatmasker_path' => 'RepeatMasker',
+    red_path            => 'Red',
+    samtools_path       => 'samtools',       #You may need to specify the full path to the samtools binary
+    'eponine_java_path' => 'java',
+    'eponine_jar_path' 	=> '/hps/software/users/ensembl/ensw/swenv/env/prod-base/bin/eponine-scan.jar', #the path is unlikely to change, but there is no variable currently that holds this...
+    'cpg_path' 			=> 'cpg_lh',
+    'trnascan_path' 	=> 'tRNAscan-SE',
 	
 ########################
     # Misc setup info
