@@ -1,5 +1,5 @@
 
-=head1 LICENSE
+=Head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 Copyright [2016-2024] EMBL-European Bioinformatics Institute
@@ -61,7 +61,7 @@ sub default_options {
     'release_number'     => '' || $self->o('ensembl_release'),
     'uniprot_set'        => '',                                                                                                # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'sanity_set'         => '',                                                                                                # sanity checks
-    'output_path'        => '',                                                                                                # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
+    'output_path'        => '',# Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'      => '',                                                                                                # Name (as it appears in the assembly report file)
     'assembly_accession' => '',                                                                                                # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'stable_id_prefix'   => '',                                                                                                # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
@@ -72,8 +72,8 @@ sub default_options {
     'mapping_db'         => '',                                                                                                # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_version'    => 'uniprot_2021_04',                                                                                 # What UniProt data dir to use for various analyses
     'protein_entry_loc'  => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),    # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
-    registry_file        => catfile($self->o('output_path'), "Databases.pm"), # Path to databse registry for LastaZ and Production sync
-
+    'registry_file'      => catfile($self->o('output_path'), 'Databases.pm'), # Path to databse registry for LastaZ and Production sync
+    'gst_dir'            => catfile($self->o('output_path'), 'gst'),
 ########################
 # Pipe and ref db info
 ########################
@@ -100,15 +100,20 @@ sub default_options {
 ########################
     'base_blast_db_path' => $ENV{BLASTDB_DIR},
 
-    ensembl_analysis_script => catdir( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts' ),
-    load_optimise_script => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl' ),
-    ensembl_misc_script => catdir( $self->o('enscode_root_dir'), 'ensembl', 'misc-scripts' ),
-    meta_coord_script => catfile( $self->o('ensembl_misc_script'), 'meta_coord', 'update_meta_coord.pl' ),
+    ensembl_analysis_script  => catdir( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts' ),
+    load_optimise_script     => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl' ),
+    ensembl_misc_script      => catdir( $self->o('enscode_root_dir'), 'ensembl', 'misc-scripts' ),
+    meta_coord_script        => catfile( $self->o('ensembl_misc_script'), 'meta_coord', 'update_meta_coord.pl' ),
     meta_levels_script       => catfile( $self->o('ensembl_misc_script'),     'meta_levels.pl' ),
     frameshift_attrib_script => catfile( $self->o('ensembl_misc_script'),     'frameshift_transcript_attribs.pl' ),
     select_canonical_script  => catfile( $self->o('ensembl_misc_script'),     'canonical_transcripts', 'select_canonical_transcripts.pl' ),
     assembly_name_script     => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_name.pl' ),
-
+    core_metadata_script     => catdir( $self->o('enscode_root_dir'), 'core_meta_updates', 'scripts', 'metadata', 'core_meta_data.py'),
+    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'core_meta_updates', 'scripts', 'stats', 'generate_species_homepage_stats.pl'),	
+    ensembl_gst_script       => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'pipelines' , 'gene_symbol_classifier'),   
+    gst_dump_proteins_script => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
+    gst_load_symbols_script  => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
+	
     # Genes biotypes to ignore from the final db when copying to core
     copy_biotypes_to_ignore => {
       'low_coverage' => 1,
@@ -258,7 +263,10 @@ sub pipeline_analyses {
             ' WHERE analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ncrna")',
           'UPDATE dna_align_feature SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name = "cdna_alignment_core")'.
             ' WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name IN ("exonerate","cdna2genome","best_targetted"))',
-          'UPDATE intron_supporting_evidence SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "rnaseq_intron_support")',
+	    'UPDATE intron_supporting_evidence SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "rnaseq_intron_support")',
+	    'UPDATE repeat_feature SET repeat_start = 1 WHERE repeat_start < 1',
+	    'UPDATE repeat_feature SET repeat_end = 1 WHERE repeat_end < 1',
+	    'UPDATE repeat_feature JOIN seq_region USING(seq_region_id) SET seq_region_end = length WHERE seq_region_end > length',
         ],
       },
       -rc_name   => 'default',
@@ -487,10 +495,51 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['add_placeholder_sample_location'],
+        1 => ['gst_dump_protein_sequences'],
       },
     },
 
+    {
+      -logic_name => 'gst_dump_protein_sequences',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+	  cmd => 'perl ' . $self->o('gst_dump_proteins_script') . ' --group core --species ' . $self->o('production_name') . ' --registry ' . $self->o('registry_file') . ' --output_file ' . $self->o('gst_dir') . '/' . $self->o('production_name') . '_protein_sequences.fa',
+      },
+	  -rc_name => 'default_registry',
+	  -flow_into       => { 1 => ['gst_assign_gene_symbols'], },
+
+    },
+
+    {
+      -logic_name => 'gst_assign_gene_symbols',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+	  cmd => 'singularity run --bind /hps/software/users/ensembl/genebuild/gene_symbol_classifier/data:/app/checkpoints --bind ' . $self->o('gst_dir') . ':/app/data /hps/software/users/ensembl/genebuild/gene_symbol_classifier/singularity/gene_symbol_classifier_0.12.1.sif --checkpoint /app/checkpoints/mlp_10_min_frequency_2022-01-29_03.08.32.ckpt --sequences_fasta /app/data/' . $self->o('production_name') .  '_protein_sequences.fa --scientific_name ' . $self->o('species_name'),
+      },
+	  -rc_name => 'default_registry',
+	  -flow_into       => { 1 => ['gst_filter_assignments'], },
+    },
+
+    {
+     -logic_name => 'gst_filter_assignments',
+     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+     -parameters => {
+	 cmd => 'singularity run --bind  ' . $self->o('gst_dir') . ':/app/data /hps/software/users/ensembl/genebuild/gene_symbol_classifier/singularity/gene_symbol_classifier_filter_0.3.0.sif --symbol_assignments /app/data/' . $self->o('production_name') . '_protein_sequences_symbols.csv --threshold 0.7',
+     },
+	 -rc_name => 'default_registry',
+	 -flow_into       => { 1 => ['gst_load_gene_symbols'], },	 
+    },
+
+    {
+     -logic_name => 'gst_load_gene_symbols',
+     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+     -parameters => {
+	 cmd => 'perl ' . $self->o('gst_load_symbols_script') . ' --species ' . $self->o('production_name') . ' --group core --registry ' . $self->o('registry_file') . ' --symbol_assignments ' .  $self->o('gst_dir') . '/' . $self->o('production_name') . '_protein_sequences_symbols_filtered.csv --primary_ids_file /hps/software/users/ensembl/genebuild/gene_symbol_classifier/data/display_name_dbprimary_acc_105.dat --program_version 0.12.1',
+     },
+	 -rc_name => 'default_registry',
+	 -flow_into       => { 1 => ['add_placeholder_sample_location'], },
+    },
+      
     {
       -logic_name => 'add_placeholder_sample_location',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddPlaceholderLocation',
@@ -512,10 +561,51 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default_registry',
       -flow_into => {
-        1 => ['core_gene_set_sanity_checks'],
+        1 => ['run_meta_updates'],
       },
     },
 
+    {
+      -logic_name => 'run_meta_updates',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o ' . $self->o('output_path') . ' -d '  . $self->o('reference_db_name') . ' -s ' . $self->o('reference_db_host') . ' -p ' .$self->o
+('reference_db_port'),
+      },
+      -rc_name => '1GB',
+      -flow_into       => { 1 => ['load_meta_updates'], },
+    },
+
+    {
+      -logic_name => 'load_meta_updates',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_host') . ' ' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/' .$self->o('reference_db_name') . '.sql',
+      },
+      -rc_name => 'default_registry',
+      -flow_into       => { 1 => ['run_core_stats'], },
+    },
+
+    {
+      -logic_name => 'run_core_stats',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname '  . $self->o('reference_db_name') . ' -host ' .  $self->o('reference_db_host') . ' -port ' .$self->o('reference_db_port') . ' -production_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('output_path'),
+      },
+      -rc_name => '5GB',
+      -flow_into       => { 1 => ['load_core_stats'], },
+    },
+
+    {
+      -logic_name => 'load_core_stats',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_host') . ' ' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/stats_'   .$self->o('reference_db_name') . '.sql',
+      },
+      -rc_name => 'default_registry',
+      -flow_into       => { 1 => ['core_gene_set_sanity_checks'], },
+    },
+      
     {
       -logic_name => 'core_gene_set_sanity_checks',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
