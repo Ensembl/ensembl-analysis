@@ -580,7 +580,7 @@ sub pipeline_analyses {
       -logic_name => 'load_meta_updates',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/' .$self->o('reference_db_name') . '.sql',
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_host') . ' ' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/' .$self->o('reference_db_name') . '.sql',
       },
       -rc_name => 'default_registry',
       -flow_into       => { 1 => ['run_core_stats'], },
@@ -590,8 +590,7 @@ sub pipeline_analyses {
       -logic_name => 'run_core_stats',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname '  . $self->o('reference_db_name') . ' -host ' .  $self->o('reference_db_host') . ' -port ' .$self->o('reference_db_port') . ' -p
-roduction_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('output_path'),
+          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname '  . $self->o('reference_db_name') . ' -host ' .  $self->o('reference_db_host') . ' -port ' .$self->o('reference_db_port') . ' -production_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('output_path'),
       },
       -rc_name => '5GB',
       -flow_into       => { 1 => ['load_core_stats'], },
@@ -601,7 +600,7 @@ roduction_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('out
       -logic_name => 'load_core_stats',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/stats_'   .$self->o('reference_db_name') . '.sql',
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_host') . ' ' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/stats_'   .$self->o('reference_db_name') . '.sql',
       },
       -rc_name => 'default_registry',
       -flow_into       => { 1 => ['core_gene_set_sanity_checks'], },
