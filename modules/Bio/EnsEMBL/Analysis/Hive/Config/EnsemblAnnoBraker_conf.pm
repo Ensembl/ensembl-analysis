@@ -122,7 +122,9 @@ sub default_options {
     gst_dump_proteins_script          => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
     gst_load_symbols_script          => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),	
     registry_status_update_script => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
-
+    core_metadata_script     => catdir( $self->o('enscode_root_dir'), 'core_meta_updates', 'scripts', 'metadata', 'core_meta_data.py'),
+    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'core_meta_updates', 'scripts', 'stats', 'generate_species_homepage_stats.pl'),	
+	
 ########################
 # Extra db settings
 ########################
@@ -1663,9 +1665,49 @@ sub pipeline_analyses {
 	 cmd => 'perl ' . $self->o('gst_load_symbols_script') . ' --species #production_name# --group core --registry #registry_file# --symbol_assignments #gst_dir#/#production_name#_protein_sequences_symbols_filtered.csv --primary_ids_file /hps/software/users/ensembl/genebuild/gene_symbol_classifier/data/display_name_dbprimary_acc_105.dat --program_version 0.12.1',
      },
 	 -rc_name => 'default_registry',
-	 -flow_into       => { 1 => ['update_assembly_registry_status'], },
+	 -flow_into       => { 1 => ['run_meta_updates'], },
+    },
+{
+      -logic_name => 'run_meta_updates',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o ' . $self->o('output_path') . ' -d '  . $self->o('reference_db_name') . ' -s ' . $self->o('reference_db_host') . ' -p ' .$self->o
+('reference_db_port'),
+      },
+      -rc_name => '1GB',
+      -flow_into       => { 1 => ['load_meta_updates'], },
     },
 
+    {
+      -logic_name => 'load_meta_updates',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_host') . ' ' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/' .$self->o('reference_db_name') . '.sql',
+      },
+      -rc_name => 'default_registry',
+      -flow_into       => { 1 => ['run_core_stats'], },
+    },
+
+    {
+      -logic_name => 'run_core_stats',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname '  . $self->o('reference_db_name') . ' -host ' .  $self->o('reference_db_host') . ' -port ' .$self->o('reference_db_port') . ' -production_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('output_path'),
+      },
+      -rc_name => '5GB',
+      -flow_into       => { 1 => ['load_core_stats'], },
+    },
+
+    {
+      -logic_name => 'load_core_stats',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_host') . ' ' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/stats_'   .$self->o('reference_db_name') . '.sql',
+      },
+      -rc_name => 'default_registry',
+      -flow_into       => { 1 => ['update_assembly_registry_status'], },
+    },
+      
   {
     -logic_name => 'update_assembly_registry_status',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
