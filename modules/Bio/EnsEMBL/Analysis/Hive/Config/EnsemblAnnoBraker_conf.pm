@@ -1286,7 +1286,7 @@ sub pipeline_analyses {
       -flow_into => {
         1 => ['create_otherfeatures_db'],
 
-        2 => ['update_assembly_registry_status'],
+        2 => ['gst_dump_protein_sequences'],
       },
       -rc_name => 'default',
     },
