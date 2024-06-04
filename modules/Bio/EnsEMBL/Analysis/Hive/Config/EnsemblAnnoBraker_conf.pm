@@ -1671,8 +1671,7 @@ sub pipeline_analyses {
       -logic_name => 'run_meta_updates',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o ' . $self->o('output_path') . ' -d '  . $self->o('reference_db_name') . ' -s ' . $self->o('reference_db_host') . ' -p ' .$self->o
-('reference_db_port'),
+          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o ' . $self->o('output_path') . ' -d #core_dbname# -s ' . $self->o('dna_db_server') . ' -p ' .$self->o('dna_db_port'),
       },
       -rc_name => '1GB',
       -flow_into       => { 1 => ['load_meta_updates'], },
@@ -1682,7 +1681,7 @@ sub pipeline_analyses {
       -logic_name => 'load_meta_updates',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_host') . ' ' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/' .$self->o('reference_db_name') . '.sql',
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('dna_db_server') . ' #core_dbname# <' . $self->o('output_path') . '/#core_dbname#.sql',
       },
       -rc_name => 'default_registry',
       -flow_into       => { 1 => ['run_core_stats'], },
@@ -1692,7 +1691,7 @@ sub pipeline_analyses {
       -logic_name => 'run_core_stats',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname '  . $self->o('reference_db_name') . ' -host ' .  $self->o('reference_db_host') . ' -port ' .$self->o('reference_db_port') . ' -production_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('output_path'),
+          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname #core_dbname# -host ' .  $self->o('dna_db_server') . ' -port ' .$self->o('dna_db_port') . ' -production_name ' . $self->o('production_name') . ' -output_dir ' . $self->o('output_path'),
       },
       -rc_name => '5GB',
       -flow_into       => { 1 => ['load_core_stats'], },
@@ -1702,7 +1701,7 @@ sub pipeline_analyses {
       -logic_name => 'load_core_stats',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('reference_db_host') . ' ' . $self->o('reference_db_name') . ' <' . $self->o('output_path') . '/stats_'   .$self->o('reference_db_name') . '.sql',
+          cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('dna_db_server') . ' #core_dbname# <' . $self->o('output_path') . '/stats_#core_dbname#.sql',
       },
       -rc_name => 'default_registry',
       -flow_into       => { 1 => ['update_assembly_registry_status'], },
