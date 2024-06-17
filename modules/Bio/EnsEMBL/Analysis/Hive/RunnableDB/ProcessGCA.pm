@@ -573,7 +573,7 @@ sub get_clade_params {
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  }elsif ( $clade =~ /^('lophotrochozoa'|'bryozoa')$/) {
+  }elsif ( $clade =~ /^(lophotrochozoa|bryozoa)$/) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lophotrochozoa_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lophotrochozoa_orthodb11v0_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_lophotrochozoa_ids.txt',
