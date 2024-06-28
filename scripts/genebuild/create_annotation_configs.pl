@@ -265,7 +265,7 @@ foreach my $accession (@accession_array) {
   }
   say "Fetched the following clade for ".$accession.": ".$clade;
   #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
-  if (($clade eq 'amphibians') || ($clade eq 'vertebrates')){
+  if $clade eq 'vertebrates'{
     $clade = 'distant_vertebrate';
   }
   $assembly_hash->{'clade'} = $clade;
@@ -275,7 +275,7 @@ foreach my $accession (@accession_array) {
   }
   elsif ($clade eq 'teleostei' || $clade eq 'sharks'){
       $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrataSP_plus_fishTR';
-  } 
+  }
   else{
       $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrata_sp';
   }
@@ -663,6 +663,18 @@ sub clade_settings {
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
+    'amphibians' => {
+      'repbase_library'    => 'vertebrates',
+      'repbase_logic_name' => 'vertebrates',
+      'uniprot_set'        => 'amphibians_basic',
+      'sanity_set'         => 'amphibians_basic',
+      'ig_tr_fasta_file'   => 'imgt_mammals_aves_ig_tr.fa',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
     'teleostei' => {
       'repbase_library'     => 'Teleostei',
       'repbase_logic_name'  => 'teleost',
@@ -710,7 +722,6 @@ sub clade_settings {
       repeatmasker_slice_size => 300000,
       batch_target_size => 300000,
     },
-
 
     'insects' => {
       'repbase_library'    => 'insecta',
