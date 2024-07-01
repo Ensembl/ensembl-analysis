@@ -933,9 +933,168 @@ sub _master_config {
               DISCARD    => 0,
             },
 
-    ],
+    ],#end reptiles_basic
+
+    amphibians_basic => [
+		  {
+               ID         => 'LAYER1',
+               BIOTYPES   => [
+                               'IG_C_gene',
+                               'IG_J_gene',
+                               'IG_V_gene',
+                               'IG_D_gene',
+                               'TR_C_gene',
+                               'TR_J_gene',
+                               'TR_V_gene',
+                               'TR_D_gene',
+                               'seleno_self',
+                               'self_pe12_seleno_1',
+                               'self_pe12_seleno_2',
+                               'self_pe12_seleno_3',
+                               'self_pe12_seleno_4',
+                             ],
+               DISCARD    => 0,
+             },
 
 
+		  {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'cdna2genome',
+                             'edited',
+                             'gw_gtag',
+                             'gw_exo',
+                             'rnaseq_tissue_1',
+                             'rnaseq_tissue_2',
+                             'rnaseq_tissue_3',
+                             'rnaseq_tissue_4',
+                             'genblast_rnaseq_top',
+                             'genblast_rnaseq_high',
+                             'cdna_1',
+                             'cdna_2',
+                             'cdna_3',
+                             'cdna_4',
+                             'self_pe12_sp_1',
+                             'self_pe12_tr_1',
+                             'self_pe12_sp_2',
+                             'self_pe12_tr_2',
+                             'amphibians_pe12_sp_1',
+                             'amphibians_pe12_tr_1',
+                             'amphibians_pe12_tr_2',
+                             'amphibians_pe12_sp_2',
+							 'human_pe12_sp_1',
+							 'human_pe12_sp_2',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+
+           {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'projection_1',
+                             'projection_2',
+						     'self_pe12_tr_3',
+						   	 'self_pe12_tr_4',
+							 'amphibians_pe12_sp_3',
+							 'amphibians_pe12_sp_4',
+						   	 'human_pe12_sp_3',
+						   	 'human_pe12_sp_4',
+                             'fish_pe12_sp_1',
+							 'fish_pe12_sp_2',
+							 'reptiles_pe12_sp_1',
+							 'reptiles_pe12_sp_2',
+							 'aves_pe12_sp_1',
+							 'aves_pe12_sp_2',
+							 'vert_pe12_sp_1',
+							 'vert_pe12_sp_2',
+                             'genblast_rnaseq_medium',
+							 'rnaseq_tissue_5',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+           },
+
+           {
+              ID         => 'LAYER4',
+              BIOTYPES   => [
+                             'human_pe12_tr_1',
+                             'human_pe12_tr_2',
+                             'amphibians_pe12_tr_3',
+                             'amphibians_pe12_tr_4',
+                             'fish_pe12_sp_3',
+                             'fish_pe12_sp_4',
+                             'fish_pe12_tr_1',
+                             'fish_pe12_tr_2',
+                             'reptiles_pe12_sp_3',
+                             'reptiles_pe12_sp_4',
+                             'reptiles_pe12_tr_1',
+                             'reptiles_pe12_tr_2',
+							 'vert_pe12_sp_3',
+							 'vert_pe12_sp_4',
+							 'vert_pe12_tr_1',
+							 'vert_pe12_tr_2',
+							 'aves_pe12_tr_1',
+							 'aves_pe12_tr_2',
+							 'aves_pe12_sp_3',
+							 'aves_pe12_sp_4',
+
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+            },
+
+           {
+              ID         => 'LAYER5',
+              BIOTYPES   => [
+                             'projection_3',
+                             'projection_4',
+                             'self_pe3_sp_1',
+							 'self_pe3_sp_2',
+                             'human_pe12_tr_3',
+                             'human_pe12_tr_4',
+                             'fish_pe12_tr_3',
+                             'fish_pe12_tr_4',
+                             'reptiles_pe12_tr_3',
+                             'reptiles_pe12_tr_4',
+                             'vert_pe12_tr_3',
+                             'vert_pe12_tr_4',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+              DISCARD    => 0,
+            },
+
+
+	   {
+              ID         => 'LAYER6',
+              BIOTYPES   => [
+                             'projection_1_noncanon',
+                             'projection_2_noncanon',
+                             'projection_3_noncanon',
+                             'projection_4_noncanon',
+                             'projection_1_pseudo',
+                             'projection_2_pseudo',
+                             'projection_3_pseudo',
+                             'projection_4_pseudo',
+
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
+              DISCARD    => 0,
+            },
+
+
+           {
+              ID         => 'LAYER7',
+              BIOTYPES   => [
+                             'cdna',
+                             'rnaseq_tissue',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
+              DISCARD    => 0,
+            },
+
+    ],#end amphibians_basic
 
   aves_basic => [
 		  {
