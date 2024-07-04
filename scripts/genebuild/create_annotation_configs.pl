@@ -265,9 +265,10 @@ foreach my $accession (@accession_array) {
   }
   say "Fetched the following clade for ".$accession.": ".$clade;
   #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
-  if $clade eq 'vertebrates'{
+  if ($clade eq 'vertebrates'){
     $clade = 'distant_vertebrate';
   }
+
   $assembly_hash->{'clade'} = $clade;
   #set a db for validating models from transcriptomic data
   if ($clade eq 'mammalia' || $clade eq 'rodentia' || $clade eq 'primates' || $clade eq 'marsupials'){
