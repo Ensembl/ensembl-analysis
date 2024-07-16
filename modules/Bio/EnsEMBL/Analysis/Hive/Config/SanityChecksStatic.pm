@@ -444,10 +444,10 @@ sub _master_config {
 	        }, # logic_names
 	        'biotypes' =>    {
 	          'human_pe12_'         => 50000,
-	          'mammals_pe12_'       => 300000,
+	          'fish_pe12_'          => 50000,
 			  'amphibians_pe12_'    => 50000,
 			  'reptiles_pe12_'      => 1200,
-	          'aves_pe12_'          => 50000,
+	          'vert_pe12_'          => 50000,
 	        }, # biotypes
 	      }, # genblast
 
@@ -478,6 +478,8 @@ sub _master_config {
 	        'biotypes' =>    {
 	          'rnaseq'              => 100000,
 	         }, # biotypes
+             'logic_names' => {
+             } #logic_names
 	      }, # rnaseq_blast
 
 	      'layer' => {
@@ -487,11 +489,12 @@ sub _master_config {
 	          'project_transcripts' => 600,
 	        }, # logic_names
 	        'biotypes' =>    {
-	          'human_pe12_'         => 3000,
-	          'mammals_pe12_'       => 800,
-	          'rnaseq_tissue_'      => 30000,
-			  'reptiles_pe12_'      => 50,
-	          'aves_pe12_'          => 300,
+	          'human_pe12_'       => 3000,
+	          'vert_pe12_'        => 800,
+	          'rnaseq_tissue_'    => 30000,
+			  'reptiles_pe12_'    => 50,
+              'fish_pe12_'        => 50,
+	          'amphibians_pe12_'  => 300,
 	        }, # biotypes
 	      }, # layer
 
@@ -531,9 +534,11 @@ sub _master_config {
 				 'IG_'                 => 2,
 				 'TR_'                 => 2,
 				 'human_pe12_'         => 1800,
-				 'lncRNA'              => 4000,
-				 'aves_pe12_'          => 250,
-				 'mammals_pe12_'       => 1000,
+				 'lncRNA'              => 1000,
+				 'amphibians_pe12_'    => 250,
+				 'reptiles_pe12_'      => 100,
+                 'fish_pe12_'          => 100,
+                 'vert_pe12_'          => 1000,
 				 'miRNA'               => 120,
 				 'misc_RNA'            => 10,
 				 'rnaseq_tissue_'      => 20000,
