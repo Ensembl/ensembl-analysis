@@ -204,7 +204,7 @@ sub pipeline_analyses {
                          'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
-        -rc_name    => 'default',
+        -rc_name    => 'default_10GB',
         -analysis_capacity => 100,
         -max_retry_count => 1,
         -flow_into => {
@@ -371,6 +371,7 @@ sub resource_classes {
     my $self = shift;
     return {
       'default' => { LSF => '-M3000 -R"select[mem>3000] rusage[mem=3000]"' },
+      'default_10GB' => { LSF => '-M10000 -R"select[mem>10000] rusage[mem=10000]"' },
       'default_15GB' => { LSF => '-M15000 -R"select[mem>15000] rusage[mem=15000]"' },
       'default_25GB' => { LSF => '-M25000 -R"select[mem>25000] rusage[mem=25000]"' },
       'default_35GB' => { LSF => '-M35000 -R"select[mem>35000] rusage[mem=35000]"' },
