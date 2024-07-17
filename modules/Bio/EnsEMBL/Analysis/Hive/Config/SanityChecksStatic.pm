@@ -479,7 +479,7 @@ sub _master_config {
 	          'rnaseq'              => 100000,
 	         }, # biotypes
              'logic_names' => {
-             } #logic_names
+             }, #logic_names
 	      }, # rnaseq_blast
 
 	      'layer' => {
@@ -578,6 +578,8 @@ sub _master_config {
 	        'logic_names' => {
 	          'refseq_import'          => 20000,
 	        },#logic_names
+            'biotypes' => {
+            },#biotypes
 	      }, # otherfeatures
 
 
@@ -585,6 +587,8 @@ sub _master_config {
 		   'biotypes' => {
 		       'protein_coding'         => 5000,
 		   },#biotypes
+           'logic_names' => {
+            }, #logic_names
 	      }, # rnaseq_final
 	    }, # amphibians_basic
 
