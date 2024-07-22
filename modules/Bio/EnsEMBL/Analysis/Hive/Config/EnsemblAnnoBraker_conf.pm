@@ -71,6 +71,7 @@ sub default_options {
     'output_path'                  => '', #optional, already defined in ProcessGCA
     'assembly_name'                => '', #optional aleady defined in the registry
     'assembly_accession'           => '', #the pipeline is initialed via standalone job  # Versioned GCA assembly accession, e.g. GCA_001857705.1
+    'production_gca'               => '', || $self->o('production_name') . $self->o('assembly_accession'),#optional: species production name and formatted lowercase assembly accession gca000000000.1 
     'stable_id_prefix'             => '', #optional, already defined in ProcessGCA
     'use_genome_flatfile'          => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'species_url'                  => '' || $self->o('production_name') . $self->o('production_name_modifier'),                                          # sets species.url meta key
@@ -99,9 +100,8 @@ sub default_options {
     'provider_name' => 'Ensembl',
     'provider_url'  => 'www.ensembl.org',
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('pipeline_name') . '_pipe_' . $self->o('release_number'),
-    'dna_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_core_' . $self->o('release_number'),
-
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('pipeline_name') . '_pipe_' . $self->o('release_number'),
+    'dna_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_core_' . $self->o('release_number') . '_1',
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
@@ -212,7 +212,7 @@ sub default_options {
 
     otherfeatures_db_host => $self->o('dna_db_server'),
     otherfeatures_db_port => $self->o('dna_db_port'),
-    otherfeatures_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_otherfeatures_' . $self->o('release_number'),
+    otherfeatures_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_gca') . '_otherfeatures_' . $self->o('release_number'),
 
 
 
@@ -415,7 +415,9 @@ sub pipeline_analyses {
         'num_threads'                 => $self->o('num_threads'),
         'dbowner'                     => $self->o('dbowner'),
         'core_db'                     => $self->o('core_db'),
+	      'dna_core_db_custom'          => $self->o('dna_db_name'),
         'otherfeatures_db'            => $self->o('otherfeatures_db'),
+        'otherfeatures_db_custom'     => $self->o('otherfeatures_db_name'),
         'ensembl_release'             => $self->o('ensembl_release'),
         'base_output_dir'             => $self->o('base_output_dir'),
         'registry_db'                 => $self->o('registry_db'),
@@ -427,9 +429,9 @@ sub pipeline_analyses {
         'override_clade'              => $self->o('override_clade'),
         'pipe_db'                     => $self->o('pipe_db'),
         'current_genebuild'           => $self->o('current_genebuild'),
-	'init_config'     =>$self->o('init_config'),
-        'assembly_accession'     =>$self->o('assembly_accession'),
-   	'repeatmodeler_library' =>$self->o('repeatmodeler_library'),
+	      'init_config'                 => $self->o('init_config'),
+        'assembly_accession'          => $self->o('assembly_accession'),
+        'repeatmodeler_library'       => $self->o('repeatmodeler_library'),
    },
       -rc_name => 'default',
 

@@ -293,11 +293,11 @@ sub fetch_input {
   my $ensembl_release = $self->param('ensembl_release');
 
   my $core_db_details = $self->param('core_db');
-  my $core_dbname     = $self->param('dbowner') . '_' . $production_gca . '_core_' . $ensembl_release . '_1';
+  my $core_dbname = $self->param('dna_core_db_custom');
   $core_db_details->{'-dbname'} = $core_dbname;
 
   my $otherfeatures_db_details = $self->param('otherfeatures_db');
-  my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $production_gca . '_otherfeatures_' . $ensembl_release . '_1';
+  my $otherfeatures_dbname     = $self->param('otherfeatures_db_custom');
   $otherfeatures_db_details->{'-dbname'} = $otherfeatures_dbname;
 
   my $rnaseq_summary_file    = catfile( $short_read_dir, $production_name . '.csv' );
@@ -482,104 +482,104 @@ sub get_clade_params {
   $clade_params->{'max_intron_length'} = 100000;
 
   if ( $clade eq 'lepidoptera' ) {
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lepidoptera_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lepidoptera_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lepidoptera_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'lepidoptera_odb10',;
   } elsif ( $clade eq 'trichoptera' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/trichoptera_uniprot_proteins.fa',
-	  $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/holometabola_orthodb11v0_proteins.fa',
-	  $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
-	  $clade_params->{'species_division'}     = 'EnsemblMetazoa',
-	  $clade_params->{'busco_group'}          = 'endopterygota_odb10',;
+	    $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/holometabola_orthodb11v0_proteins.fa',
+	    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+	    $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+	    $clade_params->{'busco_group'}          = 'endopterygota_odb10',;
   }  elsif ( $clade eq 'polyneoptera' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/polyneoptera_uniprot_proteins.fa',
-          $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hexapoda_orthodb11v0_proteins.fa',
-          $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
-          $clade_params->{'species_division'}     = 'EnsemblMetazoa',
-          $clade_params->{'busco_group'}          = 'insecta_odb10',;
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hexapoda_orthodb11v0_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'insecta_odb10',;
   } elsif ( $clade eq 'plasmodium' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/plasmodium_uniprot_proteins.fa',
-          $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/plasmodium_orthodb_proteins.fa',
-          $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_plasmodium_ids.txt',
-          $clade_params->{'species_division'}     = 'EnsemblProtists',
-          $clade_params->{'busco_group'}          = 'plasmodium_odb10',;
-  }   elsif ( $clade eq 'teleostei' ) {
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/teleostei_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/plasmodium_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_plasmodium_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblProtists',
+      $clade_params->{'busco_group'}          = 'plasmodium_odb10',;
+  } elsif ( $clade eq 'teleostei' ) {
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/teleostei_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleostei_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblVertebrates',
       $clade_params->{'busco_group'}          = 'actinopterygii_odb10',;
   } elsif ( $clade eq 'humans' ) {
-    # Just temp stuff for testing
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_uniprot_proteins.fa',
+      # Just temp stuff for testing
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblVertebrates',;
   } elsif ( $clade eq 'hymenoptera' ) {
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hymenoptera_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hymenoptera_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hymenoptera_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'hymenoptera_odb10',;
   } elsif ( $clade eq 'diptera' ) {
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/diptera_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/diptera_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/diptera_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'diptera_odb10',;
   } elsif ( $clade eq 'coleoptera' ) {
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/endopterygota_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/endopterygota_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/endopterygota_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'endopterygota_odb10',;
   } elsif ( $clade eq 'crustacea' ) {
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/crustacea_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/crustacea_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/crustacea_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_crustacea_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'arthropoda_odb10',;
   } elsif ( $clade eq 'mollusca' ) {
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_mollusc_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'mollusca_odb10',;
   } elsif ( $clade eq 'hemiptera' ) {
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hemiptera_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hemiptera_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hemiptera_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_hemiptera_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'hemiptera_odb10',;
   } elsif ( $clade eq 'plants' ) {
-    $clade_params->{'max_intron_length'} = 10000;
-    $clade_params->{'protein_file'}      = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_uniprot_proteins.fa',
+      $clade_params->{'max_intron_length'} = 10000;
+      $clade_params->{'protein_file'}      = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_orthodb_proteins_reheader.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblPlants',
       $clade_params->{'busco_group'}          = 'viridiplantae_odb10',;
    } elsif ( $clade eq 'porifera' ) { #sponges
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/porifera_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/porifera_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/metazoa_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_porifera_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
   } elsif ( $clade eq 'viral' ) {
-    # Test settings for loading viral dbs
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/worm_uniprot_proteins.fa',
+      # Test settings for loading viral dbs
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/worm_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  }elsif ( $clade =~ /^(lophotrochozoa|bryozoa)$/) {
+  } elsif ( $clade =~ /^(lophotrochozoa|bryozoa)$/) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lophotrochozoa_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lophotrochozoa_orthodb11v0_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_lophotrochozoa_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  }elsif ( $clade eq 'cnidaria' ) {
+  } elsif ( $clade eq 'cnidaria' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/cnidaria_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/cnidaria_orthodb11v0_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_cnidaria_ids.txt',
@@ -591,38 +591,43 @@ sub get_clade_params {
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_echinodermata_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  }elsif ( $clade eq 'arachnida' ) {
+  } elsif ( $clade eq 'arachnida' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/arachnida_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/arthropoda_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_metazoa_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  }elsif ( $clade eq 'collembola' ) {
+  } elsif ( $clade eq 'collembola' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/collembola_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/arthropoda_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_metazoa_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  }elsif ( $clade eq 'chilopoda' ) {
+  } elsif ( $clade eq 'chilopoda' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/chilopoda_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/arthropoda_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_metazoa_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  }elsif ( $clade eq 'thecostraca' ) {
+  } elsif ( $clade eq 'thecostraca' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/thecostraca_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/arthropoda_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_metazoa_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
-  }elsif ( $clade =~ /^(odonata|megaloptera|ephemeroptera|psocoptera|dermaptera|raphidioptera|mecoptera|neuroptera|plecoptera)$/ ) {
+  } elsif ( $clade =~ /^(odonata|megaloptera|ephemeroptera|psocoptera|dermaptera|raphidioptera|mecoptera|neuroptera|plecoptera)$/ ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/insecta_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/insecta_orthodb11v0_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
+  } elsif ( $clade eq 'nematoda' ) {
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/nematoda_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/nematoda_orthodb11v0_proteins.uniq.fa',
+      $clade_params->{'rfam_accessions_file'} = '/nfs/production/flicek/ensembl/metazoa/lcampbell/Genebuilding_LongTermStorage/rfam_Nematoda.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'metazoa_odb10',;
   }
- 
   else {
     $self->throw( 'Clade parameters not found for clade: ' . $clade );
   }
