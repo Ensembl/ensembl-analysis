@@ -45,10 +45,12 @@ sub default_options {
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
-    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER}, # a good place to abbreviate to save space if DNA, pipe or OF db names are too long.
     
     # Manditory run option, where to store annotation run data:
     'base_output_dir'              => '',
+    'assembly_accession'           => '', # Manditory field. Versioned GCA assembly accession, e.g. GCA_001857705.1
+    'species_name'                 => '', # e.g. mus_musculus
 
     ## Custom loading options (Skips gb_assembly_registry check on GCA), ensure current_genebuild == 0! 
     # Keys for custom loading, only set/modify if that's what you're doing
@@ -61,10 +63,7 @@ sub default_options {
     'protein_file'                 => '', 
     'busco_protein_file'           => '', 
     'rfam_accessions_file'         => '', 
-    'species_name'                 => '', # e.g. mus_musculus
     'taxon_id'                     => '', # should be in the assembly report file
-    'genus_taxon_id'               => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
-    'species_taxon_id'             => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
     'uniprot_set'                  => '', # E.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'species_division'             => '', #optional, already defined in ProcessGCA # sets species.division meta key
     'stable_id_start'              => '', #optional, already defined in ProcessGCA When mapping is not required this is usually set to 0
@@ -73,11 +72,12 @@ sub default_options {
 
     # Other optional configutations
     'production_name'              => '' || $self->o('species_name'),
-    'production_name_modifier'     => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'production_name_modifier'     => '_', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
     'pipeline_name'                => '' || $self->o('production_name') . '_' . $self->o('production_name_modifier'),
     'release_number'               => '' || $self->o('ensembl_release'),
     'species_url'                  => '' || $self->o('production_name') . $self->o('production_name_modifier'), # sets species.url meta key
-    'base_blast_db_path'           => $ENV{BLASTDB_DIR},
+    'species_taxon_id'             => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
+    'genus_taxon_id'               => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
 
     # Manditory MYSQL credentials:
     'user_r'                       => '', # read only db user
@@ -85,9 +85,8 @@ sub default_options {
     'password'                     => '', # password for write db user
     'server_set'                   => '', # What server set to use: e.g. set1 (gb:2,3,4), set2(gb:5,6,7)
 
-    #Assembly related, the pipeline is initialed via standalone job 
+    # Assembly related, the pipeline is initialed via standalone job 
     'assembly_name'                => '', # Optional. Can be defined from the assembly registry
-    'assembly_accession'           => '', # Manditory field. Versioned GCA assembly accession, e.g. GCA_001857705.1
 
     # RNA-Seq override from previous run for e.g. Saves redownload of fastq.gz files. 
     'use_existing_short_read_dir'  => '', # absolute path for esisting short read data.
@@ -98,10 +97,11 @@ sub default_options {
     'use_genome_flatfile'          => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'mapping_required'             => '0',# If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
 
-    ## BUSCO, Protein validation and Repeat modelling
+    # BUSCO, Protein validation and Repeat modelling
     'uniprot_version'              => 'uniprot_2021_04', # What UniProt data dir to use for various analyses
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'validation_type'              => 'moderate',
+    'base_blast_db_path'           => $ENV{BLASTDB_DIR},
     'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
     'protein_entry_loc'         => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
     'repeatmodeler_library'     => '', #no needed, it can be an option for the anno command This should be the path to a custom repeat library, leave blank if none exists
