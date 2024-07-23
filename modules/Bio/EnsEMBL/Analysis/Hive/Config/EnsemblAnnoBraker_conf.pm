@@ -39,57 +39,73 @@ sub default_options {
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
     'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
     'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
-    'gb_user_data_folder'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data', #it stores gm_key for GenMark and it is set as Braker's home dir
+    'gb_user_data_folder'      => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data', #it stores gm_key for GenMark and it is set as Braker's home dir
+  
+    # Specific Anno run options
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
     'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    
+    # Manditory run option, where to store annotation run data:
     'base_output_dir'              => '',
+
+    ## Custom loading options (Skips gb_assembly_registry check on GCA), ensure current_genebuild == 0! 
+    # Keys for custom loading, only set/modify if that's what you're doing
     'init_config'               => '', #path for configuration file (custom loading)
-    'override_clade'               => '', #optional, already defined in ProcessGCA
-    'protein_file'                 => '', #optional, already defined in ProcessGCA
-    'busco_protein_file'           => '', #optional, already defined in ProcessGCA
-    'rfam_accessions_file'         => '', #optional, already defined in ProcessGCA
-    'use_existing_short_read_dir'  => '', #path for esisting short read data
-    'registry_file'                => catfile( $self->o('enscode_root_dir'),'ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm' ), # This should be the path to the pipeline's copy of the Databases.pm registry file, core adaptors will be written to it
-    'generic_registry_file'        => '',                                                                                                                # Could use this to hold the path to ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm to copy as a generic registry
-    'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
-    'validation_type'              => 'moderate',
-    'release_number'               => '' || $self->o('ensembl_release'),
-    'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => '' || $self->o('production_name') . '_' . $self->o('production_name_modifier'),
-    'user_r'                       => '',                                                                                                                # read only db user
-    'user'                         => '',                                                                                                                # write db user
-    'password'                     => '',                                                                                                                # password for write db user
-    'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
-    'busco_input_file_stid'        => 'stable_id_to_dump.txt',
-    'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
-    'taxon_id'                     => '', #optional, already defined in ProcessGCA, should be in the assembly report file
-    'species_taxon_id'             => '' || $self->o('taxon_id'),                                                                                        # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
-    'genus_taxon_id'               => '' || $self->o('taxon_id'),                                                                                        # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
-    'uniprot_set'                  => '', #optional, already defined in ProcessGCA e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
-    'output_path'                  => '', #optional, already defined in ProcessGCA
-    'assembly_name'                => '', #optional aleady defined in the registry
-    'assembly_accession'           => '', #the pipeline is initialed via standalone job  # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    'stable_id_prefix'             => '', #optional, already defined in ProcessGCA
-    'use_genome_flatfile'          => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'species_url'                  => '' || $self->o('production_name') . $self->o('production_name_modifier'),                                          # sets species.url meta key
+    'load_toplevel_only'        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
+    'custom_toplevel_file_path' => '', # Only set this if you are loading a custom toplevel fasta, requires: [load_toplevel_only => 2] AND [current_genebuild => 0]
+ 
+    # OPTIONAL Already defined in ProcessGCA:
+    'override_clade'               => '', 
+    'protein_file'                 => '', 
+    'busco_protein_file'           => '', 
+    'rfam_accessions_file'         => '', 
+    'species_name'                 => '', # e.g. mus_musculus
+    'taxon_id'                     => '', # should be in the assembly report file
+    'genus_taxon_id'               => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
+    'species_taxon_id'             => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
+    'uniprot_set'                  => '', # E.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'species_division'             => '', #optional, already defined in ProcessGCA # sets species.division meta key
     'stable_id_start'              => '', #optional, already defined in ProcessGCA When mapping is not required this is usually set to 0
+    'output_path'                  => '',
+    'stable_id_prefix'             => '', 
+
+    # Other optional configutations
+    'production_name'              => '' || $self->o('species_name'),
+    'production_name_modifier'     => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'pipeline_name'                => '' || $self->o('production_name') . '_' . $self->o('production_name_modifier'),
+    'release_number'               => '' || $self->o('ensembl_release'),
+    'species_url'                  => '' || $self->o('production_name') . $self->o('production_name_modifier'), # sets species.url meta key
+    'base_blast_db_path'           => $ENV{BLASTDB_DIR},
+
+    # Manditory MYSQL credentials:
+    'user_r'                       => '', # read only db user
+    'user'                         => '', # write db user
+    'password'                     => '', # password for write db user
+    'server_set'                   => '', # What server set to use: e.g. set1 (gb:2,3,4), set2(gb:5,6,7)
+
+    #Assembly related, the pipeline is initialed via standalone job 
+    'assembly_name'                => '', # Optional. Can be defined from the assembly registry
+    'assembly_accession'           => '', # Manditory field. Versioned GCA assembly accession, e.g. GCA_001857705.1
+
+    # RNA-Seq override from previous run for e.g. Saves redownload of fastq.gz files. 
+    'use_existing_short_read_dir'  => '', # absolute path for esisting short read data.
+
+    # Registry config
+    'registry_file'                => catfile( $self->o('enscode_root_dir'),'ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm' ), # This should be the path to the pipeline's copy of the Databases.pm registry file, core adaptors will be written to it
+    'generic_registry_file'        => '', # Could use this to hold the path to ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm to copy as a generic registry
+    'use_genome_flatfile'          => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'mapping_required'             => '0',# If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
-    'uniprot_version'              => 'uniprot_2021_04',                                                                                                 # What UniProt data dir to use for various analyses
-    'production_name_modifier'     => '',                                                                                                                # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
 
-    # Keys for custom loading, only set/modify if that's what you're doing
-    'load_toplevel_only'        => '1',                                                                                                                  # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
-    'custom_toplevel_file_path' => '',                                                                                                                   # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
+    ## BUSCO, Protein validation and Repeat modelling
+    'uniprot_version'              => 'uniprot_2021_04', # What UniProt data dir to use for various analyses
+    'busco_input_file_stid'        => 'stable_id_to_dump.txt',
+    'validation_type'              => 'moderate',
+    'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
+    'protein_entry_loc'         => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
     'repeatmodeler_library'     => '', #no needed, it can be an option for the anno command This should be the path to a custom repeat library, leave blank if none exists
-    'base_blast_db_path'    => $ENV{BLASTDB_DIR},
-    'protein_entry_loc'         => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                       # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
-
     'softmask_logic_names' => [],
-
-
 
 ########################
 # Pipe and ref db info
