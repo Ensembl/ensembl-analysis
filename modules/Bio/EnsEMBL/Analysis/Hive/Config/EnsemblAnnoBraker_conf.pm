@@ -57,7 +57,7 @@ sub default_options {
     'validation_type'              => 'moderate',
     'release_number'               => '' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier'),
+    'pipeline_name'                => '' || $self->o('production_name') . '_' . $self->o('production_name_modifier'),
     'user_r'                       => '',                                                                                                                # read only db user
     'user'                         => '',                                                                                                                # write db user
     'password'                     => '',                                                                                                                # password for write db user
@@ -71,7 +71,6 @@ sub default_options {
     'output_path'                  => '', #optional, already defined in ProcessGCA
     'assembly_name'                => '', #optional aleady defined in the registry
     'assembly_accession'           => '', #the pipeline is initialed via standalone job  # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    'production_gca'               => '', || $self->o('production_name') . $self->o('assembly_accession'),#optional: species production name and formatted lowercase assembly accession gca000000000.1 
     'stable_id_prefix'             => '', #optional, already defined in ProcessGCA
     'use_genome_flatfile'          => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'species_url'                  => '' || $self->o('production_name') . $self->o('production_name_modifier'),                                          # sets species.url meta key
@@ -100,7 +99,7 @@ sub default_options {
     'provider_name' => 'Ensembl',
     'provider_url'  => 'www.ensembl.org',
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('pipeline_name') . '_pipe_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('pipeline_name') . '_pipe_' . $self->o('release_number'),
     'dna_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_core_' . $self->o('release_number') . '_1',
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
@@ -212,7 +211,7 @@ sub default_options {
 
     otherfeatures_db_host => $self->o('dna_db_server'),
     otherfeatures_db_port => $self->o('dna_db_port'),
-    otherfeatures_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_gca') . '_otherfeatures_' . $self->o('release_number'),
+    otherfeatures_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_otherfeatures_' . $self->o('release_number') . '_1',
 
 
 
