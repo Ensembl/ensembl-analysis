@@ -138,7 +138,7 @@ sub default_options {
     delete_genes_prefix => catfile($self->o('delete_genes_dir'), 'genes_to_delete.'),
     optimise_dir => catdir($self->o('rnaseq_dir'),'optimise_rnaseq'),
     production_ftp_dir => '/nfs/production/flicek/ensembl/production/ensemblftp/rapid-release/',
-    species_list => '/nfs/production/flicek/ensembl/genebuild/main_species.csv',
+    species_list => '/nfs/production/flicek/ensembl/genebuild/do_not_delete/main_species.csv',
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
