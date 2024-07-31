@@ -138,7 +138,7 @@ sub default_options {
     delete_genes_prefix => catfile($self->o('delete_genes_dir'), 'genes_to_delete.'),
     optimise_dir => catdir($self->o('rnaseq_dir'),'optimise_rnaseq'),
     production_ftp_dir => '/nfs/production/flicek/ensembl/production/ensemblftp/rapid-release/',
-    species_list => '/nfs/production/flicek/ensembl/genebuild/main_species.csv',
+    species_list => '/nfs/production/flicek/ensembl/genebuild/do_not_delete/main_species.csv',
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
@@ -602,8 +602,8 @@ sub pipeline_analyses {
       -parameters => {
          cmd => 'if [[ $(#search_query#) ]]; then exit 0; else exit 42;fi',
          return_codes_2_branches => {'42' => 2},
-         search_query => 'grep -w '. "'".$self->o('species_name')."' ".$self->o('species_list') . ' | cut -f 2',
-
+	 #note that this query will search for the first part of the binomial species name, i.e. the genus, but is safest for now
+	 search_query => 'search_name=`echo "${'.$self->o('species_name').'^}" | cut -d\'_\' -f1`; grep -w $search_name '.$self->o('species_list'),
       },
     -rc_name => '2GB',
     -flow_into => {
