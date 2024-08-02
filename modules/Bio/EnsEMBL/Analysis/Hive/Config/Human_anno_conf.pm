@@ -812,43 +812,42 @@ sub pipeline_analyses {
 
 sub resource_classes {
   my $self = shift;
-
   return {
     'default' => {
       LSF => $self->lsf_resource_builder('production', 3000),
-      SLURM => $self->slurm_resource_builder('standard', 3000),
+      SLURM => $self->slurm_resource_builder(3000,'7-00:00:00'),
     },
     '4GB_registry' => {
       LSF => [$self->lsf_resource_builder('production', 4000), '-reg_conf '.$self->o('registry_file')],
-      SLURM => [$self->slurm_resource_builder('standard', 4000), '-reg_conf '.$self->o('registry_file')],
+      SLURM => [ $self->slurm_resource_builder( 4000, '1-00:00:00', undef), ' -reg_conf ' . $self->o('registry_file')]
     },
     '4GB' => {
       LSF => $self->lsf_resource_builder('production', 4000),
-      SLURM => $self->slurm_resource_builder('standard', 4000),
+      SLURM => $self->slurm_resource_builder(4000,'7-00:00:00'),
     },
     '5GB' => {
       LSF => $self->lsf_resource_builder('production', 5000),
-      SLURM => $self->slurm_resource_builder('standard', 5000),
+      SLURM => $self->slurm_resource_builder(5000,'7-00:00:00'),
     },
     '9GB' => {
       LSF => $self->lsf_resource_builder('production', 9000),
-      SLURM => $self->slurm_resource_builder('standard', 9000),
+      SLURM => $self->slurm_resource_builder(9000,'7-00:00:00'),
     },
     '12GB' => {
       LSF => $self->lsf_resource_builder('production', 12000),
-      SLURM => $self->slurm_resource_builder('standard', 12000),
+      SLURM => $self->slurm_resource_builder(12000,'7-00:00:00'),
     },
     '15GB' => {
       LSF => $self->lsf_resource_builder('production', 15000),
-      SLURM => $self->slurm_resource_builder('standard', 15000),
+      SLURM => $self->slurm_resource_builder(15000,'7-00:00:00'),
     },
     '20GB' => {
       LSF => $self->lsf_resource_builder('production', 20000),
-      SLURM => $self->slurm_resource_builder('standard', 20000),
+      SLURM => $self->slurm_resource_builder(20000,'7-00:00:00'),
     },
     '35GB' => {
       LSF => $self->lsf_resource_builder('production', 35000),
-      SLURM => $self->slurm_resource_builder('standard', 35000),
+      SLURM => $self->slurm_resource_builder(35000,'7-00:00:00'),
     },
   }
 }
