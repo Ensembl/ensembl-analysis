@@ -293,11 +293,11 @@ sub fetch_input {
   my $ensembl_release = $self->param('ensembl_release');
 
   my $core_db_details = $self->param('core_db');
-  my $core_dbname     = $self->param('dbowner') . '_' . $production_gca . '_core_' . $ensembl_release . '_1';
+  my $core_dbname = $self->param('dna_core_db_custom');
   $core_db_details->{'-dbname'} = $core_dbname;
 
   my $otherfeatures_db_details = $self->param('otherfeatures_db');
-  my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $production_gca . '_otherfeatures_' . $ensembl_release . '_1';
+  my $otherfeatures_dbname     = $self->param('otherfeatures_db_custom');
   $otherfeatures_db_details->{'-dbname'} = $otherfeatures_dbname;
 
   my $rnaseq_summary_file    = catfile( $short_read_dir, $production_name . '.csv' );
@@ -489,6 +489,7 @@ sub get_clade_params {
       $clade_params->{'busco_group'}          = 'lepidoptera_odb10',;
   } elsif ( $clade eq 'trichoptera' ) {
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/trichoptera_uniprot_proteins.fa',
+	    
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/holometabola_orthodb11v0_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
