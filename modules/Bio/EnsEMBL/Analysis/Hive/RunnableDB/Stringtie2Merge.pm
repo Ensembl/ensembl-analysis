@@ -68,7 +68,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    input_file_extension => '_Aligned.sortedByCoord.out.gtf',
+    input_file_extension => '_Aligned.portcullis.sorted.filtered.gtf', #'_Aligned.sortedByCoord.out.gtf',
     num_threads => 1,
     delete_input_file => 0,
   }

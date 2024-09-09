@@ -61,7 +61,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    input_file_extensions => ['_Aligned.sortedByCoord.out.bam','.mb.sorted.bam','.bam'],
+    input_file_extensions => ['_Aligned.portcullis.sorted.filtered.bam','_Aligned.sortedByCoord.out.bam','.mb.sorted.bam','.bam'],
     num_threads => 1,
     delete_input_file => 0,
   }

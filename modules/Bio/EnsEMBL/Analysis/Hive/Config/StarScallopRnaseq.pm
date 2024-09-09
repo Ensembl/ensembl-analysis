@@ -504,7 +504,7 @@ sub pipeline_analyses {
         num_threads        => $self->o('star_threads'),
       },
       -flow_into => {
-        2 => ['scallop'],
+        2 => ['portcullis'],
 	ANYFAILURE => ['star_himem'],
       },
       -rc_name => '45GB_star',
@@ -522,11 +522,37 @@ sub pipeline_analyses {
         num_threads        => $self->o('star_threads'),
       },
       -flow_into => {
-        2 => ['scallop'],
+        2 => ['portcullis'],
       },
       -rc_name => '80GB_star',
     },
 
+    {
+      -logic_name => 'portcullis',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+	  cmd => 'fileprefix=`echo "#iid#" | awk -F'/' '{split($NF, a, "."); print a[1]}'`' .
+'singularity exec -B' . $self->o('output_dir') . ':/mnt /hps/software/users/ensembl/genebuild/leanne/singularity/portcullis_latest.sif portcullis full -t 20 ' . $self->o('faidx_genome_file') . ' /mnt/rnaseq/output/$fileprefix.sortedByCoord.out.bam --bam_filter -o /mnt/rnaseq/output/$fileprefixportcullis_out',
+      },
+      -flow_into => {
+        2 => {'sort_bam_file' => {iid => '#iid#'}},
+      },
+      -rc_name => '8GB',
+    },
+
+    {
+      -logic_name => 'sort_bam_file',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'fileprefix=`echo "#iid#" | awk -F'/' '{split($NF, a, "."); print a[1]}'`' .
+                 'samtools sort -o ' . $self->o('output_dir') . '/#fileprefix#.portcullis.sorted.filtered.bam ' . $self->o('output_dir') . '/#fileprefix#portcullis_out/portcullis.filtered.bam',
+      },
+      -flow_into => {
+        2 => ['scallop'],
+      },
+      -rc_name => '80GB_star',
+    },
+      
     {
       -logic_name => 'scallop',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Scallop',
