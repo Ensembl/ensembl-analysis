@@ -122,8 +122,8 @@ sub default_options {
     gst_dump_proteins_script          => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
     gst_load_symbols_script          => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),	
     registry_status_update_script => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
-    core_metadata_script     => catdir( $self->o('enscode_root_dir'), 'core_meta_updates', 'scripts', 'metadata', 'core_meta_data.py'),
-    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'core_meta_updates', 'scripts', 'stats', 'generate_species_homepage_stats.pl'),	
+    core_metadata_script     => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
+    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'stats', 'generate_species_homepage_stats.pl'),	
 	
 ########################
 # Extra db settings
