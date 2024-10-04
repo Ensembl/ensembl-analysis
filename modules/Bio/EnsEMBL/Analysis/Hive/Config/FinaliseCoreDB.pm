@@ -570,7 +570,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
           cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o ' . $self->o('output_path') . ' -d '  . $self->o('reference_db_name') . ' -s ' . $self->o('reference_db_host') . ' -p ' .$self->o
-('reference_db_port'),
+('reference_db_port') . ' --team genebuild',
       },
       -rc_name => '1GB',
       -flow_into       => { 1 => ['load_meta_updates'], },
