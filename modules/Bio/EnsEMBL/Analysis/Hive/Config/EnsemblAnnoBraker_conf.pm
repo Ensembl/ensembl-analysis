@@ -1671,7 +1671,7 @@ sub pipeline_analyses {
       -logic_name => 'run_meta_updates',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o #output_path# -d #core_dbname# -s ' . $self->o('dna_db_server') . ' -p ' .$self->o('dna_db_port'),
+          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o #output_path# -d #core_dbname# --team genebuild -s ' . $self->o('dna_db_server') . ' -p ' .$self->o('dna_db_port'),
       },
       -rc_name => '1GB',
       -flow_into       => { 1 => ['load_meta_updates'], },
