@@ -124,7 +124,7 @@ sub write_output {
 
 sub decompress {
   my ($self,$path,$fastq) = @_;
-  my $cmd = 'gunzip -f'.$path.'/'.$fastq;
+  my $cmd = 'gunzip -f '.$path.'/'.$fastq;
 
   # Remove this in case indexing in the code block after this one
   if($fastq =~ s/\.gz$//) {
