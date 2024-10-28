@@ -37,12 +37,14 @@ sub default_options {
     'base_output_dir'           => '', # Where to write the files to
     'registry_file'             => catfile($self->o('base_output_dir'), 'Databases.pm'), # This needs to be a standard registry with the production/meta data/taxonomy db adaptors in there
     'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('release_number'),
-    'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'production_name'           => 'homo_sapiens' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'release_number'            => '',
-    'ref_db_server'             => 'mysql-ens-genebuild-prod-1', # host for dna db
-    'ref_db_port'               => '4527',
-    'ref_db_name'               => 'homo_sapiens_core_104_38',
-    'user_r'                    => 'ensro', # read only db user
+    'ref_db_server'             => '', # host for dna db
+    'ref_db_port'               => '',
+    'ref_db_name'               => '',
+    'user_r'                    => '', # read only db user
+    'current_genebuild'            => 0,
+    'assembly_accession'           => '', #the pipeline is initialed via standalone job  # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'num_threads' => 20,
     'pipe_db_server'            => $ENV{GBS7}, # host for pipe db
     'dna_db_server'             => $ENV{GBS6}, # host for dna db
@@ -56,7 +58,7 @@ sub default_options {
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
     species_division            => 'EnsemblVertebrates',
     strain_type                 => 'haplotype',
-    initial_release_date        => '2022-07',
+    initial_release_date        => '',
     source_assembly_name        => 'GRCh38',
 
 ########################
@@ -169,8 +171,8 @@ sub default_options {
     'registry_db' => {
       -host   => $self->o('registry_db_server'),
       -port   => $self->o('registry_db_port'),
-      -user   => $self->o('user_r'),
-      -pass   => $self->o('password_r'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
       -dbname => $self->o('registry_db_name'),
       -driver => $self->o('hive_driver'),
     },
@@ -213,30 +215,33 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::ProcessGCA',
         -parameters => {
                          'num_threads'      => $self->o('num_threads'),
+                         'dbowner'                     => $self->o('dbowner'),
                          'core_db'          => $self->o('core_db'),
                          'ensembl_release'  => $self->o('release_number'),
                          'base_output_dir'  => $self->o('base_output_dir'),
                          'registry_db'      => $self->o('registry_db'),
                          'registry_file'      => $self->o('registry_file'),
+                         'current_genebuild'           => $self->o('current_genebuild'),
+                         'assembly_accession'     =>$self->o('assembly_accession'),
                        },
         -rc_name    => '4GB',
 
-        -flow_into  => {
-                         1 => {'create_core_db' => {
-                           assembly_accession => '#assembly_accession#',
-                           assembly_name => '#assembly_name#',
-                           core_db => '#core_db#',
-                           output_path => '#output_path#',
-                           stable_id_prefix => '#stable_id_prefix#',
-                           species_url => '#species_url#',
-                           species_name => '#species_name#',
-                           species_display_name => '#species_display_name#',
-                           production_name => '#production_name#',
-                           toplevel_genome_file => '#toplevel_genome_file#',
-                           reheadered_toplevel_genome_file => '#reheadered_toplevel_genome_file#',
-                           core_dbname => '#core_dbname#',
-                           stable_id_start => '#stable_id_start#',
-                           }},
+        -flow_into  => {1 => ['create_core_db'],
+          #                         1 => {'create_core_db' => {
+          #                 assembly_accession => '#assembly_accession#',
+          #                 assembly_name => '#assembly_name#',
+          #                 core_db => '#core_db#',
+          #                 output_path => '#output_path#',
+          #                 stable_id_prefix => '#stable_id_prefix#',
+          #                 species_url => '#species_url#',
+          #                 species_name => '#species_name#',
+          #                 species_display_name => '#species_display_name#',
+          #                 production_name => '#production_name#',
+          #                 toplevel_genome_file => '#toplevel_genome_file#',
+          #                           reheadered_toplevel_genome_file => '#reheadered_toplevel_genome_file#',
+          #                 core_dbname => '#core_dbname#',
+          #                 stable_id_start => '#stable_id_start#',
+          #                 }},
                        },
         -analysis_capacity => 1,
         -input_ids  => [],
@@ -315,6 +320,10 @@ sub pipeline_analyses {
               '(1, "species.display_name", "#species_display_name#"),'.
               '(1, "species.division", "'.$self->o('species_division').'"),'.
               '(1, "species.strain", REPLACE("#assembly_name#", "-", "_")),'.
+              '(1, "repeat.analysis", "repeatdetector"),' .
+              '(1, "repeat.analysis", "dust"),' .
+              '(1, "repeat.analysis", "trf"),' .
+              '(1, "repeat.analysis", "repeatmask_repbase_human"),' .
               '(1, "species.production_name", "#production_name#"),'.
               '(1, "strain.type", "'.$self->o('strain_type').'"),'.
               '(1, "genebuild.initial_release_date", "'.$self->o('initial_release_date').'"),'.
@@ -419,11 +428,23 @@ sub pipeline_analyses {
                          return_codes_2_branches => {'42' => 2},
         },
         -flow_into  => {
-          1 => ['xy_scanner'],
+          1 => ['run_anno_repeats'],
         },
         -rc_name => '9GB',
       },
 
+      {
+        -logic_name => 'run_anno_repeats',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl_anno.py' ) . ' #anno_repeats_commandline#',
+      },
+        -rc_name         => 'anno',
+        -max_retry_count => 0,
+        -flow_into       => {
+        1 => ['xy_scanner']
+      },
+      },
 
       {
         -logic_name => 'xy_scanner',
@@ -849,7 +870,11 @@ sub resource_classes {
       LSF => $self->lsf_resource_builder('production', 35000),
       SLURM => $self->slurm_resource_builder(35000,'7-00:00:00'),
     },
-  }
+    'anno'             => {
+     LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ], $self->default_options->{'num_threads'} ),
+     SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
+     }
+  };
 }
 
 1;
