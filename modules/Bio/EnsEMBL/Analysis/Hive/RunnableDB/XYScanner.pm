@@ -62,7 +62,6 @@ sub param_defaults {
 
 sub run {
   my ($self) = @_;
-
   my $xy_scanner_path = $self->param_required('xy_scanner_path');
   my $x_marker_fasta_path = $self->param_required('x_marker_fasta_path');
   my $y_marker_fasta_path = $self->param_required('y_marker_fasta_path');
@@ -80,15 +79,21 @@ sub run {
   if($result) {
     $self->throw("Non-zero exit code encountered from the command");
   }
-
-  open(IN,$output_dir."/xy_scanner.out");
-  my $xy_result = <IN>;
-  chomp $xy_result;
-  close IN;
-
+  my $output_file = "$output_dir/xy_scanner.out";
   my $output_params = destringify($self->input_job->input_id);
-  $output_params->{'xy_scanner'} = $xy_result;
+  if (-e $output_file) {  # Check if the file exists
+    open(IN, $output_file) or $self->throw("Failed to open $output_file: $!");
+    #open(IN,$output_dir."/xy_scanner.out");
+    my $xy_result = <IN>;
+    chomp $xy_result;
+    close IN;
 
+    #   my $output_params = destringify($self->input_job->input_id);
+    $output_params->{'xy_scanner'} = $xy_result;
+     } else {
+    $self->warning("Output file $output_file does not exist. Setting xy_scanner to empty string.");
+    $output_params->{'xy_scanner'} = undef;
+  }
   $self->input_job->input_id($output_params);
 }
 
