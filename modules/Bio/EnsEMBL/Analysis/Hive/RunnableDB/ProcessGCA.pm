@@ -52,8 +52,12 @@ use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name is_canonical_splice);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
-
+use File::Copy;
+use DateTime;
+use Bio::EnsEMBL::Utils::Exception qw (warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
+
 
 sub param_defaults {
   my ($self) = @_;
@@ -81,7 +85,7 @@ sub fetch_input {
   # For the combine files option we don't actually need to do anything in fetch input
 
   my $dirs_to_create = [];
-
+  my $current_genebuild = $self->param('current_genebuild');
   my $output_dir_base = $self->param('base_output_dir');
   my $assembly_accession = $self->param('assembly_accession');
   my $output_dir = catdir($output_dir_base,$assembly_accession);
@@ -99,6 +103,7 @@ sub fetch_input {
   -host    => $self->param('registry_db')->{'-host'},
   -port    => $self->param('registry_db')->{'-port'},
   -user    => $self->param('registry_db')->{'-user'},
+  -pass   => $self->param('registry_db')->{'-pass'},
   -dbname  => $self->param('registry_db')->{'-dbname'});
 
 
@@ -210,14 +215,35 @@ sub fetch_input {
   $species_display_name = $scientific_name." (".$common_name.") - ".$assembly_accession;
   $species_url = $scientific_name."_".$assembly_accession;
   $species_url =~ s/ /_/g;
-
+  
   # Note this should probably be update so that haps are strain assemblies under a strain group
   # The group should be changed to cut off the GCA from the production name, then the type can
   # be set to alternate haplotype. This needs to be discussed before implementing
   my $species_strain_group = $production_name;
   my $strain_type = "strain";
 
+  my $anno_repeats_commandline = ' --genome_file ' . $reheadered_toplevel_genome_file .
+    ' --db_details ' . $core_db_details->{'-dbname'} . ',' .
+    $core_db_details->{'-host'} . ',' .
+    $core_db_details->{'-port'} . ',' .
+    $core_db_details->{'-user'} . ',' .
+    $core_db_details->{'-pass'} .
+    ' --output_dir ' . $output_dir .
+    ' --num_threads ' . $self->param('num_threads') .
+    ' --run_repeatmasker ' .
+    ' --run_repeats ' .
+    ' --load_to_ensembl_db ';
 
+  #Check genebuild status of assembly unless custom loading no need to check registry
+  if ( $current_genebuild == 1 ) {
+    $self->update_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
+  }
+  else {
+    #it will stop the pipeline if there is already an annotation in progress for this assembly
+    say "UPDATE REGISTRY";
+    $self->check_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
+  }  
+  $output_params->{'anno_repeats_commandline'} = $anno_repeats_commandline;
   $output_params->{'core_db'} = $core_db_details;
   $output_params->{'core_dbname'} = $core_dbname;
   $output_params->{'stable_id_start'} = $stable_id_start;
@@ -308,6 +334,63 @@ sub create_registry_entry {
   }
 
 }
+=pod
+=head1 Description of method
+This method updates the registry database with the timestamp of when the annotation started. 
+It also updates the registry with the status of the annotation as well as the user who started it.
+=cut
 
+sub update_annotation_status {
+  my ( $self, $registry_dba, $accession, $current_genebuild ) = @_;
+  my $dt          = DateTime->now;                                         # Stores current date and time as datetime object
+  my $date        = $dt->ymd;
+  my $assembly_id = $registry_dba->fetch_assembly_id_by_gca($accession);
+  my ( $sql, $sth );
+  if ( $current_genebuild == 1 ) {
+    say "Updating genebuild status to overwrite";
+    $sql = "update genebuild_status set is_current = ? where assembly_accession = ?";
+    $sth = $registry_dba->dbc->prepare($sql);
+    $sth->bind_param( 1, 0 );
+    $sth->bind_param( 2, $accession );
+    unless ( $sth->execute() ) {
+      throw( "Could not update annotation status for assembly with accession " . $accession );
+    }
+  }
+  say "Creating new assembly annotation status in registry...\n";
+  $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id,is_current,annotation_source) values(?,?,?,?,?,?,?)";
+  $sth = $registry_dba->dbc->prepare($sql);
+  $sth->bind_param( 1, $accession );
+  $sth->bind_param( 2, 'in progress' );
+  $sth->bind_param( 3, $date );
+  $sth->bind_param( 4, $ENV{EHIVE_USER} || $ENV{USER} );
+  $sth->bind_param( 5, $assembly_id );
+  $sth->bind_param( 6, 1 );
+  $sth->bind_param( 7, 'pending' );
+  say "SQL Successful. Accession being worked on is $accession";
+
+  unless ( $sth->execute() ) {
+    throw( "Could not update annoation status for assembly with accession " . $accession );
+  }
+}
+
+=pod
+=head1 Description of method
+This method checks if there is an existing genebuild entry for the assembly.  
+If yes, genebuilder must decide whether to continue annotation or not.
+If genebuilder decides to continue, then rerun with option: -current_genebuild 1
+This would automatically make this new genebuild the current annotation for tracking purposes
+=cut
+
+sub check_annotation_status {
+  my ( $self, $registry_dba, $accession, $current_genebuild ) = @_;
+  my @status = $registry_dba->fetch_genebuild_status_by_gca($accession);
+  if (@status) {
+      throw( "A genebuild entry already exists for this assembly. " . "$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3]\nAnnotation source: $status[4]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
+    }
+    else {
+      print "Attempting to update annotation status on $accession accession\n";
+      $self->update_annotation_status( $registry_dba, $accession, $current_genebuild ); 
+    }
+}
 
 1;
