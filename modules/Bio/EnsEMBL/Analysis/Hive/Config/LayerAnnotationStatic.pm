@@ -908,7 +908,6 @@ sub _master_config {
                              'mammals_pe12_sp_5',
                              'aves_pe12_sp_5',
                              'amphibians_pe12_sp_5',
-		   }, # logic_names
                              'reptiles_pe12_sp_5',
                              'projection_1_noncanon',
                              'projection_2_noncanon',
