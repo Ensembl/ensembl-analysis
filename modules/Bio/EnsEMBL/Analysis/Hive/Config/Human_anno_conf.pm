@@ -42,7 +42,7 @@ sub default_options {
     'ref_db_server'             => '', # host for dna db
     'ref_db_port'               => '',
     'ref_db_name'               => '',
-    'user_r'                    => '', # read only db user
+    'user_r'                    => 'ensro', # read only db user
     'current_genebuild'            => 0,
     'assembly_accession'           => '', #the pipeline is initialed via standalone job  # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'num_threads' => 20,
@@ -616,7 +616,7 @@ sub pipeline_analyses {
             'UPDATE transcript JOIN gene USING(gene_id) SET transcript.analysis_id = gene.analysis_id',
             'UPDATE repeat_feature SET repeat_start = 1 WHERE repeat_start < 1',
             'UPDATE repeat_feature SET repeat_end = 1 WHERE repeat_end < 1',
-            'UPDATE repeat_feature JOIN seq_region USING(seq_region_id) SET repeat_end = length WHERE repeat_end > length',
+            'UPDATE repeat_feature JOIN seq_region USING(seq_region_id) SET seq_region_end = length WHERE seq_region_end > length',
           ],
         },
         -rc_name    => 'default',
