@@ -349,6 +349,7 @@ sub pipeline_wide_parameters {
     %{ $self->SUPER::pipeline_wide_parameters },
     wide_ensembl_release => $self->o('ensembl_release'),
     load_toplevel_only => $self->o('load_toplevel_only'),
+    skip_braker => 1, # default skip otherfeatures braker
   };
 }
 
@@ -1280,8 +1281,10 @@ sub pipeline_analyses {
       -logic_name => 'fan_otherfeatures_db',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ]  || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
+#        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ]  || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
+	  # will skip otherfeatures for now as the dbs cannot be handed over to the new website
+	  cmd => 'if [ "#skip_braker#" == "0"]; then exit 0; else exit 42;fi',
+	  return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
         1 => ['create_otherfeatures_db'],
