@@ -113,6 +113,7 @@ sub param_defaults {
     _file_type => 'BAMCOV',
     _logic_name_ext => 'bam',
     samtools => 'samtools',
+	skip_analysis => 0,
   }
 }
 
@@ -138,6 +139,10 @@ sub param_defaults {
 
 sub fetch_input {
     my ($self) = @_;
+
+	if ($self->param('skip_analysis')) {
+    	$self->complete_early('I was asked to skip this analysis');
+  	}
 
     my $input_files = $self->param('filename');
     if (@$input_files) {
@@ -188,10 +193,10 @@ sub fetch_input {
 
           $samtools->index($alignment_bam_file);
         }
-        # save file to datafile table. 
+        # save file to datafile table.
         if ($self->param('store_datafile')) {
           $self->store_filename_into_datafile;
-        }        
+        }
         # Finally tell Hive that we've finished processing
         $self->dataflow_output_id({filename => $alignment_bam_file}, $self->param('_branch_to_flow_to'));
         $self->complete_early('There is only one file to process');
@@ -266,7 +271,7 @@ sub write_output {
     if ($self->param('store_datafile')) {
       $self->store_filename_into_datafile;
     }
-    $self->dataflow_output_id({filename => $self->output->[0]}, $self->param('_branch_to_flow_to')); 
+    $self->dataflow_output_id({filename => $self->output->[0]}, $self->param('_branch_to_flow_to'));
 }
 
 
