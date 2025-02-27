@@ -64,7 +64,6 @@ sub param_defaults {
     input_file_extensions => ['_Aligned.sortedByCoord.out.bam','.mb.sorted.bam','.bam'],
     num_threads => 1,
     delete_input_file => 0,
-	skip_analysis => 0,
   }
 }
 
@@ -81,10 +80,6 @@ sub param_defaults {
 
 sub fetch_input {
   my ($self) = @_;
-
-  if ($self->param('skip_analysis')) {
-    $self->complete_early('I was asked to skip this analysis');
-  }
 
   my $input_ids = [$self->param('iid')];
   unless(scalar(@$input_ids)) {

@@ -73,7 +73,6 @@ sub param_defaults {
     threads => 1,
     samtools => 'samtools',
     samtools_use_threading => 1,
-	skip_analysis => 0,
   }
 }
 
@@ -91,10 +90,6 @@ sub param_defaults {
 
 sub fetch_input {
   my ($self) = @_;
-
-  if ($self->param('skip_analysis')) {
-	$self->complete_early('I was asked to skip this analysis');
-  }
 
   my $input_ids = $self->param('SM');
   $self->say_with_header('Found '.scalar(@$input_ids).' input ids');
@@ -131,7 +126,6 @@ sub fetch_input {
      -fastq          => $filepath1,
      -fastqpair      => $filepath2,
      -threads        => $self->param('num_threads'),
-	 #-mem_request	 => $self->param('limitBAM'),
     );
     if ($self->param_is_defined('rg_lines')) {
       $runnable->rg_lines($self->param('rg_lines'));
