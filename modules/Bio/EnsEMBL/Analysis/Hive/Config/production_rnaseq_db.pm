@@ -125,7 +125,7 @@ sub default_options {
     ########################
     # Executable paths
     ########################
-    deeptools_bamcoverage_path => catfile($self->o('software_base_path'), 'pyenv', 'versions', 'genebuild', 'bin', 'bamCoverage'),
+    deeptools_bamcoverage_path => catfile($self->o('software_base_path'), 'bamCoverage'),
 
     use_threads => 4,
 
