@@ -93,7 +93,7 @@ sub fetch_input {
   my ($self) = @_;
 
   if ($self->param('skip_analysis')) {
-	$self->complete_early('I was asked to skip this analysis');
+	$self->complete_early('I was asked to skip this analysis',2);
   }
 
   my $input_ids = $self->param('SM');
