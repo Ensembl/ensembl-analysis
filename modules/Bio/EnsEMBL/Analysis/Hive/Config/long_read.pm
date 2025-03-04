@@ -132,7 +132,7 @@ sub default_options {
     # This is just an example based on the file snippet shown below.  It
     # will vary depending on how your data looks.
     ####################################################################
-    long_read_columns => [ 'sample', 'filename', 'description', 'fastq_file', 'fastq_md5' ],
+    long_read_columns => ['sample','run_accession','is_paired','filename','is_mate_1','read_length','is_plus_13','centre','instrument_platform','description','fastq_file','fastq_md5'],
     download_method => 'ftp',
     databases_to_delete => ['long_read_initial_db', 'long_read_collapse_db', 'long_read_final_db'],
 
