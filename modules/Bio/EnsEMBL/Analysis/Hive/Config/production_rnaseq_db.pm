@@ -125,7 +125,10 @@ sub default_options {
     ########################
     # Executable paths
     ########################
-    deeptools_bamcoverage_path => catfile($self->o('software_base_path'), 'bamCoverage'),
+
+    my $base_path = $self->o('software_base_path');
+    $base_path =~ s{^/}{};
+    deeptools_bamcoverage_path => catfile($base_path, 'bamCoverage'),
 
     use_threads => 4,
 
