@@ -75,7 +75,7 @@ foreach my $gene (@$target_genes) {
   say "Checking gene ".$gene->stable_id();
   my $transcripts = $gene->get_all_Transcripts();
   foreach my $transcript (@$transcripts) {
-    if($transcript->translation()) {
+    if($transcript->translation()) and $transcript->translate()){
       my $translation_seq = $transcript->translate->seq;
       my $num_internal_stops = $translation_seq =~ tr/\*/\*/;
       if($num_internal_stops) {
