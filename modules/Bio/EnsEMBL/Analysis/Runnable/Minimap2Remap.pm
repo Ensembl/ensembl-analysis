@@ -1170,7 +1170,7 @@ sub process_results {
       if($cluster->{'status'} eq 'good') {
         $found_good_cluster = 1;
       }
-    }
+    } 
 
     # To get the final list of clusters, you take all good clusters. If there are no good clusters you take the bad clusters
     my $final_clusters = [];
