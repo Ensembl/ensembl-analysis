@@ -60,6 +60,56 @@ use Bio::EnsEMBL::Attribute;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+=head2 download_file
+
+  Arg [1]    : String $url
+               Full FTP URL to the file you want to download
+  Arg [2]    : String $output_path
+               Local path where the file should be saved
+  Description: Downloads a file from an FTP URL using Net::FTP in binary mode.
+               Retries up to 3 times on failure. Does not check content-length;
+               relies on MD5 validation instead.
+  Returntype : 1 on success
+  Exceptions : Throws if FTP connection, login, or download fails
+
+=cut
+
+sub download_file {
+    my ($url, $output_path) = @_;
+    my $max_retries = 3;
+
+    my ($host, $path) = $url =~ m{ftp://([^/]+)/(.*)};
+    die "Invalid FTP URL: $url" unless $host && $path;
+
+    for my $attempt (1..$max_retries) {
+	eval {
+	    my $ftp = Net::FTP->new($host, Passive => 1, Timeout => 60)
+		or die "Cannot connect to $host: $@";
+
+	    $ftp->login('anonymous', '-anonymous@')
+		or die "FTP login failed: " . $ftp->message;
+
+	    $ftp->binary;
+
+	    my ($dir, $file) = $path =~ m{(.*/)([^/]+)$};
+	    $ftp->cwd($dir) or die "Cannot change directory to $dir: " . $ftp->message;
+
+	    $ftp->get($file, $output_path)
+		or die "Failed to download $file: " . $ftp->message;
+
+	    $ftp->quit;
+	};
+	if (!$@) {
+	    return 1;
+	}
+	warn "[Attempt $attempt] $@";
+    }
+
+    die "Failed to download $url after $max_retries attempts";
+}
+
+
+
 =head2 param_defaults
 
  Arg [1]    : None
@@ -162,13 +212,21 @@ sub fetch_input {
   if (!-d $report_dir) {
     make_path($report_dir);
   }
-  my $fetcher = File::Fetch->new(uri => $self->param_required('full_ftp_path').'/'.$self->param('_report_name'));
-  $fetcher->fetch(to => $report_dir);
-  $fetcher = File::Fetch->new(uri => $self->param_required('full_ftp_path').'/'.$self->param('_md5checksum_name'));
-  $fetcher->fetch(to => $report_dir);
+
+  my $base_path = $self->param_required('full_ftp_path');
+
+  my $report_url = "$base_path/" . $self->param('_report_name');
+  my $report_out = catfile($report_dir, $self->param('_report_name'));
+  download_file($report_url, $report_out);
+
+  my $md5_url = "$base_path/" . $self->param('_md5checksum_name');
+  my $md5_out = catfile($report_dir, $self->param('_md5checksum_name'));
+  download_file($md5_url, $md5_out);
+
   if ($self->param('toplevel_as_sequence_levels')) {
-    $fetcher = File::Fetch->new(uri => $self->param_required('full_ftp_path').'/'.$self->param('_genome_file_name').$self->param('_genome_zip_ext'));
-    $fetcher->fetch(to => $report_dir);
+      my $genome_url = "$base_path/" . $self->param('_genome_file_name') . $self->param('_genome_zip_ext');
+      my $genome_out = catfile($report_dir, $self->param('_genome_file_name') . $self->param('_genome_zip_ext'));
+      download_file($genome_url, $genome_out);
   }
 }
 
