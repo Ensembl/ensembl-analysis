@@ -655,9 +655,24 @@ sub pipeline_analyses {
           ' -registry_port ' . $self->o('registry_port') .
           ' -registry_db ' . $self->o('registry_db'),
       },
-      -rc_name => 'default',
+	  -rc_name => 'default',
+	  -flow_into       => {
+             1 => ['pepstats'], },
     },
-
+ 
+      {
+	  -logic_name => 'pepstats',
+	  -module     => 'Bio::EnsEMBL::Production::Pipeline::Production::PepStatsBatch',
+	  -parameters => {
+	      dbtype => 'core',
+	      pepstats_binary => 'pepstats',
+	      tmpdir => $self->o('output_path'),
+	  },
+	  -max_retry_count => 1,
+	  -hive_capacity   => 50,
+	  -rc_name => '50GB',
+      },
+ 
   ];
 }
 
