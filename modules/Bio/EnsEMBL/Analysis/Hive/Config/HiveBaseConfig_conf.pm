@@ -314,12 +314,15 @@ sub lsf_resource_builder {
 =cut
 
 sub slurm_resource_builder {
-    my ($self,  $memory, $time, $threads, $extra_requirements) = @_;
+    my ($self,  $memory, $time, $threads, $gpu, $extra_requirements) = @_;
 
     #my $slurm_requirement = '--partition='.($queue || 'standard')
 
     my $slurm_requirement =' --mem='.($memory || 1000)
                           .' --time='.($time || '1:00:00');
+    if ($gpu)     {
+      $slurm_requirement .= " --gres=$gpu";
+    }
     if ($threads) {
         $slurm_requirement .= " --cpus-per-task=$threads";
     }

@@ -40,9 +40,12 @@ sub default_options {
     'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
     'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
     'gb_user_data_folder'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data', #it stores gm_key for GenMark and it is set as Braker's home dir
+    'helixer_singularity_image' => '/nfs/production/flicek/ensembl/genebuild/swati/softwares/helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif',
+    'gffread_path' => '/hps/software/users/ensembl/compara/shared/build/gffread/0.12.7/bin/gffread',
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
+    'gpu'                          => 'gpu:a100:2',
     'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'base_output_dir'              => '',
     'init_config'               => '', #path for configuration file (custom loading)
@@ -435,14 +438,23 @@ sub pipeline_analyses {
       -rc_name => 'default',
 
       -flow_into => {
-        1 => ['download_rnaseq_csv'],
+        1 => ['update_annotation_tracking_started'],
       },
       -analysis_capacity => 1,
       -input_ids         => [
         #{'assembly_accession' => 'GCA_910591885.1'},
 	  ],
     },
-
+    
+      {#we need to insert the script or command to update the annotation tracking in the new assembly registry
+	  -logic_name => 'update_annotation_tracking_started',
+          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+	  -parameters => {
+		cmd => 'echo update command goes here',
+	},
+            -rc_name => 'default',
+	    -flow_into       => { 1 => ['download_rnaseq_csv'], },
+	},
 
     {
       -logic_name => 'download_rnaseq_csv',
@@ -706,7 +718,7 @@ sub pipeline_analyses {
       },
       -flow_into => {
         1 => ['anno_load_meta_info'],
-        2 => ['braker_load_meta_info'],
+        2 => ['helixer_load_meta_info'],
       },
       -rc_name => 'default',
     },
@@ -750,7 +762,7 @@ sub pipeline_analyses {
     },
     {
       # Load some meta info and seq_region_synonyms
-      -logic_name => 'braker_load_meta_info',
+      -logic_name => 'helixer_load_meta_info',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
       -parameters => {
         db_conn => '#core_db#',
@@ -763,7 +775,7 @@ sub pipeline_analyses {
             '(1, "assembly.provider_name", NULL),' .
             '(1, "assembly.provider_url", NULL),' .
             '(1, "assembly.ucsc_alias", NULL),' .
-            '(1, "species.stable_id_prefix", "BRAKER#species_prefix#"),' .
+            '(1, "species.stable_id_prefix", "HELIXER#species_prefix#"),' .
             '(1, "species.url", "#species_url#"),' .
             '(1, "species.display_name", "#species_display_name#"),' .
             '(1, "species.division", "#species_division#"),' .
@@ -775,9 +787,9 @@ sub pipeline_analyses {
             '(1, "repeat.analysis", "trf"),' .
             '(1, "genebuild.initial_release_date", NULL),' .
             '(1, "genebuild.id", ' . $self->o('genebuilder_id') . '),' .
-            '(1, "genebuild.method", "braker"),'.
-	    '(1, "genebuild.method_display", "BRAKER2"),'.
-	    '(1, "species.annotation_source", "braker")'
+            '(1, "genebuild.method", "helixer"),'.
+	    '(1, "genebuild.method_display", "HELIXER"),'.
+	    '(1, "species.annotation_source", "helixer")'
         ],
       },
       -max_retry_count => 0,
@@ -870,28 +882,20 @@ sub pipeline_analyses {
       -rc_name         => 'anno',
       -max_retry_count => 0,
       -flow_into       => {
-        1 => ['run_braker_ep_mode'],
+        1 => ['run_helixer'],
       },
     },
     {
-      -logic_name => 'run_braker_ep_mode',
+      -logic_name => 'run_helixer',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd =>'rm -rf #output_path#/prothint;' .
-          'rm -rf #output_path#/augustus_config_light;' .
-          'rm -rf #output_path#/braker;' .
-          'cp -r '. $self->o('augustus_config_path') . ' #output_path#;' .
-          'mkdir -p #output_path#/prothint;' .
-          'cd #output_path#/prothint;'.
-          'singularity exec -H '. $self->o('gb_user_data_folder') . ':/home --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file#;' .
-          'cd #output_path#;' .
-          'singularity exec -H '. $self->o('gb_user_data_folder') . ':/home --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=#output_path#/augustus_config_light/config --cores ' . $self->o('cores') . ';' .
-          'rm -rf #output_path#/prothint/diamond;' .
-          'rm -rf #output_path#/prothint/GeneMark_ES;' .
-          'rm -rf #output_path#/prothint/Spaln;' .
-          'rm -rf #output_path#/braker/GeneMark-EP;' ,
+
+	cmd => 'mkdir -p #output_path#/helixer;' .
+	  'singularity exec --nv helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif bash -c "export PATH=\$PATH:/nfs/production/flicek/ensembl/genebuild/swati/softwares/HelixerPost/target/release/ && Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage fungi --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name.gff3;' .
+	  'gffread_path #output_path#/helixer/#assembly_accession#_#species_name.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
+          'gffread_path #output_path#/helixer/#assembly_accession#_#species_name.gff3 -g #reheadered_toplevel_genome_file# --adj-stop #output_path#/helixer/#assembl_accession#_#species_name.gff3 -y #output_path#/helixer/helixer_proteins.fa;',  
       },
-      -rc_name         => '32GB',
+      -rc_name         => 'helixer',
       -max_retry_count => 0,
       -flow_into       => {
         1 => ['load_gtf_file'],
@@ -912,7 +916,7 @@ sub pipeline_analyses {
           ' -port ' . $self->o('dna_db_port') .
           ' -dbname #core_dbname#' .
           ' -write' .
-          ' -file #output_path#/braker/braker.gtf',
+          ' -file #output_path#/helixer/helixer.gtf',
       },
       -rc_name         => 'default',
       -max_retry_count => 0,
@@ -1053,7 +1057,7 @@ sub pipeline_analyses {
       },
       -flow_into => {
         1 => ['anno_run_stable_ids'],
-        2 => ['braker_run_stable_ids'],
+        2 => ['helixer_run_stable_ids'],
       },
       -rc_name => 'default',
     },
@@ -1073,13 +1077,13 @@ sub pipeline_analyses {
       },
     },
     {
-      -logic_name => 'braker_run_stable_ids',
+      -logic_name => 'helixer_run_stable_ids',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SetStableIDs',
       -parameters => {
         enscode_root_dir => $self->o('enscode_root_dir'),
         mapping_required => 0,
         target_db        => '#core_db#',
-        id_start         => 'BRAKER#species_prefix#' . '#stable_id_start#',
+        id_start         => 'HELIXER#species_prefix#' . '#stable_id_start#',
         output_path      => '#output_path#',
       },
       -rc_name   => 'default',
@@ -1171,7 +1175,8 @@ sub pipeline_analyses {
       -rc_name   => '32GB',
       -flow_into => { 1 => ['fan_busco_output'] },
     },
-    {
+    
+     {
       -logic_name => 'fan_busco_output',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -1181,29 +1186,17 @@ sub pipeline_analyses {
       -rc_name   => 'default',
       -flow_into => {
         1 => ['create_busco_dirs'],
-        2 => ['run_agat_protein_file'],
+        2 => ['run_helixer_busco'],
       },
     },
-    {
-      -logic_name => 'run_agat_protein_file',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
-      -parameters => {
-        cmd => 'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
-      },
-      -rc_name         => '32GB',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['run_busco_braker'],
-      },
-    },
-    {
-      -logic_name => 'run_busco_braker',
+   {
+      -logic_name => 'run_helixer_busco',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('cores') . ' -o busco_core_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/helixer/helixer_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('cores') . ' -o busco_core_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/logs;' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/busco_downloads;' .
 	  'rm -rf  #output_path#/busco_core_protein_mode_output/run*;' .
@@ -1215,6 +1208,8 @@ sub pipeline_analyses {
         1 => ['gst_dump_protein_sequences'],
       },
     },
+
+
     {
       -logic_name => 'create_busco_dirs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1275,362 +1270,10 @@ sub pipeline_analyses {
 	  'mv #output_path#/busco_core_protein_mode_output/*.txt #output_path#/busco_core_protein_mode_output/#species_strain_group#_busco_short_summary.txt',
       },
       -rc_name   => '32GB',
-      -flow_into => { 1 => ['fan_otherfeatures_db'] },
+      -flow_into => { 1 => ['gst_dump_protein_sequences'] },
     },
-    {
-      -logic_name => 'fan_otherfeatures_db',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-#        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ]  || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
-	  # will skip otherfeatures for now as the dbs cannot be handed over to the new website
-	  cmd => 'if [ "#skip_braker#" == "0"]; then exit 0; else exit 42;fi',
-	  return_codes_2_branches => { '42' => 2 },
-      },
-      -flow_into => {
-        1 => ['create_otherfeatures_db'],
-
-        2 => ['gst_dump_protein_sequences'],
-      },
-      -rc_name => 'default',
-    },
-    {
-      # Creates a reference db for each species
-      -logic_name => 'create_otherfeatures_db',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-      -parameters => {
-        'source_db'        => '#core_db#',
-        'target_db'        => '#otherfeatures_db#',
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'create_type'      => 'clone',
-      },
-      -rc_name => 'default',
-
-      -flow_into => {
-        1 => ['update_otherfeatures_db'],
-      },
-    },
-        {
-      -logic_name => 'update_otherfeatures_db',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => '#otherfeatures_db#',
-        sql     => [
-                #          'DELETE FROM analysis_description WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name IN' .
-                # ' ("dust","repeatdetector","trf","cpg","eponine"))',
-                #'DELETE FROM analysis WHERE logic_name IN' .
-                # ' ("dust","repeatdetector","trf","cpg","eponine")',
-          'TRUNCATE analysis',
-          'TRUNCATE analysis_description',
-          'DELETE FROM meta WHERE meta_key LIKE "%.level"',
-          'DELETE FROM meta WHERE meta_key LIKE "sample.%"',
-          'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
-          'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
-          'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
-          'DELETE FROM meta WHERE meta_key LIKE "genebuild.method_display"',
-          'DELETE FROM meta WHERE meta_key IN' .
-            ' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date","species.strain_group")',
-          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
-          'UPDATE meta set meta_value="#stable_id_prefix#" where meta_key="species.stable_id_prefix"',
-          'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
-              ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',
-      ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['populate_production_tables_otherfeatures'],
-      },
-    },
-    {
-      # Load production tables into each reference
-      -logic_name => 'populate_production_tables_otherfeatures',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
-      -parameters => {
-        'target_db'        => '#otherfeatures_db#',
-        'output_path'      => '#output_path#',
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'production_db'    => $self->o('production_db'),
-      },
-      -rc_name => 'default',
-
-      -flow_into => {
-        1 => ['run_braker_ep_mode_otherfeatures'],
-      },
-    },
-    {
-      -logic_name => 'run_braker_ep_mode_otherfeatures',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-
-      -parameters => {
-        cmd => 'cp #output_path#/red_output/mask_output/#species_name#_reheadered_toplevel.msk #output_path#/#species_name#_softmasked_toplevel.fa;' .
-          'rm -rf #output_path#/prothint;' .
-          'rm -rf #output_path#/augustus_config_light;' .
-          'rm -rf #output_path#/braker;' .
-          'cp -r '. $self->o('augustus_config_path') . ' #output_path#;' .
-          'mkdir -p #output_path#/prothint;' .
-          'cd #output_path#/prothint;'.
-          'singularity exec -H '. $self->o('gb_user_data_folder') . ':/home --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file#;' .
-          'cd #output_path#;' .
-          'singularity exec -H '. $self->o('gb_user_data_folder') . ':/home --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=#output_path#/augustus_config_light/config --cores ' . $self->o('cores') . ';' .
-          'rm -rf #output_path#/prothint/diamond;' .
-          'rm -rf #output_path#/prothint/GeneMark_ES;' .
-          'rm -rf #output_path#/prothint/Spaln;' .
-          'rm -rf #output_path#/braker/GeneMark-EP;' ,
-      },
-      -rc_name         => '32GB',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['load_gtf_file_in_otherfeatures_db'],
-      },
-    },
-    {
-      -logic_name => 'load_gtf_file_in_otherfeatures_db',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-
-      -parameters => {
-        cmd => 'perl ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'parse_gtf.pl' ) .
-          ' -dnahost ' . $self->o('otherfeatures_db_host') .
-          ' -dnauser ' . $self->o('user_r') .
-          ' -dnaport ' . $self->o('otherfeatures_db_port') .
-          ' -dnadbname #otherfeatures_dbname#' .
-          ' -host ' . $self->o('otherfeatures_db_host') .
-          ' -user ' . $self->o('user') .
-          ' -pass ' . $self->o('password') .
-          ' -port ' . $self->o('otherfeatures_db_port') .
-          ' -dbname #otherfeatures_dbname#' .
-          ' -write' .
-          ' -file #output_path#/braker/braker.gtf',
-      },
-      -rc_name         => 'default',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['otherfeatures_set_meta_coords'],
-      },
-    },
-    {
-      -logic_name => 'otherfeatures_set_meta_coords',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl ' . $self->o('meta_coord_script') .
-          ' -user ' . $self->o('user') .
-          ' -pass ' . $self->o('password') .
-          ' -host ' . $self->o( 'otherfeatures_db', '-host' ) .
-          ' -port ' . $self->o( 'otherfeatures_db', '-port' ) .
-          ' -dbpattern ' . '#otherfeatures_dbname#'
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['otherfeatures_set_meta_levels'],
-      },
-    },
-
-    {
-      -logic_name => 'otherfeatures_set_meta_levels',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl ' . $self->o('meta_levels_script') .
-          ' -user ' . $self->o('user') .
-          ' -pass ' . $self->o('password') .
-          ' -host ' . $self->o( 'otherfeatures_db', '-host' ) .
-          ' -port ' . $self->o( 'otherfeatures_db', '-port' ) .
-          ' -dbname ' . '#otherfeatures_dbname#'
-      },
-      -rc_name   => 'default',
-      -flow_into => { 1 => ['otherfeatures_set_frameshift_introns'] },
-    },
-
-    {
-      -logic_name => 'otherfeatures_set_frameshift_introns',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl ' . $self->o('frameshift_attrib_script') .
-          ' -user ' . $self->o('user') .
-          ' -pass ' . $self->o('password') .
-          ' -host ' . $self->o( 'otherfeatures_db', '-host' ) .
-          ' -port ' . $self->o( 'otherfeatures_db', '-port' ) .
-          ' -dbpattern ' . '#otherfeatures_dbname#'
-      },
-      -rc_name   => '10GB',
-      -flow_into => { 1 => ['otherfeatures_set_canonical_transcripts'] },
-    },
-    {
-      -logic_name => 'otherfeatures_set_canonical_transcripts',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl ' . $self->o('select_canonical_script') .
-          ' -dbuser ' . $self->o('user') .
-          ' -dbpass ' . $self->o('password') .
-          ' -dbhost ' . $self->o( 'otherfeatures_db', '-host' ) .
-          ' -dbport ' . $self->o( 'otherfeatures_db', '-port' ) .
-          ' -dbname ' . '#otherfeatures_dbname#' .
-          ' -dnadbuser ' . $self->o('user_r') .
-          ' -dnadbhost ' . $self->o( 'core_db', '-host' ) .
-          ' -dnadbport ' . $self->o( 'core_db', '-port' ) .
-          ' -dnadbname ' . '#core_dbname#' .
-          ' -coord toplevel -write'
-      },
-      -rc_name   => '10GB',
-      -flow_into => { 1 => ['otherfeatures_null_columns'] },
-    },
-
-    {
-      -logic_name => 'otherfeatures_null_columns',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => '#otherfeatures_db#',
-        sql     => [
-		'UPDATE gene SET stable_id = NULL',
-		'UPDATE transcript SET stable_id = NULL',
-		'UPDATE translation SET stable_id = NULL',
-		'UPDATE exon SET stable_id = NULL',
-		'UPDATE protein_align_feature set external_db_id = NULL',
-          'UPDATE dna_align_feature set external_db_id = NULL',
-        ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['otherfeatures_braker_run_stable_ids'],
-      },
-    },
-
-    {
-      -logic_name => 'otherfeatures_braker_run_stable_ids',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SetStableIDs',
-      -parameters => {
-        enscode_root_dir => $self->o('enscode_root_dir'),
-        mapping_required => 0,
-        target_db        => '#otherfeatures_db#',
-        id_start         => '#stable_id_prefix#' . '#stable_id_start#',
-        output_path      => '#output_path#',
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['load_external_db_ids_and_optimise_otherfeatures'],
-      },
-    },
-    {
-      -logic_name => 'load_external_db_ids_and_optimise_otherfeatures',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl ' . $self->o('load_optimise_script') .
-          ' -output_path ' . catdir( '#output_path#', 'optimise_otherfeatures' ) .
-          ' -uniprot_filename ' . $self->o('protein_entry_loc') .
-          ' -dbuser ' . $self->o('user') .
-          ' -dbpass ' . $self->o('password') .
-          ' -dbport ' . $self->o( 'otherfeatures_db', '-port' ) .
-          ' -dbhost ' . $self->o( 'otherfeatures_db', '-host' ) .
-          ' -dbname ' . '#otherfeatures_dbname#' .
-          ' -prod_dbuser ' . $self->o('user_r') .
-          ' -prod_dbhost ' . $self->o( 'production_db', '-host' ) .
-          ' -prod_dbname ' . $self->o( 'production_db', '-dbname' ) .
-          ' -prod_dbport ' . $self->o( 'production_db', '-port' ) .
-          ' -verbose'
-      },
-      -max_retry_count => 0,
-      -rc_name         => '4GB',
-      -flow_into       => {
-        1 => ['otherfeatures_final_cleaning'],
-      },
-    },
-
-    {
-      -logic_name => 'otherfeatures_final_cleaning',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => '#otherfeatures_db#',
-        sql     => [
-          'TRUNCATE associated_xref',
-          'TRUNCATE dependent_xref',
-          'TRUNCATE identity_xref',
-          'TRUNCATE object_xref',
-          'TRUNCATE ontology_xref',
-          'TRUNCATE xref',
-          'DELETE exon FROM exon LEFT JOIN exon_transcript ON exon.exon_id = exon_transcript.exon_id WHERE exon_transcript.exon_id IS NULL',
-          'DELETE supporting_feature FROM supporting_feature LEFT JOIN exon ON supporting_feature.exon_id = exon.exon_id WHERE exon.exon_id IS NULL',
-          'DELETE supporting_feature FROM supporting_feature LEFT JOIN dna_align_feature ON feature_id = dna_align_feature_id WHERE feature_type="dna_align_feature" AND dna_align_feature_id IS NULL',
-          'DELETE supporting_feature FROM supporting_feature LEFT JOIN protein_align_feature ON feature_id = protein_align_feature_id WHERE feature_type="protein_align_feature" AND protein_align_feature_id IS NULL',
-          'DELETE transcript_supporting_feature FROM transcript_supporting_feature LEFT JOIN dna_align_feature ON feature_id = dna_align_feature_id WHERE feature_type="dna_align_feature" AND dna_align_feature_id IS NULL',
-          'DELETE transcript_supporting_feature FROM transcript_supporting_feature LEFT JOIN protein_align_feature ON feature_id = protein_align_feature_id WHERE feature_type="protein_align_feature" AND protein_align_feature_id IS NULL',
-        ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['otherfeatures_populate_analysis_descriptions'],
-      },
-
-    },
-
-    {
-      -logic_name => 'otherfeatures_populate_analysis_descriptions',
-      -module     => 'Bio::EnsEMBL::Production::Pipeline::ProductionDBSync::PopulateAnalysisDescription',
-      -parameters => {
-        species => '#production_name#',
-        group   => 'otherfeatures',
-      },
-      -flow_into => {
-        1 => ['run_agat_protein_file_otherfeatures'],
-      },
-      -rc_name => 'default_registry',
-    },
-    {
-      -logic_name => 'run_agat_protein_file_otherfeatures',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-
-      -parameters => {
-        cmd => 'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
-      },
-      -rc_name         => '32GB',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['run_busco_braker_otherfeatures'],
-      },
-    },
-    {
-      -logic_name => 'run_busco_braker_otherfeatures',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-
-      -parameters => {
-        cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c ' . $self->o('cores') . ' -o busco_otherfeatures_protein_mode_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
-	  'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/logs;' .
-          'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/busco_downloads;' .
-          'rm -rf  #output_path#/busco_otherfeatures_protein_mode_output/run*;' .
-	  'sed  -i "/genebuild/d"  #output_path#/busco_otherfeatures_protein_mode_output/*.txt;' .
-	  'mv #output_path#/busco_otherfeatures_protein_mode_output/*.txt #output_path#/busco_otherfeatures_protein_mode_output/#species_strain_group#_busco_short_summary.txt;',
-      },
-      -rc_name   => '32GB',
-      -flow_into => {
-        1 => ['otherfeatures_sanity_checks'],
-      },
-    },
-    {
-      -logic_name => 'otherfeatures_sanity_checks',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-      -parameters => {
-        target_db                  => '#otherfeatures_db#',
-        sanity_check_type          => 'gene_db_checks',
-        min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks' )->{'otherfeatures'},
-      },
-      -rc_name   => '4GB',
-      -flow_into => {
-        1 => ['otherfeatures_healthchecks'],
-      },
-    },
-
-    {
-      -logic_name => 'otherfeatures_healthchecks',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHealthcheck',
-      -parameters => {
-        input_db => '#otherfeatures_db#',
-        species  => '#species_name#',
-        group    => 'otherfeatures_handover',
-      },
-      -max_retry_count => 0,
-      -rc_name         => '4GB',
-      -flow_into       => { 1 => ['gst_dump_protein_sequences'], },
-    },
-
-    {
+    
+     {
       -logic_name => 'gst_dump_protein_sequences',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -1707,8 +1350,23 @@ sub pipeline_analyses {
           cmd => '/hps/software/users/ensembl/ensw/mysql-cmds/ensembl/ensadmin/' . $self->o('dna_db_server') . ' #core_dbname# <#output_path#/stats_#core_dbname#.sql',
       },
       -rc_name => 'default_registry',
-      -flow_into       => { 1 => ['update_assembly_registry_status'], },
+      -flow_into       => { 1 => ['pepstats'], },
     },
+
+    {
+	  -logic_name => 'pepstats',
+	      -module     => 'Bio::EnsEMBL::Production::Pipeline::Production::PepStatsBatch',
+	      -parameters => {
+		  dbtype => 'core',
+		  pepstats_binary => 'pepstats',
+		  tmpdir => $self->o('output_path'),
+	  },
+	      -max_retry_count => 1,
+	      -hive_capacity   => 50,
+	      -rc_name => '50GB',
+	      -flow_into       => { 1 => ['update_assembly_registry_status'], }
+      },
+
       
   {
     -logic_name => 'update_assembly_registry_status',
@@ -1723,8 +1381,18 @@ sub pipeline_analyses {
 	    ' -registry_db ' . $self->o('registry_db_name'),
     },
 	-rc_name => 'default',
-	-flow_into       => { 1 => ['delete_short_reads'], },
+	-flow_into       => { 1 => ['update_annotation_tracking_complete'], },
   },
+
+     {#we need to insert the script or command to update the annotation tracking in the new assembly registry
+	  -logic_name => 'update_annotation_tracking_complete',
+	      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+	      -parameters => {
+		  cmd => 'echo update command goes here',
+		  	  },
+	      -rc_name => 'default',
+	      -flow_into       => { 1 => ['delete_short_reads'], },
+      },
       
      {
       -logic_name => 'delete_short_reads',
@@ -1753,11 +1421,12 @@ sub resource_classes {
     #inherit other stuff from the base class
      %{ $self->SUPER::resource_classes() },
      'anno'             => {
-     LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ], $self->default_options->{'num_threads'} ),
      SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
      },
+     'helixer'       => {
+     SLURM =>  $self->slurm_resource_builder(100000, '7-00:00:00', $self->default_options->{'gpu'} ),
+     }, 
     '32GB'           => {
-     LSF => $self->lsf_resource_builder( 'production', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ], $self->default_options->{'cores'} ),
      SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
     },
     };

@@ -105,7 +105,7 @@ sub fetch_input {
     if ($od_result) {
       $self->throw( "Failed to create dir: " . $output_dir );
     }
-  
+
   push( @$dirs_to_create, ($genome_files_dir, $short_read_dir, $long_read_dir, $gst_dir) );
 
   foreach my $dir (@$dirs_to_create) {
@@ -139,11 +139,11 @@ sub fetch_input {
   my $sth;
   my $general_hash = {};
   my ($stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start);
-  
+
   # Check for .INI custom loading configuration file and required params are present.
   if ( -e $init_file ) {
     open( IN, $init_file ) || throw("Could not open $init_file");
-    
+
     # Switch to custom loading
     say "Using custom loading .ini file.\n";
     $custom_loading = 1;
@@ -156,24 +156,24 @@ sub fetch_input {
         my $key   = $1;
         my $value = $2;
         say "Found key/value pair: " . $key . " => " . $value;
-	if ( $key eq 'stable_id_prefix' ) {	
+	if ( $key eq 'stable_id_prefix' ) {
 		#$general_hash->{$key} = $value;
 	 $stable_id_prefix = $value;
-	 
+
 	 }
 	if ( $key eq 'clade' ) {
 	 $clade = $value;
 	 }
-	if ( $key eq 'species_taxon_id' ) { 
+	if ( $key eq 'species_taxon_id' ) {
 	 $species_taxon_id = $value;
 	 }
-	if ( $key eq 'taxon_id' ) { 
+	if ( $key eq 'taxon_id' ) {
 	 $taxon_id = $value;
  	}
 	if ( $key eq 'assembly_name' ) {
 	 $assembly_name = $value;
  	}
-	if ( $key eq 'common_name' ) {	
+	if ( $key eq 'common_name' ) {
        	 $common_name = $value;
         }
 	if ( $key eq 'assembly_refseq_accession' ) {
@@ -627,6 +627,34 @@ sub get_clade_params {
       $clade_params->{'rfam_accessions_file'} = '/nfs/production/flicek/ensembl/metazoa/lcampbell/Genebuilding_LongTermStorage/rfam_Nematoda.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'metazoa_odb10',;
+  }elsif ( $clade eq 'ascomycota' ) {
+      $clade_params->{'max_intron_length'}    =1000;
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/fungi_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/ascomycota_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblFungi',
+      $clade_params->{'busco_group'}          = 'ascomycota_odb10',;
+  }elsif ( $clade eq 'basidiomycota' ) {
+      $clade_params->{'max_intron_length'}    =1000;
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/fungi_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/basidiomycota_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblFungi',
+      $clade_params->{'busco_group'}          = 'basidiomycota_odb10',;
+  }elsif ( $clade eq 'mucoromycota' ) {
+      $clade_params->{'max_intron_length'}    =1000;
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/fungi_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mucoromycota_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblFungi',
+      $clade_params->{'busco_group'}          = 'mucoromycota_odb10',;
+  }
+  elsif ( $clade eq 'aves' ) {
+      $clade_params->{'protein_file'} = '',
+          $clade_params->{'busco_protein_file'}   = '',
+          $clade_params->{'rfam_accessions_file'} = '',
+          $clade_params->{'species_division'}     = 'EnsemblVertebrates',
+          $clade_params->{'busco_group'}          = '',
   }
   else {
     $self->throw( 'Clade parameters not found for clade: ' . $clade );
@@ -686,7 +714,7 @@ sub create_registry_entry {
 
 =pod
 =head1 Description of method
-This method updates the registry database with the timestamp of when the annotation started. 
+This method updates the registry database with the timestamp of when the annotation started.
 It also updates the registry with the status of the annotation as well as the user who started it.
 =cut
 
@@ -725,7 +753,7 @@ sub update_annotation_status {
 
 =pod
 =head1 Description of method
-This method checks if there is an existing genebuild entry for the assembly.  
+This method checks if there is an existing genebuild entry for the assembly.
 If yes, genebuilder must decide whether to continue annotation or not.
 If genebuilder decides to continue, then rerun with option: -current_genebuild 1
 This would automatically make this new genebuild the current annotation for tracking purposes
@@ -739,7 +767,7 @@ sub check_annotation_status {
     }
     else {
       print "Attempting to update annotation status on $accession accession\n";
-      $self->update_annotation_status( $registry_dba, $accession, $current_genebuild ); 
+      $self->update_annotation_status( $registry_dba, $accession, $current_genebuild );
     }
 }
 
