@@ -888,7 +888,7 @@ sub pipeline_analyses {
 	cmd => 'mkdir -p #output_path#/helixer;' .
 	  'singularity exec --nv helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif bash -c "export PATH=\$PATH:/nfs/production/flicek/ensembl/genebuild/swati/softwares/HelixerPost/target/release/ && Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage fungi --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name.gff3;' .
 	  'gffread_path #output_path#/helixer/#assembly_accession#_#species_name.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
-          'gffread_path #output_path#/helixer/#assembly_accession#_#species_name.gff3 -g #reheadered_toplevel_genome_file# --adj-stop #output_path#/helixer/#assembl_accession#_#species_name.gff3 -y #output_path#/helixer/helixer_proteins.fa;',  
+          'gffread_path #output_path#/helixer/#assembly_accession#_#species_name.gff3 -g #reheadered_toplevel_genome_file# --adj-stop #output_path#/helixer/#assembly_accession#_#species_name.gff3 -y #output_path#/helixer/helixer_proteins.fa;',  
       },
       -rc_name         => 'helixer',
       -max_retry_count => 0,
