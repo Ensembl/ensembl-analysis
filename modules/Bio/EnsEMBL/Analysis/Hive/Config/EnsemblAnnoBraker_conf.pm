@@ -32,14 +32,9 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-    #BRAKER parameters
-    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config_light',
-    'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config/species/',
-    'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-braker2_es_ep_etp.simg',
-    'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
-    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
+    #BUSCO parameters
+    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/singularity/busco_v5.7.1_cv1.sif',
     'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
-    'gb_user_data_folder'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data', #it stores gm_key for GenMark and it is set as Braker's home dir
     'helixer_singularity_image' => '/nfs/production/flicek/ensembl/genebuild/swati/softwares/helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif',
     'gffread_path' => '/hps/software/users/ensembl/compara/shared/build/gffread/0.12.7/bin/gffread',
     'current_genebuild'            => 0,
@@ -1423,10 +1418,15 @@ sub resource_classes {
      'anno'             => {
      SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
      },
+     
      'helixer'       => {
-     SLURM =>  $self->slurm_resource_builder(100000, '7-00:00:00', $self->default_options->{'gpu'} ),
-     }, 
-    '32GB'           => {
+     SLURM =>  $self->slurm_resource_builder(100000, '7-00:00:00',undef, $self->default_options->{'gpu'} ),
+     },
+     
+     '50GB'          => {
+     >      SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00',  $self->default_options->{'cores'} ),
+    
+     '32GB'           => {
      SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
     },
     };
