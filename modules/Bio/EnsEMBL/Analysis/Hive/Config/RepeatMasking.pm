@@ -581,7 +581,7 @@ sub pipeline_analyses {
         trf_path   => $self->o('trf_path'),
         disconnect_jobs  => 1,
       },
-      -rc_name       => '3GB',
+      -rc_name       => '8GB',
       -flow_into => {
 	  1 => ['fan_post_repeat_analyses'],
 	  -1 => ['fan_post_repeat_analyses'],
