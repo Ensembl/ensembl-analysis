@@ -256,24 +256,55 @@ sub pipeline_analyses {
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
-        1 => ['create_fastq_download_jobs'],
+        1 => ['fan_download'],
       },
       -rc_name => 'default',
     },
 
+# Decide which file to use
+   {
+      -logic_name => 'fan_download',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+         long_read_summary_file => $self->o('long_read_summary_file'),
+         cmd => 'if [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42; fi',
+         return_codes_2_branches => { '42' => 2 },
+        },
+      -flow_into => {
+         1 => ['create_fastq_download_jobs'],  # when file exists
+         2 => ['create_fastq_download_jobs_genus'], # fallback
+       },
+    },
+
+# JobFactory for primary
     {
       -logic_name => 'create_fastq_download_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
-        inputfile    => $self->o('long_read_summary_file'),
+         inputfile => $self->o('long_read_summary_file'),
+         column_names => $self->o('long_read_columns'),
+         delimiter => '\t',
+    },
+   -flow_into => {
+       '2->A' => { 'download_fastq' => { 'url' => '#fastq_file#' } },
+       'A->1' => ['create_collapse_db'],
+     },
+   },
+
+# JobFactory for genus
+   {
+     -logic_name => 'create_fastq_download_jobs_genus',
+     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+     -parameters => {
+        inputfile => $self->o('long_read_summary_file_genus'),
         column_names => $self->o('long_read_columns'),
-        delimiter    => '\t',
-      },
-      -flow_into => {
+        delimiter => '\t',
+     },
+   -flow_into => {
         '2->A' => { 'download_fastq' => { 'url' => '#fastq_file#' } },
         'A->1' => ['create_collapse_db'],
-      },
     },
+  },
 
     {
       -logic_name => 'download_fastq',
