@@ -665,7 +665,9 @@ sub pipeline_analyses {
 	  -module     => 'Bio::EnsEMBL::Production::Pipeline::Production::PepStatsBatch',
 	  -parameters => {
 	      dbtype => 'core',
+	      species => $self->o('production_name'),
 	      pepstats_binary => 'pepstats',
+	      reg_conf => $self->o('registry_file'),
 	      tmpdir => $self->o('output_path'),
 	  },
 	  -max_retry_count => 1,
