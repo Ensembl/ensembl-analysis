@@ -880,7 +880,7 @@ sub pipeline_analyses {
       -logic_name => 'load_gtf_file',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'perl ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'parse_gtf.pl' ) .
+        cmd => 'perl ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'helixer', 'parse_gtf.pl' ) .
           ' -dnahost ' . $self->o('dna_db_server') .
           ' -dnauser ' . $self->o('user_r') .
           ' -dnaport ' . $self->o('dna_db_port') .
