@@ -252,8 +252,6 @@ sub hive_data_table {
  Exceptions : None
 
 
-=cut
-
 sub lsf_resource_builder {
     my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements, $paths) = @_;
 
@@ -298,6 +296,7 @@ sub lsf_resource_builder {
     }
     return $lsf_requirement.' -R"select['.join(', ', @lsf_select).'] rusage['.join(', ', @lsf_rusage).'] '.$extra_requirements.'"';
 }
+=cut
 
 =head2 slurm_resource_builder
  Arg [1]    : String $queue, name of the queue to submit to, default is 'standard'
@@ -416,39 +415,42 @@ sub resource_classes {
 
   return {
     'default_registry' => {
-            LSF => [$self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ,undef), '-reg_conf ' . $self->default_options->{'registry_file'}]  ,
+            #LSF => [$self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ,undef), '-reg_conf ' . $self->default_options->{'registry_file'}]  ,
             SLURM => [ $self->slurm_resource_builder( 900, '1-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
     },
     '1GB'              => {
-      LSF => $self->lsf_resource_builder( 'production', 1000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      #LSF => $self->lsf_resource_builder( 'production', 1000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder(1000, '1-00:00:00'),
       },
     '2GB'              => {
-      LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      #LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder(2000, '1-00:00:00'),
       },
     '3GB'              => {
-      LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      #LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder(3000, '1-00:00:00'),
       },
     '4GB'              => {
-      LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      #LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder(4000, '1-00:00:00'),
       },
     '5GB'              => {
-      LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      #LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder(4000, '1-00:00:00'),
       },
     '8GB'              => {
-      LSF => $self->lsf_resource_builder( 'production', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      #LSF => $self->lsf_resource_builder( 'production', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder(8000, '1-00:00:00'),
       },
     '10GB'             => {
-      LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      #LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder(10000, '1-00:00:00'),
       },
+     '50GB'             => {
+      SLURM => [$self->slurm_resource_builder(50000, '1-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
+      },
     'default'          => {
-      LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
+      #LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ),
       SLURM =>  $self->slurm_resource_builder(900, '1-00:00:00'),
       },
   };

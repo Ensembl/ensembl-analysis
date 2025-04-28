@@ -16,7 +16,7 @@ limitations under the License.
 
 =cut
 
-package EnsemblAnnoBraker_conf;
+package EnsemblAnnoFungi_conf;
 
 use strict;
 use warnings;
@@ -41,8 +41,8 @@ sub default_options {
     'cores'                        => 30,
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
-    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'base_output_dir'              => '',
+    'dbowner'                      => 'swati' || $ENV{EHIVE_USER} || $ENV{USER},
+    'base_output_dir'              => '/hps/nobackup/flicek/ensembl/genebuild/swati/anno_fungal_annotations/',
     'init_config'               => '', #path for configuration file (custom loading)
     'override_clade'               => '', #optional, already defined in ProcessGCA
     'protein_file'                 => '', #optional, already defined in ProcessGCA
@@ -55,10 +55,10 @@ sub default_options {
     'validation_type'              => 'moderate',
     'release_number'               => '' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier'),
-    'user_r'                       => '',                                                                                                                # read only db user
-    'user'                         => '',                                                                                                                # write db user
-    'password'                     => '',                                                                                                                # password for write db user
+    'pipeline_name'                => 'fungi_clade_test' || $self->o('production_name') . $self->o('production_name_modifier'),
+    'user_r'                       => 'ensro',                                                                                                                # read only db user
+    'user'                         => 'ensadmin',                                                                                                                # write db user
+    'password'                     => 'ensembl',                                                                                                                # password for write db user
     'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
@@ -200,10 +200,10 @@ sub default_options {
 ########################
 # db info
 ########################
-    'pipe_db_server'               => $ENV{GBS7},                                                                                                        # host for pipe db
-    'dna_db_server'                => $ENV{GBS6},                                                                                                        # host for dna db
-    'pipe_db_port'                 => $ENV{GBP7},                                                                                                        # port for pipeline host
-    'dna_db_port'                  => $ENV{GBP6},                                                                                                        # port for dna db host
+    'pipe_db_server'               => $ENV{GBS4},                                                                                                        # host for pipe db
+    'dna_db_server'                => $ENV{GBS2},                                                                                                        # host for dna db
+    'pipe_db_port'                 => $ENV{GBP4},                                                                                                        # port for pipeline host
+    'dna_db_port'                  => $ENV{GBP2},                                                                                                        # port for dna db host
     'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
     'registry_db_name'             => 'gb_assembly_registry', 
@@ -459,53 +459,27 @@ sub pipeline_analyses {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short' ,
         
       },
-
-      -flow_into => {
-        1 => ['download_genus_rnaseq_csv'],
+        -flow_into => {
+        1 => ['check_sr_file'],
       },
     },
-      
-    {
-      -logic_name => 'download_genus_rnaseq_csv',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name    => '1GB',
-      -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 50' ,
+  
+
+  {
+     -logic_name => 'check_sr_file',
+     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+     -rc_name => 'default',
+     -parameters => {
+                cmd => 'if [ -s "#rnaseq_summary_file#" ]; then exit 0; else exit 42;fi',
+                return_codes_2_branches => { '42' => 2 },
        },
-      -flow_into => {
-         '1->A' => ['fan_csv_file'],
-         'A->1' => ['download_long_read_csv'],
+         -flow_into => {
+            1 => ['create_sr_fastq_download_jobs'],  # flow if file_columns has values
+            2 => ['download_long_read_csv'],         # fallback if empty
       },
-    },
-
-   {
-      -logic_name => 'fan_csv_file',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ]; then exit 0; else exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-          1 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
-          2 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#short_read_dir#' } },
-      },
-    },
+   },
+  
       
-    {
-      -logic_name => 'fan_short_read_download',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd                     => 'if [ -s "#inputfile#" ]; then exit 0; else exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => { 'create_sr_fastq_download_jobs' => { 'inputfile' => '#inputfile#', 'input_dir' => '#input_dir#'} },
-      },
-    },
-
-
     {
       -logic_name => 'create_sr_fastq_download_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
@@ -514,8 +488,8 @@ sub pipeline_analyses {
         delimiter    => '\t',
       },
       -flow_into => {
-        2 => { 'download_short_read_fastqs' => { 'iid' => '#filename#', 'input_dir' => '#input_dir#'} },
-      },
+              2 => { 'download_short_read_fastqs' => { 'iid' => '#filename#', 'input_dir' => '#input_dir#' }}, 
+         },
     },
 
 
@@ -527,6 +501,9 @@ sub pipeline_analyses {
         input_dir    => $self->o('input_dir'),
       },
       -analysis_capacity => 50,
+      -flow_into => {
+        1 => ['download_long_read_csv'],
+      },
     },
 
 
@@ -704,19 +681,21 @@ sub pipeline_analyses {
         1 => ['check_load_meta_info'],
       },
     },
+
     {
       -logic_name => 'check_load_meta_info',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ]  || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
+      -rc_name => 'default',
       -flow_into => {
         1 => ['anno_load_meta_info'],
         2 => ['helixer_load_meta_info'],
       },
-      -rc_name => 'default',
     },
+    
     {
       # Load some meta info and seq_region_synonyms
       -logic_name => 'anno_load_meta_info',
@@ -845,7 +824,7 @@ sub pipeline_analyses {
       -logic_name => 'check_transcriptomic_data',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] ||[ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -885,9 +864,9 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
 	cmd => 'mkdir -p #output_path#/helixer;' .
-	  'singularity exec --nv'.  $self->o ('helixer_singularity_image') .  'bash -c "'. 
+	  'singularity exec --nv '.  $self->o ('helixer_singularity_image') .  ' bash -c "'. 
 	  'export PATH=\$PATH:/nfs/production/flicek/ensembl/genebuild/swati/softwares/HelixerPost/target/release/ && '. 
-	  'Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage fungi --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#.gff3;' .
+	  'Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage fungi --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#.gff3";' .
 	  $self->o('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
           $self->o ('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -y #output_path#/helixer/helixer_proteins.fa;',  
       },
@@ -1048,7 +1027,7 @@ sub pipeline_analyses {
       -logic_name => 'check_run_stable_ids',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -1176,7 +1155,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_busco_output',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#rnaseq_summary_file_genus#" ]  || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
+        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -1354,8 +1333,10 @@ sub pipeline_analyses {
 	      -module     => 'Bio::EnsEMBL::Production::Pipeline::Production::PepStatsBatch',
 	      -parameters => {
 		  dbtype => 'core',
+		  species => '#production_name#',
 		  pepstats_binary => 'pepstats',
-		  tmpdir => $self->o('output_path'),
+		  tmpdir => '#output_path#',
+		  reg_conf => '#registry_file#',
 	  },
 	      -max_retry_count => 1,
 	      -hive_capacity   => 50,
@@ -1424,10 +1405,6 @@ sub resource_classes {
      SLURM =>  $self->slurm_resource_builder(100000, '7-00:00:00',undef, $self->default_options->{'gpu'} ),
      },
      
-     '50GB'          => {
-     SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00',  $self->default_options->{'cores'} ),
-     },
-
      '32GB'           => {
      SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
     },

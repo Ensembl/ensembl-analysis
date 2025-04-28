@@ -48,7 +48,7 @@ my $dnapass;
 my $dnadbname;
 my $write;
 my $gtf_file;
-my $logic_name = 'braker';
+my $logic_name = 'helixer';
 my $verbose = 0;
 
 &GetOptions (
@@ -415,7 +415,7 @@ sub print_gene {
 
 =head2 retrieve_source
  Arg [1]    : String source of the data
- Description: Return the source with 'braker_' prefixed
+ Description: Return the source with 'helixer_' prefixed
  Returntype : String
  Exceptions : None
 =cut
@@ -424,5 +424,5 @@ sub retrieve_source {
   my ($source) = @_;
 
   my ($data) = split('\.', $source);
-  return 'braker_'.lc($data);
+  return 'helixer_'.lc($data);
 }
