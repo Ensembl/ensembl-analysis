@@ -169,12 +169,32 @@ sub fetch_input {
     make_path($report_dir);
   }
   my $fetcher = File::Fetch->new(uri => $self->param_required('full_ftp_path').'/'.$self->param('_report_name'));
-  $fetcher->fetch(to => $report_dir);
+  my $report_file = $fetcher->fetch(to => $report_dir);
+  print "Contents of " . $self->param('_report_name') . ":\n";
+  open(my $report_fh, '<', $report_file) or $self->throw("Could not open $report_file");
+  while (my $line = <$report_fh>) {
+    print $line;
+  }
+  close($report_fh);
+  print "\n-----------------\n";
+  
+  # Download and print MD5 checksum file
   $fetcher = File::Fetch->new(uri => $self->param_required('full_ftp_path').'/'.$self->param('_md5checksum_name'));
-  $fetcher->fetch(to => $report_dir);
+  my $md5_file = $fetcher->fetch(to => $report_dir);
+  print "Contents of " . $self->param('_md5checksum_name') . ":\n";
+  open(my $md5_fh, '<', $md5_file) or $self->throw("Could not open $md5_file");
+  while (my $line = <$md5_fh>) {
+    print $line;
+  }
+  close($md5_fh);
+  print "\n-----------------\n";
+  
   if ($self->param('toplevel_as_sequence_levels')) {
+    # Download genome file, but don't print it (likely too large)
     $fetcher = File::Fetch->new(uri => $self->param_required('full_ftp_path').'/'.$self->param('_genome_file_name').$self->param('_genome_zip_ext'));
-    $fetcher->fetch(to => $report_dir);
+    my $genome_file = $fetcher->fetch(to => $report_dir);
+    print "Downloaded " . $self->param('_genome_file_name').$self->param('_genome_zip_ext') . " (not printing contents - file too large)\n";
+    print "\n-----------------\n";
   }
 }
 

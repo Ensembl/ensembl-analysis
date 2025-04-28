@@ -39,9 +39,9 @@ sub default_options {
     'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('release_number'),
     'production_name'           => 'homo_sapiens' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'release_number'            => '',
-    'ref_db_server'             => '', # host for dna db
-    'ref_db_port'               => '',
-    'ref_db_name'               => '',
+    'ref_db_server'             => 'mysql-ens-genebuild-prod-5', # host for dna db
+    'ref_db_port'               => '4531',
+    'ref_db_name'               => 'homo_sapiens_core_113_38',
     'user_r'                    => 'ensro', # read only db user
     'current_genebuild'            => 0,
     'assembly_accession'           => '', #the pipeline is initialed via standalone job  # Versioned GCA assembly accession, e.g. GCA_001857705.1
@@ -55,10 +55,10 @@ sub default_options {
     'registry_db_name'          => 'gb_assembly_registry', # name for registry db
     'species_name'              => '', # e.g. mus_musculus
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'production_name_modifier'  => '_hprc2_modenv', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
     species_division            => 'EnsemblVertebrates',
     strain_type                 => 'haplotype',
-    initial_release_date        => '',
+    initial_release_date        => '2024-10',
     source_assembly_name        => 'GRCh38',
 
 ########################
@@ -114,9 +114,9 @@ sub default_options {
 ########################
 # Executable paths
 ########################
-    minimap2_path => catfile($self->o('binary_base'), 'minimap2'),
-    paftools_path => catfile($self->o('binary_base'), 'paftools.js'),
-    samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
+    minimap2_path => 'minimap2',
+    paftools_path => 'paftools.js',
+    samtools_path => 'samtools', #You may need to specify the full path to the samtools binary
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
@@ -293,7 +293,6 @@ sub pipeline_analyses {
           target_db     => '#core_db#',
         },
         -rc_name    => '4GB',
-      	-max_retry_count => 0,
         -flow_into  => {
           1 => ['load_meta_info'],
         },

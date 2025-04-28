@@ -700,7 +700,7 @@ sub run_translate{
   $seq->display_id($trans_id);
 
   my $file = write_seqfile($seq);
-  my $command = "translate";
+  my $command = "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/translate";
   $command .= " -m " if($met);
   $command .= " ".$file." | ";
   logger_info($command);

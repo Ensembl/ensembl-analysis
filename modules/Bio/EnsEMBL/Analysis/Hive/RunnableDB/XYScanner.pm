@@ -67,7 +67,7 @@ sub run {
   my $y_marker_fasta_path = $self->param_required('y_marker_fasta_path');
   my $target_genome_index = $self->param_required('target_genome_index');
   my $output_dir = $self->param_required('output_dir');
-  my $cmd = "python3.7 ".$xy_scanner_path." --genome_index ".$target_genome_index.
+  my $cmd = "python ".$xy_scanner_path." --genome_index ".$target_genome_index.
                                           " --x_marker_file ".$x_marker_fasta_path.
                                           " --y_marker_file ".$y_marker_fasta_path.
                                           " --output_dir ".$output_dir;
