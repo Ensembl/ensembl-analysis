@@ -80,6 +80,8 @@ use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 
+use Bio::EnsEMBL::Analysis::Provenance::Logger;
+
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
 
@@ -108,6 +110,11 @@ sub new {
   $self->genes_to_process($parent_genes);
   $self->parent_gene_ids($parent_gene_ids);
   $self->no_projection($no_projection);
+
+  my $log_dir = $self->{_output_dir} || 'logs';
+  $self->{_logger} = Bio::EnsEMBL::Analysis::Provenance::Logger->new(
+    log_dir => $log_dir
+  );
   return $self;
 }
 
@@ -851,16 +858,55 @@ sub list_high_confidence_genes {
 
     if(scalar(@$genes) > 1) {
       say "  Gene with stable id ".$id." has multiple mappings, so not high confidence";
+      $self->{_logger}->log(
+        "high_confidence_evaluation",
+        {
+            feature_id => $id,
+            feature_type => 'gene',
+            result => 'rejected',
+            details => {
+              reason => 'multiple_mappings',
+              mapping_count => scalar(@$genes)
+            },
+            message => "Gene has multiple mappings, not high confidence"
+          }
+      );
       next;
     }
 
     unless($gene->{'complete_mapping'}) {
       say "  Gene with stable id ".$id." fails the transcript mapping check, so not high confidence";
+      $self->{_logger}->log(
+        "high_confidence_evaluation",
+        {
+            feature_id => $id,
+            feature_type => 'gene',
+            result => 'rejected',
+            details => {
+              reason => 'incomplete_transcrit_mapping',
+            },
+            message => "Gene fails the transcript mapping check, not high confidence"
+          }
+      );
       next;
     }
 
     if($gene->{'neighbourhood_score'} < $neighbourhood_cutoff) {
       say "  Gene with stable id ".$gene->stable_id." fails the neighbourhood score cutoff, so not high confidence. Score: ".$gene->{'neighbourhood_score'};
+      $self->{_logger}->log(
+        "high_confidence_evaluation",
+        {
+            feature_id => $id,
+            feature_type => 'gene',
+            result => 'rejected',
+            details => {
+              reason => 'low_neighbourhood_score',
+              neighbourhood_score => $gene->{'neighbourhood_score'},
+              neighbourhood_cutoff => $neighbourhood_cutoff
+            },
+            message => "Gene does not pass neighbourhood score cutoff, not high confidence"
+          }
+      );
       next;
     }
 
@@ -871,6 +917,20 @@ sub list_high_confidence_genes {
     # and contractions and the fact that these are single loci and have excellent mapping scores means it should almost
     # always be correct
     $gene->{'is_high_confidence'} = 1;
+    $self->{_logger}->log(
+      'high_confidence_evaluation',
+      {
+        feature_id => $id,
+        feature_type => 'gene',
+        result => 'accepted',
+        details => {
+          mapping_count => scalar(@$genes),
+          neighbourhood_score => $gene->{'neighbourhood_score'},
+          cutoff => $neighbourhood_cutoff
+        },
+        message => "Gene meets high confidence criteria"
+      }
+    );
     push(@$high_confidence_genes,$gene);
   }
 
