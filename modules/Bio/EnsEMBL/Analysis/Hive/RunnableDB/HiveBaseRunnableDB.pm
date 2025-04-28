@@ -662,7 +662,7 @@ sub get_database_by_name {
 sub is_fasta_file_ready {
   my ($self) = @_;
 
-  return $self->param('use_genome_flatfile')and Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors->{Sequence} eq 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
+  return $self->param('use_genome_flatfile') && Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors->{Sequence} eq 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
 }
 
 =head2 is_slice_name

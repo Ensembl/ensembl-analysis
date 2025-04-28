@@ -164,6 +164,11 @@ foreach my $slice (@$target_slices) {
     #my $gene_stable_id = $gene_versioned_stable_id;
     #$gene_stable_id =~ s/\.\d+//;
     my ($gene_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
+    if (!defined $gene_stable_id_att) {
+      print "ERROR: Gene " . $gene->stable_id() . " on " . $gene->seq_region_name() . 
+            " has undefined 'proj_parent_g' attribute element\n";
+      next; # Skip this gene
+    }
     my $gene_stable_id = $gene_stable_id_att->value();
     $gene_stable_id =~ s/\.\d+//;
 

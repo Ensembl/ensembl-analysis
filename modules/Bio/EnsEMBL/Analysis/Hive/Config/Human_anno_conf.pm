@@ -55,7 +55,7 @@ sub default_options {
     'registry_db_name'          => 'gb_assembly_registry', # name for registry db
     'species_name'              => '', # e.g. mus_musculus
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'production_name_modifier'  => '_hprc2_modenv', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
     species_division            => 'EnsemblVertebrates',
     strain_type                 => 'haplotype',
     initial_release_date        => '2024-10',
@@ -293,7 +293,6 @@ sub pipeline_analyses {
           target_db     => '#core_db#',
         },
         -rc_name    => '4GB',
-      	-max_retry_count => 0,
         -flow_into  => {
           1 => ['load_meta_info'],
         },

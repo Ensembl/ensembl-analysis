@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2020] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,6 +80,7 @@ my $file;
 my $slicename;
 my $verbose;
 my $biotypeToFetch; # dump translations of only this biotype 
+my $canonical_only = 0;
 
 GetOptions(
     'dbhost|host|h=s'    => \$dbhost,
@@ -97,6 +98,7 @@ GetOptions(
     'file=s'      => \$file,
     'slicename=s' => \$slicename,
     'biotype=s'   => \$biotypeToFetch,
+    'canonical_only!'   => \$canonical_only,
     'verbose'     => \$verbose,
 ) or die("Couldn't get options");
 
@@ -175,9 +177,9 @@ if (defined $slicename) {
     }
 }
 else {
-    my $gene_adaptor = $db->get_GeneAdaptor();
-    my $gene_ids     = $gene_adaptor->list_dbIDs();
-    $gene_list = $gene_adaptor->fetch_all_by_dbID_list($gene_ids);
+  foreach my $slice (@{$db->get_SliceAdaptor->fetch_all('toplevel')}) {
+    push(@$gene_list, @{$slice->get_all_Genes(undef, undef, 1, undef, $biotypeToFetch)});
+  }
 }
 
 # shift the next gene off the list, or the memory used by this script will grow
@@ -186,6 +188,7 @@ while (my $gene = shift @$gene_list) {
     my $gene_id = $gene->dbID();
 
     foreach my $trans (@{ $gene->get_all_Transcripts }) {
+        next if ($canonical_only and !$trans->is_canonical);
         next if (!$trans->translation);
         my $identifier = '';
 
