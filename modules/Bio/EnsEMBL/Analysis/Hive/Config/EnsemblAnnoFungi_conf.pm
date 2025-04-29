@@ -208,12 +208,6 @@ sub default_options {
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
     'registry_db_name'             => 'gb_assembly_registry', 
 
-    otherfeatures_db_host => $self->o('dna_db_server'),
-    otherfeatures_db_port => $self->o('dna_db_port'),
-    otherfeatures_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_otherfeatures_' . $self->o('release_number'),
-
-
-
     'core_db' => {
       -dbname => $self->o('dna_db_name'),
       -host   => $self->o('dna_db_server'),
@@ -255,14 +249,6 @@ sub default_options {
       -dbname => $self->o('pipe_db_name'),
       -host   => $self->o('pipe_db_server'),
       -port   => $self->o('pipe_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
-      -driver => $self->o('hive_driver'),
-    },
-    'otherfeatures_db' => {
-      -dbname => $self->o('otherfeatures_db_name'),
-      -host   => $self->o('otherfeatures_db_host'),
-      -port   => $self->o('otherfeatures_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -414,7 +400,6 @@ sub pipeline_analyses {
         'num_threads'                 => $self->o('num_threads'),
         'dbowner'                     => $self->o('dbowner'),
         'core_db'                     => $self->o('core_db'),
-        'otherfeatures_db'            => $self->o('otherfeatures_db'),
         'ensembl_release'             => $self->o('ensembl_release'),
         'base_output_dir'             => $self->o('base_output_dir'),
         'registry_db'                 => $self->o('registry_db'),
