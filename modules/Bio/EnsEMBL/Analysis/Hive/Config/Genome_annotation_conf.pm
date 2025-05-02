@@ -1850,7 +1850,7 @@ sub pipeline_analyses {
       -rc_name => 'default',
       -max_retry_count => 0,
       -flow_into => {
-        1 => ['initialise_core_db_finalisation'],
+        2 => ['initialise_core_db_finalisation'],
       }
     },
 
