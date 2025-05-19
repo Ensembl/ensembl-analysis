@@ -1,5 +1,3 @@
-
-
 package Bio::EnsEMBL::Analysis::Provenance::Logger;
 use strict;
 use warnings;
@@ -12,7 +10,7 @@ sub new {
   my ($class, %args) = @_;
   my $self = bless {
     log_dir           => $args{log_dir} || 'logs', # default log directory - should typically be analysis directory
-    json              => JSON->new->utf8->canonical->pretty(0),
+    json              => JSON->new->utf8->canonical->pretty(0)->allow_blessed(1)->convert_blessed(1),
   }, $class;
 
   $self->{log_dir} =~ s/\/$//; # remove trailing slash if present
@@ -31,7 +29,17 @@ sub log {
     $data->{stage} = $stage;
     
     # Convert to JSON
-    my $json_string = $self->{json}->encode($data);
+    my $json_string;
+    eval {
+        $json_string = $self->{json}->encode($data);
+    };
+    if ($@) {
+        # Handle serialization errors gracefully
+        warn "JSON encoding error: $@";
+        # Create a safe version of the data with problematic objects removed or simplified
+        $data = $self->_sanitize_for_json($data);
+        $json_string = $self->{json}->encode($data);
+    }
     
     # Create stage directory if needed
     my $dir = "$self->{log_dir}/by_stage";
@@ -101,3 +109,47 @@ sub _timestamp {
     return sprintf("%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
         $year + 1900, $mon + 1, $mday, $hour, $min, $sec, int($microseconds / 1000));
 }
+
+# Helper method to sanitize objects that can't be serialized to JSON
+sub _sanitize_for_json {
+    my ($self, $data) = @_;
+    
+    if (ref($data) eq 'HASH') {
+        my %clean_data;
+        foreach my $key (keys %$data) {
+            if (defined $data->{$key}) {
+                if (ref($data->{$key})) {
+                    $clean_data{$key} = $self->_sanitize_for_json($data->{$key});
+                } else {
+                    $clean_data{$key} = $data->{$key};
+                }
+            } else {
+                $clean_data{$key} = undef;
+            }
+        }
+        return \%clean_data;
+    }
+    elsif (ref($data) eq 'ARRAY') {
+        my @clean_data;
+        foreach my $item (@$data) {
+            if (defined $item) {
+                if (ref($item)) {
+                    push @clean_data, $self->_sanitize_for_json($item);
+                } else {
+                    push @clean_data, $item;
+                }
+            } else {
+                push @clean_data, undef;
+            }
+        }
+        return \@clean_data;
+    }
+    elsif (ref($data)) {
+        # Handle blessed objects or other references
+        return "$data"; # Convert object to string representation
+    }
+    
+    return $data;
+}
+
+1;

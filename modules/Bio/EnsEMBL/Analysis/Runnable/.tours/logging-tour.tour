@@ -1,0 +1,159 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Logging Tour",
+  "steps": [
+    {
+      "title": "Introduction",
+      "description": "In this Tour I will try to record the basic workflow steps and the logging details in order to make the logging logic clearer"
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "First thing that is done is gene batching so that proximal genes (on the reference) are processed together",
+      "line": 139
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Based on the batches anchor sequences are generated (10Kb) at start midpoint and end of region. I dont log anything there. ",
+      "line": 157
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "These anchors are then dumped to FASTA and aligned. ",
+      "line": 158
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "selection": {
+        "start": {
+          "line": 1033,
+          "character": 66
+        },
+        "end": {
+          "line": 1033,
+          "character": 76
+        }
+      },
+      "description": "ASIDE: map-ont is for long noisy reads. Our anchors are long but are they noisy? I think this could lead to finding suboptimal alignments so we should consider looking into other presets or making our own explicit set if we do find that the actual alignment is problematic. "
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "This admittedly got quite complicated. It records success and failure and failure reasons and I tried to make it more machine readable so that we can work out the source of failure to get good anchor sets down the line. ",
+      "line": 1194
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "If something is in anchor sets then it means we got a trio of anchors for those instances. We log this fact in anchr_strategy. \n\nTrio of anchors indicates decent synteny. If something isnt in this set it could be where we see problems",
+      "line": 1264
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "We log the cases where we didnt get a trio and in these cases we go look for good pairwise matches of anchors",
+      "line": 1291
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Based on the alignments of individual anchors we must decide which hits to use as the anchor set. ",
+      "line": 1252
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "get_best_anchor_sets appeared to be an important set of decisions so I tried to log exentsively.\n\nThe idea is that we must find which 3 hits for left mid and right should be used on combiantion. ",
+      "line": 1461
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "This log is essentially a window into the anchor set assessment. This just records which combinations pass the above limits. Distance, co linearity and region consistency",
+      "line": 1616
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "I also log an overview of the evaluated candiates. \n\nBecause of the manual way I investigate the logs the log naming doesnt need to be so good but I could do with improving how clear it is that these anchor logs are in order.",
+      "line": 1666
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "And finally we log the selected sets. Havne't done this yet but can hopefull trace the selected set back to impacted genes. ",
+      "line": 1732
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "There is logic on how these are chosen but I didnt go into logging it to try to keep it simple. I probably failed in other aspects so should add logs to see why finding pairwise matches fails. ",
+      "line": 1303
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "I do log the result of pairwise matching hopefully that will give us enough info to start off",
+      "line": 1327
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "This log predates the ones we have already seen so could be redundant. Essentially logs a per batch overview of anchor mapping. \n\nHowever it does have explicit gene id links so thats good",
+      "line": 1066
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Again predates the detailed anchor assessment but records the gene specific results. ",
+      "line": 1088
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Now we project the batch now that we have the anchors to guide where the genes should go",
+      "line": 161
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Some kind of silly status logging which I think got included as I was trying to work out what was actually going on. Generally I dont think status stuff is of that much interest. \n\nI added _status now to separate these from real info logs",
+      "line": 1918
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "This is the case where we didnt find a syntenic region",
+      "line": 1937
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Again status. To be decided if we want this",
+      "line": 1980
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "If the candidate region has too many Ns it is skipped. This is useful to know why we have missing genes I think",
+      "line": 2007
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Source regions are aligned to target. With MAFFT",
+      "line": 2033
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Failure to align with MAFFT is logged ",
+      "line": 2041
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Details on where alignment succeeded before we even look into cut offs",
+      "line": 2059
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Overall summary is logged for this batch. Could be good to find poor performing batches",
+      "line": 2083
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "based on the alignments the genes in the batch are rebuild from matched exons",
+      "line": 2106
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Again status logging\n",
+      "line": 2174
+    },
+    {
+      "file": "LowDivergenceProjection.pm",
+      "description": "Once the genes are batched according to proximity I record the batch details in its own log. This comment explains the idea",
+      "line": 913
+    }
+  ]
+}

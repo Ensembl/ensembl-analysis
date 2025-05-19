@@ -94,30 +94,54 @@ sub fetch_input {
   my $target_gene_dba = $self->get_database_by_name('target_gene_db', $target_dna_dba);
   $self->hrdb_set_con($target_gene_dba,'target_gene_db');
 
-#  my $input_genes = $self->fetch_input_genes_by_id([53671,56952,59930,59295,59266,59293],$source_gene_dba);
+  # Initialize logger
+  my $log_dir = 'logs';
+  if ($self->param_is_defined('output_dir')) {
+    $log_dir = $self->param('output_dir') . "/logs";
+  }
+  my $logger = Bio::EnsEMBL::Analysis::Provenance::Logger->new(
+    log_dir => $log_dir
+  );
+  $self->param('logger', $logger);
+
+  # Test log to verify logger is working
+  $logger->log(
+    "pipeline_initialization",
+    {
+      feature_id => "startup",
+      feature_type => "pipeline",
+      result => "started",
+      details => {
+        genome_index => $self->param('genome_index'),
+        source_db => $self->param('source_gene_db'),
+        target_db => $self->param('target_gene_db')
+      },
+      message => "LowDivergenceProjection pipeline initialized"
+    }
+  );
+
   my $input_genes = $self->fetch_input_genes_by_id($self->param('iid'),$source_gene_dba);
 
   my $sequence_adaptor = $source_dna_dba->get_SequenceAdaptor();
 
+  $logger->log(
+    "gene_loading",
+    {
+      feature_id => "batch",
+      feature_type => "genes",
+      result => "loaded",
+      details => {
+        gene_count => scalar(@$input_genes)
+      },
+      message => "Loaded " . scalar(@$input_genes) . " genes for processing"
+    }
+  );
 
   say "Processing ".scalar(@$input_genes)." genes";
-
-
-################
-# Put in code to sort input genes (might just be pre sorted by api, but just in case)
-# Then for each gene record two genes to the left and right. Store these in a gene based hash
-# Each key in the hash should be a gene id that points at up to 4 other gene ids that are keys on a hash
-# Later on, once the final mapped set has been created and sorted, it will look at the current gene id
-# and get the gene ids to the left and right and then compare them to the entries in the hash created now
-# If we have two or more matches then the we can be confident in the gene's location
-################
 
   my $sorted_input_genes = [sort { $a->slice->name() cmp $b->slice->name() or
                                    $a->start() <=> $b->start() or
                                    $a->end() <=> $b->end() }  @{$input_genes}];
-
-
-#  my $batched_input_genes = $self->batch_input_genes();
 
   my $gene_genomic_seqs_hash = {};
   my $parent_gene_id_hash = {};
@@ -154,7 +178,6 @@ sub fetch_input {
     my $slice = $gene->slice();
     my $stable_id = $gene->stable_id.".".$gene->version;
 
-
     # There's a big issue in terms of small genes, even with a fair amount of padding. To counter this have a minimum
     # target region size of about 50kb. If the gene is bigger then the padding itself should be enough as it's likely
     # there are many neutral sites in the gene already
@@ -182,6 +205,28 @@ sub fetch_input {
     my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice,$region_start,$region_end,$strand) };
     say "FERGAL DEBUG ORIG REGION S/E, GENE S/E: ".$region_start.'/'.$region_end.", ". $gene->seq_region_start."/".$gene->seq_region_end;
 
+    # Log gene processing
+    $logger->log(
+      "gene_processing",
+      {
+        feature_id => $gene_id,
+        feature_type => 'gene',
+        result => 'processed',
+        details => {
+          stable_id => $gene_stable_id,
+          region_start => $region_start,
+          region_end => $region_end,
+          gene_start => $gene->seq_region_start,
+          gene_end => $gene->seq_region_end,
+          chromosome => $slice->seq_region_name,
+          padding => $min_padding,
+          region_diff => $region_diff,
+          strand => $strand
+        },
+        message => "Processed gene for mapping with padding"
+      }
+    );
+
     my $fasta_record = ">".$gene_id."\n".$genomic_seq;
     push(@$genomic_reads, $fasta_record);
     $gene_genomic_seqs_hash->{$gene_id} = [$region_start,$region_end,$genomic_seq];
@@ -189,6 +234,20 @@ sub fetch_input {
 
   my $input_file = $self->write_input_file($genomic_reads);
   $self->param('input_file',$input_file);
+
+  $logger->log(
+    "input_file_creation",
+    {
+      feature_id => "batch",
+      feature_type => "fasta",
+      result => "created",
+      details => {
+        file_path => $input_file,
+        gene_count => scalar(@$genomic_reads)
+      },
+      message => "Created FASTA input file with " . scalar(@$genomic_reads) . " sequences"
+    }
+  );
 
   my $analysis = $self->create_analysis;
   $analysis->logic_name("minimap2remap");
@@ -210,7 +269,28 @@ sub fetch_input {
        -anchor_coverage_cutoff => $self->param('anchor_coverage_cutoff'),
        -anchor_perc_id_cutoff => $self->param('anchor_perc_id_cutoff'),
   );
+  
+  # Pass the logger to the runnable
+  $runnable->{_logger} = $logger;
+  
   $self->runnable($runnable);
+  
+  $logger->log(
+    "runnable_initialization",
+    {
+      feature_id => "setup",
+      feature_type => "runnable",
+      result => "configured",
+      details => {
+        runnable_type => "LowDivergenceProjection",
+        coverage_cutoff => $self->param('coverage_cutoff'),
+        perc_id_cutoff => $self->param('perc_id_cutoff'),
+        no_projection => $self->param('no_projection')
+      },
+      message => "Initialized LowDivergenceProjection runnable"
+    }
+  );
+  
   if ($self->param('disconnect_jobs')) {
     $target_gene_dba->dbc->disconnect_when_inactive(1);
     $source_gene_dba->dbc->disconnect_when_inactive(1);

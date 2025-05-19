@@ -129,7 +129,16 @@ sub new {
 
 sub run {
   my ($self) = @_;
-
+  $self->{_logger}->log(
+        "run",
+        {
+            result => 'started',
+            details => {
+              reason => ' test reason '
+            },
+            message => "We are up and running"
+          }
+      );
   my $gene_genomic_seqs_hash = {};
   my $source_adaptor = $self->source_adaptor();
   my $target_adaptor = $self->target_adaptor();
