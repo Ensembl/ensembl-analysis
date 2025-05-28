@@ -189,8 +189,22 @@ sub default_options {
 ########################
 # FTP Dump 
 ########################
-    'dummy' => 'dummy', # This is just to make sure that the config file is not empty, it will be removed later
+    ## gff3 & gtf parameter
+    'abinitio'               => 1,
+    'gene'                   => 1,
 
+    ## gff3 parameters
+    'gt_exe'                 => 'gt',
+    'gff3_tidy'              => $self->o('gt_exe') . ' gff3 -tidy -sort -retainids -fixregionboundaries -force',
+    'gff3_validate'          => $self->o('gt_exe') . ' gff3validator',
+
+    'feature_type'           => [ 'Gene', 'Transcript', 'SimpleFeature' ], #'RepeatFeature'
+    'per_chromosome'         => 1,
+    'include_scaffold'       => 1,
+    'logic_name'             => [],
+    'db_type'                => 'core',
+    'out_file_stem'          => undef,
+    'xrefs'                  => 0,
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1351,33 +1365,185 @@ sub pipeline_analyses {
 	-flow_into       => { 1 => ['update_annotation_tracking_complete'], },
   },
 
-     {#we need to insert the script or command to update the annotation tracking in the new assembly registry
-	  -logic_name => 'update_annotation_tracking_complete',
-	      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-	      -parameters => {
-		  cmd => 'echo update command goes here',
-		  	  },
-	      -rc_name => 'default',
-	      -flow_into       => { 1 => ['delete_short_reads'], },
-      },
-      
-     {
-      -logic_name => 'delete_short_reads',
+  {
+    #we need to insert the script or command to update the annotation tracking in the new assembly registry
+     # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
+     # to something like 'to be checked' or 'pre-released'
+  -logic_name => 'update_annotation_tracking_complete',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+    cmd => 'echo update command goes here',
+        },
+      -rc_name => 'default',
+      -flow_into       => { 1 => ['delete_short_reads'], },
+    },
+    
+    {
+    -logic_name => 'delete_short_reads',
+    -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      cmd => 'if [ -f ' . '#short_read_dir#' . '/*.gz ]; then rm ' . '#short_read_dir#' . '/*.gz; fi',
+    },
+    -rc_name => 'default',
+    -flow_into       => { 1 => ['delete_long_reads'], },
+    },
+    {
+    -logic_name => 'delete_long_reads',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ -f ' . '#short_read_dir#' . '/*.gz ]; then rm ' . '#short_read_dir#' . '/*.gz; fi',
+        cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
       },
       -rc_name => 'default',
-      -flow_into       => { 1 => ['delete_long_reads'], },
+    },
+  {
+    #we need to insert the script or command to update the annotation tracking in the new assembly registry
+     # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
+     # to something like 'to be checked' or 'pre-released'
+	  -logic_name => 'busco_check',
+	      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+	      -parameters => {
+		  cmd => 'echo ',
+		  	  },
+	      -rc_name => 'default',
+	      -flow_into       => { 
+                        1 => ['update_registry_as_check'], 
+                        2 => ['fan_busco_output'],
+                        },
       },
-     {
-      -logic_name => 'delete_long_reads',
-       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-       -parameters => {
-         cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
-       },
-       -rc_name => 'default',
-     },
+  {
+    -logic_name => 'update_registry_as_check',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      cmd => 'echo update command goes here',
+    },
+    -rc_name => 'default',
+  },
+  {
+    -logic_name => 'fan_busco_output',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      cmd                     => 'echo fan dumps',
+      },
+    -rc_name   => 'default',
+    -flow_into => {
+      1 => ['gff_dump'],
+    },
+  },
+
+  ### GFF3
+  { -logic_name      => 'gff3',
+      -module        => 'Bio::EnsEMBL::Production::Pipeline::GFF3::DumpFile',
+      -parameters    => {
+          feature_type     => $self->o('feature_type'),
+          per_chromosome   => $self->o('per_chromosome'),
+          include_scaffold => $self->o('include_scaffold'),
+          logic_name       => $self->o('logic_name'),
+          db_type          => $self->o('db_type'),
+          abinitio         => $self->o('abinitio'),
+          gene             => $self->o('gene'),
+          out_file_stem    => $self->o('out_file_stem'),
+          xrefs            => $self->o('xrefs'),
+      },
+      -hive_capacity => 50,
+      -rc_name       => '2GB',
+      -flow_into     => { '-1' => 'gff3_32GB', '1' => 'tidy_gff3', },
+  },
+
+  { -logic_name      => 'gff3_32GB',
+      -module        => 'Bio::EnsEMBL::Production::Pipeline::GFF3::DumpFile',
+      -parameters    => {
+          feature_type     => $self->o('feature_type'),
+          per_chromosome   => $self->o('per_chromosome'),
+          include_scaffold => $self->o('include_scaffold'),
+          logic_name       => $self->o('logic_name'),
+          db_type          => $self->o('db_type'),
+          abinitio         => $self->o('abinitio'),
+          gene             => $self->o('gene'),
+          out_file_stem    => $self->o('out_file_stem'),
+          xrefs            => $self->o('xrefs'),
+      },
+      -hive_capacity => 50,
+      -rc_name       => '32GB',
+      -flow_into     => { '-1' => 'gff3_64GB', '1' => 'tidy_gff3', },
+  },
+  { -logic_name      => 'gff3_64GB',
+      -module        => 'Bio::EnsEMBL::Production::Pipeline::GFF3::DumpFile',
+      -parameters    => {
+          feature_type     => $self->o('feature_type'),
+          per_chromosome   => $self->o('per_chromosome'),
+          include_scaffold => $self->o('include_scaffold'),
+          logic_name       => $self->o('logic_name'),
+          db_type          => $self->o('db_type'),
+          abinitio         => $self->o('abinitio'),
+          gene             => $self->o('gene'),
+          out_file_stem    => $self->o('out_file_stem'),
+          xrefs            => $self->o('xrefs'),
+      },
+      -hive_capacity => 50,
+      -rc_name       => '64GB',
+      -flow_into     => { '-1' => 'gff3_128GB', '1' => 'tidy_gff3', },
+  },
+  { -logic_name      => 'gff3_128GB',
+      -module        => 'Bio::EnsEMBL::Production::Pipeline::GFF3::DumpFile',
+      -parameters    => {
+          feature_type     => $self->o('feature_type'),
+          per_chromosome   => $self->o('per_chromosome'),
+          include_scaffold => $self->o('include_scaffold'),
+          logic_name       => $self->o('logic_name'),
+          db_type          => $self->o('db_type'),
+          abinitio         => $self->o('abinitio'),
+          gene             => $self->o('gene'),
+          out_file_stem    => $self->o('out_file_stem'),
+          xrefs            => $self->o('xrefs'),
+      },
+      -hive_capacity => 50,
+      -rc_name       => '128GB',
+      -flow_into     => { '1' => 'tidy_gff3', },
+  },
+
+  ### GFF3:post-processing
+  { -logic_name      => 'tidy_gff3',
+      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters    => { cmd => $self->o('gff3_tidy') . ' -gzip -o #out_file#.sorted.gz #out_file#', },
+      -hive_capacity => 10,
+      -batch_size    => 10,
+      -flow_into     => 'move_gff3',
+  },
+
+  {
+      -logic_name    => 'move_gff3',
+      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
+      -hive_capacity => 10,
+      -flow_into     => 'validate_gff3',
+  },
+
+  {
+      -logic_name    => 'validate_gff3',
+      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters    => { cmd => $self->o('gff3_validate') . ' #out_file#', },
+      -hive_capacity => 10,
+      -batch_size    => 10,
+      -flow_into     => 'sync'
+  },
+
+  {
+      -logic_name    => 'sync',
+      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters    => {
+          cmd => 'echo "Syncing files to the output directory"',
+      },
+      -flow_into => {
+          1 => ['update_registry_pre_release'],
+      },
+  },
+  {
+      -logic_name    => 'update_registry_pre_release',
+      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters    => {
+        cmd => 'echo update registry command goes here',
+      }
+  }
   ];
 }
 
