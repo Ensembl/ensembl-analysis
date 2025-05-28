@@ -87,7 +87,8 @@ sub default_options {
 
     'softmask_logic_names' => [],
 
-
+    # busco threshold for the analysis that checks wether produce pre-release files or not!
+    'busco_threshold' => 70, # If the busco score is above this threshold, the pre-release files will be produced
 
 ########################
 # Pipe and ref db info
@@ -1397,19 +1398,23 @@ sub pipeline_analyses {
     },
   {
     #we need to insert the script or command to update the annotation tracking in the new assembly registry
-     # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
-     # to something like 'to be checked' or 'pre-released'
-	  -logic_name => 'busco_check',
-	      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-	      -parameters => {
-		  cmd => 'echo ',
-		  	  },
-	      -rc_name => 'default',
-	      -flow_into       => { 
-                        1 => ['update_registry_as_check'], 
-                        2 => ['fan_busco_output'],
-                        },
-      },
+    # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
+    # to something like 'to be checked' or 'pre-released'
+    -logic_name => 'busco_check',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      cmd => 'echo ',
+      threshold => $self->o('busco_threshold'),
+    },
+    -rc_name    => 'default',
+    -flow_into  => {
+      # maybe we need to parse this with a different analysis and for this to be a dummy only working on this
+      1 => WHEN(
+        '#some_parameter# >= #threshold#' => [ 'backbone_job_pipeline' ],
+        '#some_parameter# < #threshold#'  => [ 'update_registry_as_check' ],
+      ), # furthermore, we can make it so that the script "fails" if the busco check fails, and then redirect channel "-2" to update_registry_as_check, and normal channel "1" to backbone_job_pipeline
+    },
+  },
   {
     -logic_name => 'update_registry_as_check',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1419,14 +1424,24 @@ sub pipeline_analyses {
     -rc_name => 'default',
   },
   {
-    -logic_name => 'fan_busco_output',
-    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-      cmd                     => 'echo fan dumps',
-      },
-    -rc_name   => 'default',
+    -logic_name     => 'backbone_job_pipeline',
+    -module         => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+    -hive_capacity  => -1,
+    -flow_into      => {
+      '1->A'  => ['gff3','gft','softmasked_genome_copy'],
+      'A->1'  => ['checksum_generator'],
+    }
+  },
+  {
+    -logic_name      => 'checksum_generator',
+    -module        => 'Bio::EnsEMBL::Production::Pipeline::Common::ChksumGenerator',
+    -parameters    => {
+      dumps              => ['gff3','gft','softmasked_genome_copy'],
+      # skip_convert_fasta => $self->o('skip_convert_fasta')
+    },
+    -hive_capacity => 10,
     -flow_into => {
-      1 => ['gff_dump'],
+      '1' => ['sync'],
     },
   },
 
@@ -1464,40 +1479,6 @@ sub pipeline_analyses {
       },
       -hive_capacity => 50,
       -rc_name       => '32GB',
-      -flow_into     => { '-1' => 'gff3_64GB', '1' => 'tidy_gff3', },
-  },
-  { -logic_name      => 'gff3_64GB',
-      -module        => 'Bio::EnsEMBL::Production::Pipeline::GFF3::DumpFile',
-      -parameters    => {
-          feature_type     => $self->o('feature_type'),
-          per_chromosome   => $self->o('per_chromosome'),
-          include_scaffold => $self->o('include_scaffold'),
-          logic_name       => $self->o('logic_name'),
-          db_type          => $self->o('db_type'),
-          abinitio         => $self->o('abinitio'),
-          gene             => $self->o('gene'),
-          out_file_stem    => $self->o('out_file_stem'),
-          xrefs            => $self->o('xrefs'),
-      },
-      -hive_capacity => 50,
-      -rc_name       => '64GB',
-      -flow_into     => { '-1' => 'gff3_128GB', '1' => 'tidy_gff3', },
-  },
-  { -logic_name      => 'gff3_128GB',
-      -module        => 'Bio::EnsEMBL::Production::Pipeline::GFF3::DumpFile',
-      -parameters    => {
-          feature_type     => $self->o('feature_type'),
-          per_chromosome   => $self->o('per_chromosome'),
-          include_scaffold => $self->o('include_scaffold'),
-          logic_name       => $self->o('logic_name'),
-          db_type          => $self->o('db_type'),
-          abinitio         => $self->o('abinitio'),
-          gene             => $self->o('gene'),
-          out_file_stem    => $self->o('out_file_stem'),
-          xrefs            => $self->o('xrefs'),
-      },
-      -hive_capacity => 50,
-      -rc_name       => '128GB',
       -flow_into     => { '1' => 'tidy_gff3', },
   },
 
@@ -1524,14 +1505,13 @@ sub pipeline_analyses {
       -parameters    => { cmd => $self->o('gff3_validate') . ' #out_file#', },
       -hive_capacity => 10,
       -batch_size    => 10,
-      -flow_into     => 'sync'
   },
 
   {
       -logic_name    => 'sync',
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters    => {
-          cmd => 'echo "Syncing files to the output directory"',
+          cmd => 'echo "Syncing files to the output directory with rsync"',
       },
       -flow_into => {
           1 => ['update_registry_pre_release'],
