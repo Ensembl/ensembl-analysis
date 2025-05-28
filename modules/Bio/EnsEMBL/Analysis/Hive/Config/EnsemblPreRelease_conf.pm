@@ -186,6 +186,11 @@ sub default_options {
 ########################
     'realign_table_name'               => 'projection_source_sequences',
 
+########################
+# FTP Dump 
+########################
+    'dummy' => 'dummy', # This is just to make sure that the config file is not empty, it will be removed later
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
