@@ -41,8 +41,8 @@ sub default_options {
     'cores'                        => 30,
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
-    'dbowner'                      => 'swati' || $ENV{EHIVE_USER} || $ENV{USER},
-    'base_output_dir'              => '/hps/nobackup/flicek/ensembl/genebuild/swati/anno_fungal_annotations/',
+    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'base_output_dir'              => '',
     'init_config'               => '', #path for configuration file (custom loading)
     'override_clade'               => '', #optional, already defined in ProcessGCA
     'protein_file'                 => '', #optional, already defined in ProcessGCA
@@ -441,29 +441,44 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '1GB',
       -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short' ,
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short -l 500' ,
         
       },
         -flow_into => {
-        1 => ['check_sr_file'],
+        1 => ['download_genus_rnaseq_csv'],
       },
     },
   
-
-  {
-     -logic_name => 'check_sr_file',
-     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-     -rc_name => 'default',
-     -parameters => {
-                cmd => 'if [ -s "#rnaseq_summary_file#" ]; then exit 0; else exit 42;fi',
-                return_codes_2_branches => { '42' => 2 },
+    {
+      -logic_name => 'download_genus_rnaseq_csv',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '1GB',
+      -parameters => {
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 250' ,
        },
-         -flow_into => {
-            1 => ['create_sr_fastq_download_jobs'],  # flow if file_columns has values
-            2 => ['download_long_read_csv'],         # fallback if empty
+      -flow_into => {
+        '1->A' => WHEN(
+	    # if rnaseq_summary_file has at least 20 lines, i.e. 10 runs (2 read files per run) 
+	    '[ $(wc -l < "#rnaseq_summary_file#") -ge 20 ]' => {'fan_short_read_download' => {'inputfile'  => '#rnaseq_summary_file#','input_dir'  => '#short_read_dir#',},},
+	    # if rnaseq_summary_file has less than 20 lines BUT rnaseq_summary_file_genus has at least 10 lines, i.e. 5 runs, use that
+	    '[ $(wc -l < "#rnaseq_summary_file#") -lt 20 ] && [ $(wc -l < "#rnaseq_summary_file_genus#") -ge 10 ]' => {'fan_short_read_download' => {'inputfile'  => '#rnaseq_summary_file_genus#','input_dir'  => '#short_read_dir#',},}
+	    ),
+        'A->1' => ['download_long_read_csv'],
       },
-   },
-  
+    },
+      
+    {
+      -logic_name => 'fan_short_read_download',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd                     => 'if [ -s "#inputfile#" ]; then exit 0; else exit 42;fi',
+        return_codes_2_branches => { '42' => 2 },
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+	1 => { 'create_sr_fastq_download_jobs' => { 'inputfile' => '#inputfile#', 'input_dir' => '#input_dir#' } },
+      },
+    },
       
     {
       -logic_name => 'create_sr_fastq_download_jobs',
@@ -498,13 +513,6 @@ sub pipeline_analyses {
       -rc_name    => '1GB',
       -parameters => {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #long_read_summary_file# --read_type long' ,
-        # This is specifically for gbiab, as taxon_id is populated in the input id with
-        # the actual taxon, had to add some code override. Definitely better solutions available,
-        # one might be to just branch this off and then only pass the genus taxon id
-        #override_taxon_id => 1,
-        #taxon_id          => '#genus_taxon_id#',
-        #read_type         => 'isoseq',
-        #inputfile         => '#long_read_summary_file#',
       },
 
       -flow_into => {
