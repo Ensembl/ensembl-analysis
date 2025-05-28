@@ -194,6 +194,10 @@ sub default_options {
     'abinitio'               => 1,
     'gene'                   => 1,
 
+    ## gtf parameters, e! specific
+    'gtftogenepred_exe'      => 'gtfToGenePred',
+    'genepredcheck_exe'      => 'genePredCheck',
+
     ## gff3 parameters
     'gt_exe'                 => 'gt',
     'gff3_tidy'              => $self->o('gt_exe') . ' gff3 -tidy -sort -retainids -fixregionboundaries -force',
@@ -1428,7 +1432,7 @@ sub pipeline_analyses {
     -module         => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
     -hive_capacity  => -1,
     -flow_into      => {
-      '1->A'  => ['gff3','gft','softmasked_genome_copy'],
+      '1->A'  => ['gff3','gtf','softmasked_genome_copy'],
       'A->1'  => ['checksum_generator'],
     }
   },
@@ -1436,7 +1440,7 @@ sub pipeline_analyses {
     -logic_name      => 'checksum_generator',
     -module        => 'Bio::EnsEMBL::Production::Pipeline::Common::ChksumGenerator',
     -parameters    => {
-      dumps              => ['gff3','gft','softmasked_genome_copy'],
+      dumps              => ['gff3','gtf','softmasked_genome_copy'],
       # skip_convert_fasta => $self->o('skip_convert_fasta')
     },
     -hive_capacity => 10,
@@ -1444,6 +1448,47 @@ sub pipeline_analyses {
       '1' => ['sync'],
     },
   },
+  {
+    -logic_name => 'softmasked_genome_copy',
+      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
+      -hive_capacity => 10,
+  },
+  ### GTF
+  { -logic_name      => 'gtf',
+      -module        => 'Bio::EnsEMBL::Production::Pipeline::GTF::DumpFile',
+      -parameters    => {
+          gtf_to_genepred => $self->o('gtftogenepred_exe'),
+          gene_pred_check => $self->o('genepredcheck_exe'),
+          abinitio        => $self->o('abinitio'),
+          gene            => $self->o('gene')
+      },
+      -hive_capacity => 50,
+      -rc_name       => '2GB',
+      -flow_into     => { '-1' => 'gtf_32GB', '1' => 'move_gtf'},
+  },
+
+  { -logic_name      => 'gtf_32GB',
+      -module        => 'Bio::EnsEMBL::Production::Pipeline::GTF::DumpFile',
+      -parameters    => {
+          gtf_to_genepred => $self->o('gtftogenepred_exe'),
+          gene_pred_check => $self->o('genepredcheck_exe'),
+          abinitio        => $self->o('abinitio'),
+          gene            => $self->o('gene')
+      },
+      -hive_capacity => 50,
+      -rc_name       => '32GB',
+      -flow_into     => 'move_gtf',
+  },
+
+  {
+      -logic_name    => 'move_gtf',
+      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
+      -hive_capacity => 10,
+      -flow_into     => 'validate_gff3',
+  },
+
 
   ### GFF3
   { -logic_name      => 'gff3',
