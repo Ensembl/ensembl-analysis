@@ -33,16 +33,16 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BUSCO parameters
-    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
-    'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
-    'helixer_singularity_image' => '/nfs/production/flicek/ensembl/genebuild/swati/softwares/helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif',
-    'gffread_path' => '/hps/software/users/ensembl/compara/shared/build/gffread/0.12.7/bin/gffread',
+    'busco_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco_v5.8.2_cv1.sif',
+    'busco_download_path'       => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
+    'helixer_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/helixer-docker_helixer_v0.3.5_cuda_12.2.2-cudnn8.sif',
+    'gffread_path' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
-    'dbowner'                      => 'swati' || $ENV{EHIVE_USER} || $ENV{USER},
-    'base_output_dir'              => '/hps/nobackup/flicek/ensembl/genebuild/swati/anno_fungal_annotations/',
+    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'base_output_dir'              => '',
     'init_config'               => '', #path for configuration file (custom loading)
     'override_clade'               => '', #optional, already defined in ProcessGCA
     'protein_file'                 => '', #optional, already defined in ProcessGCA
@@ -55,7 +55,7 @@ sub default_options {
     'validation_type'              => 'moderate',
     'release_number'               => '' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => 'fungi_clade_test' || $self->o('production_name') . $self->o('production_name_modifier'),
+    'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
     'password'                     => 'ensembl',                                                                                                                # password for write db user
@@ -850,7 +850,7 @@ sub pipeline_analyses {
       -parameters => {
 	cmd => 'mkdir -p #output_path#/helixer;' .
 	  'singularity exec --nv '.  $self->o ('helixer_singularity_image') .  ' bash -c "'. 
-	  'export PATH=\$PATH:/nfs/production/flicek/ensembl/genebuild/swati/softwares/HelixerPost/target/release/ && '. 
+	  'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && '. 
 	  'Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage fungi --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#.gff3";' .
 	  $self->o('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
           $self->o ('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -y #output_path#/helixer/helixer_proteins.fa;',  
