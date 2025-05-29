@@ -33,15 +33,15 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BUSCO parameters
-    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
-    'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
+    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco_v5.8.2_cv1.sif',
+    'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12',
     'helixer_singularity_image' => '/nfs/production/flicek/ensembl/genebuild/swati/softwares/helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif',
     'gffread_path' => '/hps/software/users/ensembl/compara/shared/build/gffread/0.12.7/bin/gffread',
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
-    'dbowner'                      => 'swati' || $ENV{EHIVE_USER} || $ENV{USER},
+    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'base_output_dir'              => '/hps/nobackup/flicek/ensembl/genebuild/swati/anno_fungal_annotations/',
     'init_config'               => '', #path for configuration file (custom loading)
     'override_clade'               => '', #optional, already defined in ProcessGCA
@@ -58,7 +58,7 @@ sub default_options {
     'pipeline_name'                => 'fungi_clade_test' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
-    'password'                     => 'ensembl',                                                                                                                # password for write db user
+    'password'                     => '',                                                                                                                # password for write db user
     'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
@@ -1326,10 +1326,58 @@ sub pipeline_analyses {
 	      -max_retry_count => 1,
 	      -hive_capacity   => 50,
 	      -rc_name => '50GB',
-	      -flow_into       => { 1 => ['update_assembly_registry_status'], }
+	      -flow_into       => { 1 => ['load_genome_busco_into_core'], }
       },
 
-      
+    {
+        -logic_name => 'load_genome_busco_into_core',
+          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+          -parameters => {
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics','busco_metakeys_patch.py' ) .
+           ' -db #core_dbname# -host ' .  $self->o('dna_db_server') . 
+           ' -port ' . $self->o('dna_db_port') . 
+           ' -user ' . $self->o('user') . 
+           ' -password ' . $self->o('password') . 
+           ' -assembly_id #assembly_id#' .
+           ' -file #output_path#/busco_core_genome_mode_output/#species_strain_group#_genome_busco_short_summary.txt ' .
+           ' -output_dir #output_path#/busco_core_genome_mode_output/ -run_query true',
+    
+    },
+         -rc_name => 'default',
+         -flow_into       => { 1 => ['load_protein_busco_into_core'], },
+    }, 
+    {
+        -logic_name => 'load_protein_busco_into_core',
+          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+          -parameters => {
+          cmd => 'python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics','busco_metakeys_patch.py' ) .
+           ' -db #core_dbname# -host ' .  $self->o('dna_db_server') .
+           ' -port ' . $self->o('dna_db_port') .
+           ' -user ' . $self->o('user') .
+           ' -password ' . $self->o('password') .
+           ' -assembly_id #assembly_id#' .
+           ' -file #output_path#/busco_core_protein_mode_output/#species_strain_group#_busco_short_summary.txt ' .
+           ' -output_dir #output_path#/busco_core_protein_mode_output/ -run_query true',
+
+    },
+         -rc_name => 'default',
+         -flow_into       => { 1 => ['check_busco_score'], },
+    },
+    {
+        -logic_name => 'check_busco_score',
+          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+          -parameters => {
+          cmd => 'if python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
+          ' --genome #output_path#/busco_core_genome_mode_output/#core_dbname#_busco_genome_metakey.json ' .
+          ' --protein #output_path#/busco_core_protein_mode_output/#core_dbname#_busco_protein_metakey.json' . '; then exit 0; else exit 42; fi',
+        return_codes_2_branches => { '42' => 2 },
+    },
+         -rc_name => 'default',
+         -flow_into  => {
+              1 => 'backbone_job_pipeline',
+              0 => 'update_registry_as_check',
+    }
+    },
   {
     -logic_name => 'update_assembly_registry_status',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
