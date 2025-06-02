@@ -1,0 +1,289 @@
+{
+    "chordata":{
+        "taxon_id": 7711
+    },
+    "hemichordata":{
+        "taxon_id": 10219
+    },
+    "annelida": {
+        "taxon_id":6340
+    },
+    "metazoa": {
+        "taxon_id": 33208
+    },
+    "lepidoptera": {
+        "taxon_id": 7088,
+        "protein_file": "lepidoptera_uniprot_proteins.fa",
+        "busco_protein_file": "lepidoptera_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_insect_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "lepidoptera_odb10"
+    },
+    "plasmodium": {
+        "taxon_id": 5820,
+        "protein_file": "plasmodium_uniprot_proteins.fa",
+        "busco_protein_file": "plasmodium_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_plasmodium_ids.txt",
+        "species_division": "EnsemblProtists",
+        "busco_group": "plasmodium_odb10"
+    },
+    "teleostei": {
+        "taxon_id": 32443,
+        "protein_file": "teleostei_uniprot_proteins.fa",
+        "busco_protein_file": "actinopterygii_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_teleostei_ids.txt",
+        "species_division": "EnsemblVertebrates",
+        "busco_group": "actinopterygii_odb10"
+    },
+    "humans": {
+        "taxon_id": 9606,
+        "protein_file": "actinopterygii_uniprot_proteins.fa",
+        "busco_protein_file": "actinopterygii_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_teleost_ids.txt",
+        "species_division": "EnsemblVertebrates"
+    },
+
+    "diptera": {
+        "taxon_id": 7147,
+        "protein_file": "diptera_uniprot_proteins.fa",
+        "busco_protein_file": "diptera_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_insect_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "diptera_odb10"
+    },
+    "coleoptera": {
+        "taxon_id": 7041,
+        "protein_file": "endopterygota_uniprot_proteins.fa",
+        "busco_protein_file": "endopterygota_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_insect_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "endopterygota_odb10"
+    },
+    "crustacea": {
+        "taxon_id": 6657,
+        "protein_file": "crustacea_uniprot_proteins.fa",
+        "busco_protein_file": "crustacea_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_crustacea_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "arthropoda_odb10"
+    },
+    "mollusca": {
+        "taxon_id": 6447,
+        "protein_file": "mollusca_uniprot_proteins.fa",
+        "busco_protein_file": "mollusca_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_mollusc_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "mollusca_odb10"
+    },
+    "viridiplantae": {
+        "taxon_id": 33090,
+        "protein_file": "viridiplantae_uniprot_proteins.fa",
+        "busco_protein_file": "viridiplantae_orthodb_proteins_reheader.fa",
+        "rfam_accessions_file": "rfam_eudicotyledons_ids.txt",
+        "species_division": "EnsemblPlants",
+        "busco_group": "viridiplantae_odb10"
+    },
+    "porifera": {
+        "taxon_id": 6040,
+        "protein_file": "porifera_uniprot_proteins.fa",
+        "busco_protein_file": "metazoa_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_porifera_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "lophotrochozoa": {
+        "taxon_id": 1206795,
+        "protein_file": "lophotrochozoa_uniprot_proteins.fa",
+        "busco_protein_file": "lophotrochozoa_orthodb11v0_proteins.fa",
+        "rfam_accessions_file": "rfam_lophotrochozoa_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "bryozoa": {
+        "taxon_id": 10205,
+        "protein_file": "lophotrochozoa_uniprot_proteins.fa",
+        "busco_protein_file": "lophotrochozoa_orthodb11v0_proteins.fa",
+        "rfam_accessions_file": "rfam_lophotrochozoa_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "cnidaria": {
+        "taxon_id": 6073,
+        "protein_file": "cnidaria_uniprot_proteins.fa",
+        "busco_protein_file": "cnidaria_orthodb11v0_proteins.fa",
+        "rfam_accessions_file": "rfam_cnidaria_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "echinodermata": {
+        "taxon_id": 7586,
+        "protein_file": "echinodermata_uniprot_proteins.fa",
+        "busco_protein_file": "metazoa_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_echinodermata_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "arachnida": {
+        "taxon_id": 6854,
+        "protein_file": "arachnida_uniprot_proteins.fa",
+        "busco_protein_file": "arthropoda_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_metazoa_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "collembola": {
+        "taxon_id": 30001,
+        "protein_file": "collembola_uniprot_proteins.fa",
+        "busco_protein_file": "arthropoda_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_metazoa_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "chilopoda": {
+        "taxon_id": 7540,
+        "protein_file": "chilopoda_uniprot_proteins.fa",
+        "busco_protein_file": "arthropoda_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_metazoa_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "thecostraca": {
+        "taxon_id": 116172,
+        "protein_file": "thecostraca_uniprot_proteins.fa",
+        "busco_protein_file": "arthropoda_orthodb_proteins.fa",
+        "rfam_accessions_file": "rfam_metazoa_ids.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "nematoda": {
+        "taxon_id": 6231,
+        "protein_file": "nematoda_uniprot_proteins.fa",
+        "busco_protein_file": "nematoda_orthodb11v0_proteins.uniq.fa",
+        "rfam_accessions_file": "rfam_Nematoda.txt",
+        "species_division": "EnsemblMetazoa",
+        "busco_group": "metazoa_odb10"
+    },
+    "primates": {
+        "taxon_id": 9443,
+        "repbase_library": "primates",
+        "repbase_logic_name": "primates",
+        "uniprot_set": "primates_basic",
+        "sanity_set": "primates_basic",
+        "projection_source_production_name": "homo_sapiens",
+        "projection_source_db_name": "current_projection_source_db(homo_sapiens)"
+    },
+    "rodentia": {
+        "taxon_id": 9989,
+        "repbase_library": "rodentia",
+        "repbase_logic_name": "rodentia",
+        "uniprot_set": "mammals_basic",
+        "sanity_set": "rodentia_basic",
+        "ig_tr_fasta_file": "imgt_mammals_ig_tr.fa",
+        "projection_source_production_name": "mus_musculus",
+        "projection_source_db_name": "current_projection_source_db(mus_musculus)"
+    },
+    "mammalia": {
+        "taxon_id": 40674,
+        "repbase_library": "mammals",
+        "repbase_logic_name": "mammals",
+        "uniprot_set": "mammals_basic",
+        "sanity_set": "mammals_basic",
+        "ig_tr_fasta_file": "imgt_mammals_ig_tr.fa",
+        "projection_source_production_name": "homo_sapiens",
+        "projection_source_db_name": "current_projection_source_db(homo_sapiens)"
+    },
+    "aves": {
+        "taxon_id": 8782,
+        "repbase_library": "Birds",
+        "repbase_logic_name": "aves",
+        "uniprot_set": "aves_basic",
+        "sanity_set": "aves_basic",
+        "ig_tr_fasta_file": "imgt_mammals_aves_ig_tr.fa",
+        "projection_source_production_name": "homo_sapiens",
+        "projection_source_db_name": "current_projection_source_db(homo_sapiens)"
+    },
+    "sauropsida": {
+        "taxon_id": 8457,
+        "repbase_library": "vertebrates",
+        "repbase_logic_name": "vertebrates",
+        "uniprot_set": "reptiles_basic",
+        "sanity_set": "reptiles_basic",
+        "ig_tr_fasta_file": "imgt_mammals_aves_ig_tr.fa",
+        "masking_timer_long": "6h",
+        "masking_timer_short": "3h",
+        "projection_source_production_name": "homo_sapiens",
+        "projection_source_db_name": "current_projection_source_db(homo_sapiens)"
+    },
+    "amphibia": {
+        "taxon_id": 8292,
+        "repbase_library": "vertebrates",
+        "repbase_logic_name": "vertebrates",
+        "uniprot_set": "amphibians_basic",
+        "sanity_set": "amphibians_basic",
+        "ig_tr_fasta_file": "imgt_mammals_aves_ig_tr.fa",
+        "masking_timer_long": "6h",
+        "masking_timer_short": "3h",
+        "projection_source_production_name": "homo_sapiens",
+        "projection_source_db_name": "current_projection_source_db(homo_sapiens)"
+    },
+    "teleostei": {
+        "taxon_id": 32443,
+        "repbase_library": "Teleostei",
+        "repbase_logic_name": "teleost",
+        "uniprot_set": "fish_basic",
+        "sanity_set": "fish_basic",
+        "ig_tr_fasta_file": "fish_ig_tr.fa",
+        "masking_timer_long": "6h",
+        "masking_timer_short": "3h",
+        "skip_projection": 1,
+        "skip_lastz": 1,
+        "projection_source_production_name": "danio_rerio",
+        "projection_source_db_name": "current_projection_source_db(danio_rerio)",
+        "repeatmasker_slice_size": 500000
+    },
+    "selachii": {
+        "taxon_id": 119203,
+        "repbase_library": "Teleostei",
+        "repbase_logic_name": "teleost",
+        "uniprot_set": "sharks_basic",
+        "sanity_set": "sharks_basic",
+        "ig_tr_fasta_file": "fish_ig_tr.fa",
+        "masking_timer_long": "6h",
+        "masking_timer_short": "3h",
+        "skip_projection": 1,
+        "skip_lastz": 1,
+        "projection_source_production_name": "danio_rerio",
+        "projection_source_db_name": "current_projection_source_db(danio_rerio)",
+        "repeatmasker_slice_size": 500000
+    },
+    "insecta": {
+        "taxon_id": 50557,
+        "repbase_library": "insecta",
+        "repbase_logic_name": "insects",
+        "uniprot_set": "insects_basic",
+        "sanity_set": "insects_basic",
+        "projection_source_production_name": "homo_sapiens",
+        "projection_source_db_name": "current_projection_source_db(homo_sapiens)"
+    },
+    "fungi": {
+        "taxon_id": 4751,
+        "repbase_library": "fungi",
+        "repbase_logic_name": "fungi",
+        "uniprot_set": "fungi_basic",
+        "sanity_set": "fungi_basic",
+        "projection_source_production_name": "homo_sapiens",
+        "projection_source_db_name": "current_projection_source_db(homo_sapiens)"
+    },
+    "ascomycota": {
+        "taxon_id": 4890
+    },
+    "basidiomycota": {
+        "taxon_id": 52
+    },
+    "mucoromycota": {
+        "taxon_id": 1913637
+    }
+
+}
+
+
