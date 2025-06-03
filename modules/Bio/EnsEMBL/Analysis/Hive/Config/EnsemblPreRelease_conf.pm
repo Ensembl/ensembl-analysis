@@ -53,13 +53,13 @@ sub default_options {
     'generic_registry_file'        => '',                                                                                                                # Could use this to hold the path to ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm to copy as a generic registry
     'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
     'validation_type'              => 'moderate',
-    'release_number'               => '' || $self->o('ensembl_release'),
+    'release_number'               => '114' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
     'pipeline_name'                => 'fungi_clade_test' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
     'password'                     => 'ensembl',                                                                                                                # password for write db user
-    'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
+    'server_set'                   => 'set1',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
     'taxon_id'                     => '', #optional, already defined in ProcessGCA, should be in the assembly report file
@@ -1408,8 +1408,9 @@ sub pipeline_analyses {
         cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
       },
       -rc_name => 'default',
+      -flow_into       => { 1 => ['busco_check'], },
     },
-  {
+    {
     #we need to insert the script or command to update the annotation tracking in the new assembly registry
     # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
     # to something like 'to be checked' or 'pre-released'
@@ -1441,7 +1442,7 @@ sub pipeline_analyses {
     -module         => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
     -hive_capacity  => -1,
     -flow_into      => {
-      '1->A'  => ['gff3','gft','softmasked_genome_copy'],
+      '1->A'  => ['gff3','gtf','softmasked_genome_copy'],
       'A->1'  => ['checksum_generator'],
     }
   },
@@ -1449,7 +1450,7 @@ sub pipeline_analyses {
     -logic_name      => 'checksum_generator',
     -module        => 'Bio::EnsEMBL::Production::Pipeline::Common::ChksumGenerator',
     -parameters    => {
-      dumps              => ['gff3','gft','softmasked_genome_copy'],
+      dumps              => ['gff3','gtf','softmasked_genome_copy'],
       # skip_convert_fasta => $self->o('skip_convert_fasta')
     },
     -hive_capacity => 10,
