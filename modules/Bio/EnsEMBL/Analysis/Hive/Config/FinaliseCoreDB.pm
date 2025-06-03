@@ -95,6 +95,15 @@ sub default_options {
     'production_db_host'   => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
+##############################
+### Set rnaseq file paths
+################################
+'rnaseq_dir' => catdir( $self->o('output_path'), 'rnaseq' ),
+'merge_dir'  => catdir( $self->o('rnaseq_dir'),  'merge' ),
+'output_dir' => catdir( $self->o('rnaseq_dir'),  'output' ),
+#################################
+
+
 ########################
 # BLAST db paths
 ########################
@@ -673,7 +682,48 @@ sub pipeline_analyses {
 	  -max_retry_count => 1,
 	  -hive_capacity   => 50,
 	  -rc_name => '50GB',
+	  -flow_into       => {
+	          1 => ['delete_data_files'], },
       },
+
+      {
+      -logic_name => 'delete_data_files',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'rm -r '. $self->o('merge_dir') . '/* ' .$self->o('output_dir') . '/* ',
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        1 => ['dump_geneset_gtf'], },
+    },
+
+    {
+      -logic_name => 'dump_geneset_gtf',
+      -module     => 'Bio::EnsEMBL::Production::Pipeline::FileDump::Geneset_GTF',
+      -parameters => {
+        reg_conf         => $self->o('registry_file'),
+        species          => $self->o('production_name'),
+        custom_filenames => {
+          genes => $self->o('output_path') . '/' . $self->o('production_name') . '.gtf'
+        },
+      },
+      -rc_name   => '4GB',    # Adjust this based on your resource class
+      -flow_into => {
+        1 => ['dump_geneset_gff'], },
+    },
+
+    {
+      -logic_name => 'dump_geneset_gff',
+      -module     => 'Bio::EnsEMBL::Production::Pipeline::FileDump::Geneset_GFF3',
+      -parameters => {
+        reg_conf         => $self->o('registry_file'),
+        species          => $self->o('production_name'),
+        custom_filenames => {
+          genes => $self->o('output_path') . '/' . $self->o('production_name') . '.gff'
+        },
+      },
+      -rc_name => '4GB',    # Adjust this based on your resource class
+    },
  
   ];
 }
