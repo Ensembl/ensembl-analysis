@@ -53,13 +53,13 @@ sub default_options {
     'generic_registry_file'        => '',                                                                                                                # Could use this to hold the path to ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm to copy as a generic registry
     'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
     'validation_type'              => 'moderate',
-    'release_number'               => '' || $self->o('ensembl_release'),
+    'release_number'               => '114' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
     'pipeline_name'                => 'fungi_clade_test' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
     'password'                     => 'ensembl',                                                                                                                # password for write db user
-    'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
+    'server_set'                   => 'set1',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
     'taxon_id'                     => '', #optional, already defined in ProcessGCA, should be in the assembly report file
@@ -89,6 +89,19 @@ sub default_options {
 
     # busco threshold for the analysis that checks wether produce pre-release files or not!
     'busco_threshold' => 70, # If the busco score is above this threshold, the pre-release files will be produced
+
+    #gff file dump options
+    'gt_exe'                 => 'gt',
+    'gff3_tidy'              => $self->o('gt_exe') . ' gff3 -tidy -sort -retainids -fixregionboundaries -force',
+    'gff3_validate'          => $self->o('gt_exe') . ' gff3validator',
+
+    'feature_type'           => [ 'Gene', 'Transcript', 'SimpleFeature' ], #'RepeatFeature'
+    'per_chromosome'         => 1,
+    'include_scaffold'       => 1,
+    'logic_name'             => [],
+    'db_type'                => 'core',
+    'out_file_stem'          => undef,
+    'xrefs'                  => 0,
 
 ########################
 # Pipe and ref db info
@@ -1399,8 +1412,9 @@ sub pipeline_analyses {
         cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
       },
       -rc_name => 'default',
+      -flow_into       => { 1 => ['busco_check'], },
     },
-  {
+    {
     #we need to insert the script or command to update the annotation tracking in the new assembly registry
     # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
     # to something like 'to be checked' or 'pre-released'
@@ -1503,6 +1517,9 @@ sub pipeline_analyses {
           gene             => $self->o('gene'),
           out_file_stem    => $self->o('out_file_stem'),
           xrefs            => $self->o('xrefs'),
+          base_path        => $self->o('output_path'),
+          species          => $self->o('production_name'),
+          release          => $self->o('release_number'),
       },
       -hive_capacity => 50,
       -rc_name       => '2GB',
