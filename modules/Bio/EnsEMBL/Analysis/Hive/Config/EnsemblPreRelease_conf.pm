@@ -90,6 +90,19 @@ sub default_options {
     # busco threshold for the analysis that checks wether produce pre-release files or not!
     'busco_threshold' => 70, # If the busco score is above this threshold, the pre-release files will be produced
 
+    #gff file dump options
+    'gt_exe'                 => 'gt',
+    'gff3_tidy'              => $self->o('gt_exe') . ' gff3 -tidy -sort -retainids -fixregionboundaries -force',
+    'gff3_validate'          => $self->o('gt_exe') . ' gff3validator',
+
+    'feature_type'           => [ 'Gene', 'Transcript', 'SimpleFeature' ], #'RepeatFeature'
+    'per_chromosome'         => 1,
+    'include_scaffold'       => 1,
+    'logic_name'             => [],
+    'db_type'                => 'core',
+    'out_file_stem'          => undef,
+    'xrefs'                  => 0,
+
 ########################
 # Pipe and ref db info
 ########################
@@ -1458,6 +1471,9 @@ sub pipeline_analyses {
           gene             => $self->o('gene'),
           out_file_stem    => $self->o('out_file_stem'),
           xrefs            => $self->o('xrefs'),
+          base_path        => $self->o('output_path'),
+          species          => $self->o('production_name'),
+          release          => $self->o('release_number'),
       },
       -hive_capacity => 50,
       -rc_name       => '2GB',
