@@ -1486,7 +1486,6 @@ sub pipeline_analyses {
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
       -hive_capacity => 10,
-      -flow_into     => 'validate_gff3',
   },
 
 
