@@ -32,7 +32,8 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-    #BUSCO parameters
+    'clade_json_path' => catfile( $self->o('enscode_root_dir'),'ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Config/conf_clade_settings.json'),
+      #BUSCO parameters
     'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
     'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
     'helixer_singularity_image' => '/nfs/production/flicek/ensembl/genebuild/swati/softwares/helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif',
@@ -206,7 +207,7 @@ sub default_options {
     'dna_db_port'                  => $ENV{GBP6},                                                                                                        # port for dna db host
     'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
-    'registry_db_name'             => 'gb_assembly_registry', 
+    'registry_db_name'             => 'gb_assembly_metadata',
 
     otherfeatures_db_host => $self->o('dna_db_server'),
     otherfeatures_db_port => $self->o('dna_db_port'),
