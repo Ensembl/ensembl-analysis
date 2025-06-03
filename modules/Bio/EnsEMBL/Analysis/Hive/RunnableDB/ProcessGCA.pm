@@ -57,6 +57,8 @@ use DateTime;
 use Bio::EnsEMBL::Utils::Exception qw (warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Hive::RunnableDB::CladeResolver qw(get_clade_from_taxon_id);
+use Bio::EnsEMBL::Analysis::Hive::RunnableDB::ProjectResolver qw(get_bioproject_group);
 
 sub param_defaults {
   my ($self) = @_;
@@ -82,7 +84,7 @@ sub fetch_input {
 
   say "Fetching input";
   # For the combine files option we don't actually need to do anything in fetch input
-
+  my $clade_json_path = $self->param('clade_json_path');
   my $dirs_to_create    = [];
   my $custom_loading = 0;
   my $current_genebuild = $self->param('current_genebuild');
@@ -138,7 +140,7 @@ sub fetch_input {
   my $output_params = {};
   my $sth;
   my $general_hash = {};
-  my ($stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start);
+  my ($stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start, $assembly_id, $bioproject_id);
 
   # Check for .INI custom loading configuration file and required params are present.
   if ( -e $init_file ) {
@@ -203,30 +205,35 @@ sub fetch_input {
     close IN || throw("Could not close $init_file");
 
   } else {
-    my $sql = "SELECT assembly_id FROM assembly WHERE CONCAT(chain,'.',version) = ?";
+    my $sql = "SELECT assembly_id FROM assembly WHERE CONCAT(gca_chain,'.',gca_version) = ?";
     my $sth = $registry_dba->dbc->prepare($sql);
     $sth->bind_param( 1, $assembly_accession );
     $sth->execute();
     my ($assembly_id) = $sth->fetchrow();
 
     $sql = "SELECT species_prefix,
-                 clade,
-                 species_id,
-                 taxonomy,
-                 assembly_name,
+                 species_taxon_id,
+                 lowest_taxon_id,
+                 asm_name,
                  common_name,
                  refseq_accession,
-                 assembly_date,
-                 species_name,
-                 pri_asm_group,
-                 stable_id_space_start
-                 FROM assembly JOIN meta as m USING(assembly_id) JOIN stable_id_space USING(stable_id_space_id) WHERE assembly_id=?";
+                 release_date,
+                 scientific_name,
+                 bioproject_id,
+                 stable_id_space_start,
+                 assembly_id
+                 FROM assembly
+                 JOIN species as s USING(lowest_taxon_id)
+                 JOIN bioproject as b USING(assembly_id)
+                 JOIN meta as m USING(assembly_id)
+                 JOIN stable_id_space USING(stable_id_space_id)
+                 WHERE assembly_id=?";
     $sth = $registry_dba->dbc->prepare($sql);
 
     $sth->bind_param( 1, $assembly_id );
     $sth->execute();
 
-    ( $stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start ) = $sth->fetchrow();
+    ( $stable_id_prefix, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $bioproject_id, $stable_id_start, $assembly_id) = $sth->fetchrow();
   }
   say "stable_id_prefix " . $stable_id_prefix;
   my $s = $stable_id_prefix;
@@ -264,6 +271,13 @@ sub fetch_input {
   # as opposed to here, but here is fine too. The paths to the files on the ftp site do not have an spaces so subbing with
   # underscore seems to be the correct thing to do based on the observed paths so far
   $assembly_name =~ s/ /\_/g;
+
+
+  # Get assembly_group (bioproject name) from bioproject id
+  my $assembly_group = get_bioproject_group($bioproject_id);
+
+  # Get clade name from clade_settings JSON using lowest_taxon_id
+  my $clade  = get_clade_from_taxon_id($taxon_id);
 
   if ( $self->param('override_clade') ) {
     $clade = $self->param('override_clade');
@@ -451,6 +465,7 @@ sub fetch_input {
   $output_params->{'registry_file'}                   = $new_registry_file;
   $output_params->{'species_prefix'}                  = $species_prefix;
   $output_params->{'repeatmodeler_library'}           = $repeatmodeler_library;
+  $output_params->{'assembly_id'}                     = $assembly_id;
   $self->param( 'output_params', $output_params );
 
 }
@@ -726,7 +741,7 @@ sub update_annotation_status {
   my ( $sql, $sth );
   if ( $current_genebuild == 1 ) {
     say "Updating genebuild status to overwrite";
-    $sql = "update genebuild_status set is_current = ? where assembly_accession = ?";
+    $sql = "update genebuild set last_attempt = ? where gca_accession = ?";
     $sth = $registry_dba->dbc->prepare($sql);
     $sth->bind_param( 1, 0 );
     $sth->bind_param( 2, $accession );
@@ -735,7 +750,7 @@ sub update_annotation_status {
     }
   }
   say "Creating new assembly annotation status in registry...\n";
-  $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id,is_current,annotation_source) values(?,?,?,?,?,?,?)";
+  $sql = "insert into genebuild(gca_accession,gb_status,date_started,genebuilder,assembly_id,last_attempt,annotation_source) values(?,?,?,?,?,?,?)";
   $sth = $registry_dba->dbc->prepare($sql);
   $sth->bind_param( 1, $accession );
   $sth->bind_param( 2, 'in progress' );
