@@ -98,6 +98,13 @@ sub new {
   $self->extended_length_variation_cutoff($extended_length_variation_cutoff);
   $self->anchor_coverage_cutoff($anchor_coverage_cutoff);
   $self->anchor_perc_id_cutoff($anchor_perc_id_cutoff);
+
+  my $log_dir = $self->{_output_dir} || 'logs';
+  say "Provenance will be stored in: $log_dir";
+
+  $self->{_logger} = Bio::EnsEMBL::Analysis::Provenance::Logger->new(
+    log_dir => $log_dir
+  );
   return $self;
 }
 
@@ -328,7 +335,7 @@ sub check_for_problematic_transcripts {
   if($target_gene->{'is_problematic'}) {
     my $problematic_transcript_ids = join(",", keys(%{$target_gene->{'problematic_transcripts'}}));
     $self->{_logger}->log(
-      "problematic_detection",
+      "LowDivergenceProjection-problematic_detection",
       {
         feature_id => $target_gene->stable_id(),
         feature_type => "gene",
@@ -364,7 +371,7 @@ sub recover_transcripts {
   # Log start of recovery process for this gene
   my $gene_stable_id = $target_gene->stable_id();
   $self->{_logger}->log(
-    "gene_recovery",
+    "LowDivergenceProjection-gene_recovery",
     {
       feature_id => $gene_stable_id,
       feature_type => "gene",
@@ -412,7 +419,7 @@ sub recover_transcripts {
 
   # Log region selection details
   $self->{_logger}->log(
-    "gene_recovery",
+    "LowDivergenceProjection-gene_recovery",
     {
       feature_id => $gene_stable_id,
       feature_type => "gene",
@@ -464,7 +471,7 @@ sub recover_transcripts {
     if (scalar(@$problematic_transcripts) == 1) {
       $missing_count++;
       $self->{_logger}->log(
-        "transcript_recovery",
+        "LowDivergenceProjection-transcript_recovery",
         {
           feature_id => $source_transcript->stable_id(),
           parent_gene_id => $gene_stable_id,
@@ -476,7 +483,7 @@ sub recover_transcripts {
     } else {
       $existing_problematic_count++;
       $self->{_logger}->log(
-        "transcript_recovery",
+        "LowDivergenceProjection-transcript_recovery",
         {
           feature_id => $source_transcript->stable_id(),
           parent_gene_id => $gene_stable_id,
@@ -497,7 +504,7 @@ sub recover_transcripts {
   
   # Log summary of problematic transcripts
   $self->{_logger}->log(
-    "gene_recovery",
+    "LowDivergenceProjection-gene_recovery",
     {
       feature_id => $gene_stable_id,
       feature_type => "gene",
@@ -532,7 +539,7 @@ sub recover_transcripts {
   
   # Log minimap results
   $self->{_logger}->log(
-    "gene_recovery",
+    "LowDivergenceProjection-gene_recovery",
     {
       feature_id => $gene_stable_id,
       feature_type => "gene",
@@ -563,7 +570,7 @@ sub recover_transcripts {
   
   # Log exonerate results
   $self->{_logger}->log(
-    "gene_recovery",
+    "LowDivergenceProjection-gene_recovery",
     {
       feature_id => $gene_stable_id,
       feature_type => "gene",
@@ -600,7 +607,7 @@ sub recover_transcripts {
       
       # Log keeping non-problematic transcript
       $self->{_logger}->log(
-        "transcript_recovery",
+        "LowDivergenceProjection-transcript_recovery",
         {
           feature_id => $target_transcript_stable_id,
           parent_gene_id => $gene_stable_id,
@@ -636,7 +643,7 @@ sub recover_transcripts {
           
           # Log adding missing transcript
           $self->{_logger}->log(
-            "transcript_recovery",
+            "LowDivergenceProjection-transcript_recovery",
             {
               feature_id => $source_transcript_stable_id,
               parent_gene_id => $gene_stable_id,
@@ -660,7 +667,7 @@ sub recover_transcripts {
         } else {
           # Log failed recovery attempt
           $self->{_logger}->log(
-            "transcript_recovery",
+            "LowDivergenceProjection-transcript_recovery",
             {
               feature_id => $source_transcript_stable_id,
               parent_gene_id => $gene_stable_id,
@@ -679,7 +686,7 @@ sub recover_transcripts {
         if (!$best_transcript) {
           # Log missing best transcript
           $self->{_logger}->log(
-            "transcript_recovery",
+            "LowDivergenceProjection-transcript_recovery",
             {
               feature_id => $source_transcript_stable_id,
               parent_gene_id => $gene_stable_id,
@@ -717,7 +724,7 @@ sub recover_transcripts {
           
           # Log replacing projected transcript
           $self->{_logger}->log(
-            "transcript_recovery",
+            "LowDivergenceProjection-transcript_recovery",
             {
               feature_id => $source_transcript_stable_id,
               parent_gene_id => $gene_stable_id,
@@ -745,7 +752,7 @@ sub recover_transcripts {
           
           # Log keeping projected transcript
           $self->{_logger}->log(
-            "transcript_recovery",
+            "LowDivergenceProjection-transcript_recovery",
             {
               feature_id => $source_transcript_stable_id,
               parent_gene_id => $gene_stable_id,
@@ -775,7 +782,7 @@ sub recover_transcripts {
     my $error_msg = "After recovery have ".scalar(@$final_transcripts)." transcripts, which is less than the initial amount of ".scalar(@$target_transcripts);
     
     $self->{_logger}->log(
-      "gene_recovery",
+      "LowDivergenceProjection-gene_recovery",
       {
         feature_id => $gene_stable_id,
         feature_type => "gene",
@@ -793,7 +800,7 @@ sub recover_transcripts {
 
   # Log recovery summary
   $self->{_logger}->log(
-    "gene_recovery",
+    "LowDivergenceProjection-gene_recovery",
     {
       feature_id => $gene_stable_id,
       feature_type => "gene",
@@ -915,7 +922,7 @@ sub batch_input_genes {
     # us to track which genes are linked to which anchors and to work out if 
     # edge genes are more likely to be problematic.
     $self->{_logger}->log(
-      "batch_creation",
+      "LowDivergenceProjection-batch_creation",
       {
         feature_id => "batch_" . $id,
         feature_type => "batch",
@@ -1066,7 +1073,7 @@ sub map_anchors {
     my $gene_ids = join(",", map { $_->stable_id() } @{$batch->{'genes'}});
     if ($self->{_logger}) {
       $self->{_logger}->log(
-        "anchor_mapping",
+        "LowDivergenceProjection-anchor_mapping",
         {
           feature_id => "batch_".$id, 
           feature_type => "anchor",
@@ -1092,7 +1099,7 @@ sub map_anchors {
     foreach my $gene (@{$batch->{'genes'}}) {
       if ($self->{_logger}) {
         $self->{_logger}->log(
-          "gene_anchor_status",
+          "LowDivergenceProjection-gene_anchor_status",
           {
             feature_id => $gene->stable_id(),
             feature_type => "gene",
@@ -1228,7 +1235,7 @@ sub calculate_target_regions {
 
   if ($self->{_logger}) {
     $self->{_logger}->log(
-      "anchor_evaluation",
+      "LowDivergenceProjection-anchor_evaluation",
       {
         feature_id => "batch_" . (defined $batch->{'id'} ? $batch->{'id'} : "unknown"),
         feature_type => "anchor_set",
@@ -1265,7 +1272,7 @@ sub calculate_target_regions {
     # Log using full anchor set
     if ($self->{_logger}) {
       $self->{_logger}->log(
-        "anchor_strategy",
+        "LowDivergenceProjection-anchor_strategy",
         {
           feature_id => "batch_" . (defined $batch->{'id'} ? $batch->{'id'} : "unknown"),
           feature_type => "anchor_decision",
@@ -1290,7 +1297,7 @@ sub calculate_target_regions {
   # Log fallback to pairwise anchors
   if ($self->{_logger}) {
     $self->{_logger}->log(
-      "anchor_strategy",
+      "LowDivergenceProjection-anchor_strategy",
       {
         feature_id => "batch_" . (defined $batch->{'id'} ? $batch->{'id'} : "unknown"),
         feature_type => "anchor_decision",
@@ -1326,7 +1333,7 @@ sub calculate_target_regions {
     # Log pairwise anchor set used
     if ($self->{_logger}) {
       $self->{_logger}->log(
-        "anchor_strategy",
+        "LowDivergenceProjection-anchor_strategy",
         {
           feature_id => "batch_" . (defined $batch->{'id'} ? $batch->{'id'} : "unknown"),
           feature_type => "anchor_decision",
@@ -1350,7 +1357,7 @@ sub calculate_target_regions {
   # Log failure to find any suitable anchor sets
   if ($self->{_logger}) {
     $self->{_logger}->log(
-      "anchor_strategy",
+      "LowDivergenceProjection-anchor_strategy",
       {
         feature_id => "batch_" . (defined $batch->{'id'} ? $batch->{'id'} : "unknown"),
         feature_type => "anchor_decision",
@@ -1460,7 +1467,7 @@ sub get_best_anchor_sets {
   # Log the starting conditions for anchor selection
   if ($self->{_logger}) {
     $self->{_logger}->log(
-      "anchor_set_evaluation",
+      "LowDivergenceProjection-anchor_set_evaluation",
       {
         feature_type => "anchor",
         status => "started",
@@ -1616,7 +1623,7 @@ sub get_best_anchor_sets {
         # Log individual promising anchor sets (sample only a subset to avoid excessive logging)
         if ($self->{_logger} && $current_issue_tracker <= 2 && ($evaluation_stats->{accepted_combinations} % 5 == 0)) {
           $self->{_logger}->log(
-            "anchor_candidate",
+            "LowDivergenceProjection-anchor_candidate",
             {
               feature_type => "anchor",
               status => "evaluated",
@@ -1665,7 +1672,7 @@ sub get_best_anchor_sets {
   # Log the results of the combination evaluations
   if ($self->{_logger}) {
     $self->{_logger}->log(
-      "anchor_evaluation_summary",
+      "LowDivergenceProjection-anchor_evaluation_summary",
       {
         feature_type => "anchor",
         status => "evaluated",
@@ -1730,7 +1737,7 @@ sub get_best_anchor_sets {
     }
     
     $self->{_logger}->log(
-      "anchor_selection",
+      "LowDivergenceProjection-anchor_selection",
       {
         feature_type => "anchor",
         status => "selected",
@@ -1899,7 +1906,7 @@ sub project_batch_genes {
   # Log start of projection process
   if ($self->{_logger}) {
     $self->{_logger}->log(
-      "batch_projection_status",
+      "LowDivergenceProjection-batch_projection_status",
       {
         feature_type => "projection",
         status => "started",
@@ -1917,7 +1924,7 @@ sub project_batch_genes {
     # Log batch projection start
     if ($self->{_logger}) {
       $self->{_logger}->log(
-        "batch_projection_status",
+        "LowDivergenceProjection-batch_projection_status",
         {
           feature_id => "batch_" . $id,
           feature_type => "batch",
@@ -1935,7 +1942,7 @@ sub project_batch_genes {
       # Log skipped batch
       if ($self->{_logger}) {
         $self->{_logger}->log(
-          "batch_projection",
+          "LowDivergenceProjection-batch_projection",
           {
             feature_id => "batch_" . $id,
             feature_type => "batch",
@@ -1977,7 +1984,7 @@ sub project_batch_genes {
       # Log target region processing
       if ($self->{_logger}) {
         $self->{_logger}->log(
-          "region_projection_status",
+          "LowDivergenceProjection-region_projection_status",
           {
             feature_id => "batch_" . $id . "_region_" . $target_region_name,
             feature_type => "region",
@@ -2005,7 +2012,7 @@ sub project_batch_genes {
         # Log N-rich region
         if ($self->{_logger}) {
           $self->{_logger}->log(
-            "region_projection",
+            "LowDivergenceProjection-region_projection",
             {
               feature_id => "batch_" . $id . "_region_" . $target_region_name,
               feature_type => "region",
@@ -2039,7 +2046,7 @@ sub project_batch_genes {
         # Log alignment failure
         if ($self->{_logger}) {
           $self->{_logger}->log(
-            "region_projection",
+            "LowDivergenceProjection-region_projection",
             {
               feature_id => "batch_" . $id . "_region_" . $target_region_name,
               feature_type => "region",
@@ -2057,7 +2064,7 @@ sub project_batch_genes {
         # Log successful alignment
         if ($self->{_logger}) {
           $self->{_logger}->log(
-            "region_projection",
+            "LowDivergenceProjection-region_projection",
             {
               feature_id => "batch_" . $id . "_region_" . $target_region_name,
               feature_type => "region",
@@ -2081,7 +2088,7 @@ sub project_batch_genes {
     # Log target region processing summary
     if ($self->{_logger}) {
       $self->{_logger}->log(
-        "batch_projection",
+        "LowDivergenceProjection-batch_projection",
         {
           feature_id => "batch_" . $id,
           feature_type => "batch",
@@ -2113,7 +2120,7 @@ sub project_batch_genes {
     # Log batch genes built
     if ($self->{_logger}) {
       $self->{_logger}->log(
-        "batch_projection",
+        "LowDivergenceProjection-batch_projection",
         {
           feature_id => "batch_" . $id,
           feature_type => "batch",
@@ -2141,7 +2148,7 @@ sub project_batch_genes {
   # Log projection summary
   if ($self->{_logger}) {
     $self->{_logger}->log(
-      "batch_projection",
+      "LowDivergenceProjection-batch_projection",
       {
         feature_type => "projection",
         status => "completed",
@@ -2171,7 +2178,7 @@ sub build_batch_genes {
     my $batch_id = $batch->{batch_id} || "unknown";
     my $source_genes_count = scalar(@$batch_source_genes);
     $self->{_logger}->log(
-      "build_batch_genes_status",
+      "LowDivergenceProjection-build_batch_genes_status",
       {
         feature_type => "batch_build",
         status => "started",
@@ -2209,7 +2216,7 @@ sub build_batch_genes {
     # Log target region processing with available info
     if ($self->{_logger}) {
       $self->{_logger}->log(
-        "build_batch_genes_status",
+        "LowDivergenceProjection-build_batch_genes_status",
         {
           feature_type => "region_build",
           status => "processing",
@@ -2236,7 +2243,7 @@ sub build_batch_genes {
       # Log gene projection attempt
       if ($self->{_logger}) {
         $self->{_logger}->log(
-          "build_batch_genes",
+          "LowDivergenceProjection-build_batch_genes",
           {
             feature_type => "gene",
             status => "projecting",
@@ -2261,7 +2268,7 @@ sub build_batch_genes {
       if ($self->{_logger}) {
         my $exon_count = scalar(@$exons);
         $self->{_logger}->log(
-          "build_batch_genes",
+          "LowDivergenceProjection-build_batch_genes",
           {
             feature_type => "exons",
             status => "projecting",
@@ -2308,7 +2315,7 @@ sub build_batch_genes {
           # Log failed exon projection
           if ($self->{_logger}) {
             $self->{_logger}->log(
-              "build_batch_genes",
+              "LowDivergenceProjection-build_batch_genes",
               {
                 feature_type => "exon",
                 status => "failed",
@@ -2330,7 +2337,7 @@ sub build_batch_genes {
         my $exon_count = scalar(@$exons);
         my $success_rate = $exon_count > 0 ? sprintf("%.2f", ($exon_success_count/$exon_count)*100) : "0.00";
         $self->{_logger}->log(
-          "build_batch_genes",
+          "LowDivergenceProjection-build_batch_genes",
           {
             feature_type => "exons",
             status => "completed",
@@ -2368,7 +2375,7 @@ sub build_batch_genes {
       if ($self->{_logger}) {
         my $transcript_count = scalar(@$source_transcripts);
         $self->{_logger}->log(
-          "build_batch_genes",
+          "LowDivergenceProjection-build_batch_genes",
           {
             feature_type => "transcripts",
             status => "reconstructing",
@@ -2411,7 +2418,7 @@ sub build_batch_genes {
             if ($self->{_logger}) {
               my $cds_length = $projected_transcript->cdna_coding_end()-$projected_transcript->cdna_coding_start()+1;
               $self->{_logger}->log(
-                "build_batch_genes",
+                "LowDivergenceProjection-build_batch_genes",
                 {
                   feature_type => "transcript",
                   status => "rejected",
@@ -2434,7 +2441,7 @@ sub build_batch_genes {
             # Log missing translation
             if ($self->{_logger}) {
               $self->{_logger}->log(
-                "build_batch_genes",
+                "LowDivergenceProjection-build_batch_genes",
                 {
                   feature_type => "transcript",
                   status => "rejected",
@@ -2458,7 +2465,7 @@ sub build_batch_genes {
               my $coverage = defined $projected_transcript->{'cov'} ? $projected_transcript->{'cov'} : "unknown";
               my $percent_id = defined $projected_transcript->{'perc_id'} ? $projected_transcript->{'perc_id'} : "unknown";
               $self->{_logger}->log(
-                "build_batch_genes",
+                "LowDivergenceProjection-build_batch_genes",
                 {
                   feature_type => "transcript",
                   status => "added",
@@ -2483,7 +2490,7 @@ sub build_batch_genes {
           # Log transcript reconstruction failure
           if ($self->{_logger}) {
             $self->{_logger}->log(
-              "build_batch_genes",
+              "LowDivergenceProjection-build_batch_genes",
               {
                 feature_type => "transcript",
                 status => "failed",
@@ -2503,7 +2510,7 @@ sub build_batch_genes {
         my $transcript_count = scalar(@$source_transcripts);
         my $transcripts_added = $target_gene->get_all_Transcripts() ? scalar(@{$target_gene->get_all_Transcripts()}) : 0;
         $self->{_logger}->log(
-          "build_batch_genes",
+          "LowDivergenceProjection-build_batch_genes",
           {
             feature_type => "transcripts",
             status => "completed",
@@ -2528,7 +2535,7 @@ sub build_batch_genes {
         # Log gene projection failure
         if ($self->{_logger}) {
           $self->{_logger}->log(
-            "build_batch_genes",
+            "LowDivergenceProjection-build_batch_genes",
             {
               feature_type => "gene",
               status => "failed",
@@ -2549,7 +2556,7 @@ sub build_batch_genes {
         # Log complete gene projection
         if ($self->{_logger}) {
           $self->{_logger}->log(
-            "build_batch_genes",
+            "LowDivergenceProjection-build_batch_genes",
             {
               feature_type => "gene",
               status => "complete",
@@ -2576,7 +2583,7 @@ sub build_batch_genes {
         if ($self->{_logger}) {
           my $transcript_count = $target_gene->get_all_Transcripts() ? scalar(@{$target_gene->get_all_Transcripts()}) : 0;
           $self->{_logger}->log(
-            "build_batch_genes",
+            "LowDivergenceProjection-build_batch_genes",
             {
               feature_type => "gene",
               status => "built",
@@ -2596,7 +2603,7 @@ sub build_batch_genes {
         # Log gene with no transcripts
         if ($self->{_logger}) {
           $self->{_logger}->log(
-            "build_batch_genes",
+            "LowDivergenceProjection-build_batch_genes",
             {
               feature_type => "gene",
               status => "rejected",
@@ -2614,7 +2621,7 @@ sub build_batch_genes {
     # Log region summary
     if ($self->{_logger}) {
       $self->{_logger}->log(
-        "build_batch_genes",
+        "LowDivergenceProjection-build_batch_genes",
         {
           feature_type => "region_build",
           status => "completed",
@@ -2633,7 +2640,7 @@ sub build_batch_genes {
     my $batch_id = $batch->{batch_id} || "unknown";
     my $source_genes_count = scalar(@$batch_source_genes);
     $self->{_logger}->log(
-      "build_batch_genes",
+      "LowDivergenceProjection-build_batch_genes",
       {
         feature_type => "batch_build",
         status => "completed",
