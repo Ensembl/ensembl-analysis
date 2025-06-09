@@ -702,7 +702,7 @@ sub recover_transcripts {
           # Keep the original projected transcript if no better alternative
           push(@$final_transcripts, $projected_transcript);
           $kept_problematic_count++;
-          continue;
+          next;
         }
         
         $best_transcript->{'is_new'} = 1;
