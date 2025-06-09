@@ -1818,27 +1818,6 @@ sub genes_by_stable_id {
 }
 
 
-sub sort_genes_by_slice {
-  my ($self,$genes) = @_;
-
-  my $genes_by_slice_hash = {};
-  foreach my $gene (@$genes) {
-    unless($genes_by_slice_hash->{$gene->seq_region_name()}) {
-      $genes_by_slice_hash->{$gene->seq_region_name()} = [];
-    }
-    push(@{$genes_by_slice_hash->{$gene->seq_region_name()}},$gene);
-  }
-
-  foreach my $slice (keys(%$genes_by_slice_hash)) {
-    my $slice_genes = $genes_by_slice_hash->{$slice};
-    my @sorted_slice_genes  = sort { $a->start <=> $b->start } @{$slice_genes};
-    $genes_by_slice_hash->{$slice} = \@sorted_slice_genes;
-  }
-
-  return($genes_by_slice_hash);
-}
-
-
 sub process_results {
   my ($self,$source_gene,$gene_genomic_seqs_hash,$target_genes) = @_;
 
@@ -2153,12 +2132,12 @@ sub process_results {
       say "Created gene: ".$gene->stable_id()." ".$gene->seq_region_name().":".$gene->seq_region_start.":".$gene->seq_region_end.":".$gene->strand();
       
       my $transcripts = $gene->get_all_Transcripts();
-      my @transcript_methods = ();
+      my @transcript_methods = ();  # FIXED: fresh array for each gene
       foreach my $transcript (@$transcripts) {
         say "  Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->strand();
         my $updated_description = $transcript->description().";annotation_method=".$transcript->{'annotation_method'};
         $transcript->description($updated_description);
-        push @$transcript_methods, $transcript->{'annotation_method'};
+        push @transcript_methods, $transcript->{'annotation_method'};
       }
 
       # Log gene boundaries and method provenance
@@ -2176,11 +2155,11 @@ sub process_results {
               boundary_strand => $gene->strand(),
               boundary_determination_method => 'cluster_based_gene_creation',
               transcript_count => scalar(@$transcripts),
-              mapping_methods_used => $transcript_methods,
+              mapping_methods_used => \@transcript_methods,  # FIXED: reference to array
               cluster_status => $cluster->{'status'},
               source_gene_location => $source_gene->seq_region_name.":".$source_gene->start."-".$source_gene->end."(".$source_gene->strand.")"
             },
-            message => "Gene boundaries established from " . $cluster->{'status'} . " cluster using methods: " . join(',', @$transcript_methods)
+            message => "Gene boundaries established from " . $cluster->{'status'} . " cluster using methods: " . join(',', @transcript_methods)
           }
         );
       }
@@ -2643,6 +2622,7 @@ sub project_cds {
   my ($self,$transcript,$source_transcript) = @_;
 
   my $source_transcript_id = $source_transcript->stable_id();
+  my $frameshift_correction_attempted = 0;  # FIXED: Declare at subroutine level
 
   # Check for required alignment data
   my $aligned_source_seq = $transcript->{'aligned_source_seq'};
@@ -2666,7 +2646,7 @@ sub project_cds {
     }
     $self->throw("Issue fetching alignment for transcript with stable_id ".$source_transcript->stable_id().", expected target transcript to have the alignment stored on it");
   }
-
+  
   my $source_seq = $aligned_source_seq;
   $source_seq =~ s/\-//g;
   my $target_seq = $aligned_target_seq;
