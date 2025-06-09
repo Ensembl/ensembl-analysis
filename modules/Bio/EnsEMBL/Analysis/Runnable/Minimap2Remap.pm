@@ -1676,6 +1676,26 @@ sub set_neighbourhood_score {
 }
 
 
+sub sort_genes_by_slice {
+  my ($self,$genes) = @_;
+
+  my $genes_by_slice_hash = {};
+  foreach my $gene (@$genes) {
+    unless($genes_by_slice_hash->{$gene->seq_region_name()}) {
+      $genes_by_slice_hash->{$gene->seq_region_name()} = [];
+    }
+    push(@{$genes_by_slice_hash->{$gene->seq_region_name()}},$gene);
+  }
+
+  foreach my $slice (keys(%$genes_by_slice_hash)) {
+    my $slice_genes = $genes_by_slice_hash->{$slice};
+    my @sorted_slice_genes  = sort { $a->start <=> $b->start } @{$slice_genes};
+    $genes_by_slice_hash->{$slice} = \@sorted_slice_genes;
+  }
+
+  return($genes_by_slice_hash);
+}
+
 sub set_closest_gene_ids {
   my ($self,$gene,$midpoint_coords_by_id) = @_;
 
