@@ -469,7 +469,7 @@ sub pipeline_analyses {
       -logic_name => 'filter_mirnas',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'source #venv_path#/bin/activate && python '.catfile($self->o('sncrna_analysis_script'), 'FilterDafs_JSON_models.py')
+        cmd => 'source #venv_path#/bin/activate && python '.catfile($self->o('sncrna_analysis_script'), 'FilterDafs_json_models.py')
           .' '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_model'))
           .' '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_scaler'))
           .' '.$self->o('ncrna_dir')
