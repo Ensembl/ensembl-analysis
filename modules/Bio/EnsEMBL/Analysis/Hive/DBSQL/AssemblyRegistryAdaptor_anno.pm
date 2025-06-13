@@ -272,7 +272,7 @@ sub fetch_gca_by_constraints {
   foreach my $level (@{$levels}) {
     my $sql;
 
-    $sql = "SELECT chain,version FROM assembly JOIN meta using(assembly_id) WHERE ".
+    $sql = "SELECT gca_chain,gca_version FROM assembly JOIN assembly_metrics using(assembly_id) WHERE ".
            " contig_N50 >= ? AND total_length >= ? AND assembly_level = ? AND genome_rep = ?";
 
     unless($level eq 'contig') {
@@ -332,7 +332,7 @@ sub fetch_species_name_by_gca {
 
   my ($chain,$version) = $self->split_gca($chain_version);
 
-  my $sql = "SELECT species_id FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT species_taxon_id FROM species JOIN assembly a USING(lowest_taxon_id) WHERE gca_chain=? and gca_version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
@@ -343,7 +343,7 @@ sub fetch_species_name_by_gca {
     $self->throw("Could not find species id for assembly with chain ".$chain." and version ".$version);
   }
 
-  $sql = "SELECT species_name FROM species_space_log WHERE species_id=?";
+  $sql = "SELECT scientific_name FROM species WHERE species_taxon_id=?";
   $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$species_id);
   $sth->execute();
@@ -363,7 +363,7 @@ sub fetch_assembly_name_by_gca {
 
   my ($chain,$version) = $self->split_gca($chain_version);
 
-  my $sql = "SELECT assembly_id FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT assembly_id FROM assembly WHERE gca_chain=? and gca_version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
@@ -374,7 +374,7 @@ sub fetch_assembly_name_by_gca {
     $self->throw("Could not find assembly id for assembly with chain ".$chain." and version ".$version);
   }
 
-  $sql = "SELECT assembly_name FROM meta WHERE assembly_id=?";
+  $sql = "SELECT asm_name FROM assembly WHERE assembly_id=?";
   $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$assembly_id);
   $sth->execute();
@@ -394,7 +394,7 @@ sub fetch_stable_id_prefix_by_gca {
 
   my ($chain,$version) = $self->split_gca($chain_version);
 
-  my $sql = "SELECT species_prefix FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT species_prefix FROM species JOIN assembly a USING(lowest_taxon_id) WHERE gca_chain=? and gca_version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
@@ -416,7 +416,7 @@ sub fetch_stable_id_start_by_gca {
   my ($self,$chain_version,$type) = @_;
   my ($chain,$version) = $self->split_gca($chain_version);
 
-  my $sql = "SELECT stable_id_space_id FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT stable_space_id FROM assembly WHERE gca_chain=? and gca_version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
@@ -427,7 +427,7 @@ sub fetch_stable_id_start_by_gca {
     $self->throw("Could not find stable id space for assembly with chain ".$chain." and version ".$version);
   }
 
-  $sql = "SELECT stable_id_space_start FROM stable_id_space WHERE stable_id_space_id=?";
+  $sql = "SELECT stable_space_start FROM stable_space WHERE stable_space_id=?";
   $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$stable_id_space);
   $sth->execute();
@@ -447,7 +447,7 @@ sub fetch_assembly_id_by_gca {
 
   my ($chain,$version) = $self->split_gca($chain_version);
 
-  my $sql = "SELECT assembly_id FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT assembly_id FROM assembly WHERE gca_chain=? and gca_version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
@@ -461,26 +461,6 @@ sub fetch_assembly_id_by_gca {
   return($assembly_id);
 }
 
-=pod
-=head1 Description of method
-This method returns the clade of an assembly via its taxon id.
-=cut
-
-sub fetch_clade_by_taxon_id {
-  my ($self,$taxon_id,$type) = @_;
-
-  my $sql = "SELECT clade FROM assembly WHERE taxonomy=?";
-  my $sth = $self->dbc->prepare($sql);
-  $sth->bind_param(1,$taxon_id);
-  $sth->execute();
-
-  my $clade = $sth->fetchrow();
-  unless($clade) {
-    $self->throw("Could not find clade for assembly with taxon id ".$taxon_id);
-  }
-
-  return($clade);
-}
 
 =pod
 =head1 Description of method
@@ -490,7 +470,7 @@ This method returns the status of an annotation via its assembly_accession.
 sub fetch_genebuild_status_by_gca {
   my ($self,$chain_version,$type) = @_;
 
-  my $sql = "SELECT progress_status,date_started,date_completed,genebuilder,annotation_source FROM genebuild_status WHERE assembly_accession=? and is_current = ?";
+  my $sql = "SELECT gb_status,date_started,date_completed,genebuilder,annotation_source FROM genebuild WHERE gca_accession=? and last_attempt = ?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain_version);
   $sth->bind_param(2,1);

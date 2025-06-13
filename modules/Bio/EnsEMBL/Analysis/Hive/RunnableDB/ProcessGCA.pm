@@ -48,7 +48,7 @@ use strict;
 use feature 'say';
 
 use File::Spec::Functions;
-use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
+use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor_anno;
 use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name is_canonical_splice);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
@@ -277,7 +277,7 @@ sub fetch_input {
   my $assembly_group = get_bioproject_group($bioproject_id);
 
   # Get clade name from clade_settings JSON using lowest_taxon_id
-  my $clade  = get_clade_from_taxon_id($taxon_id);
+  my $clade  = get_clade_from_taxon_id($registry_dba, $taxon_id, $clade_json_path);
 
   if ( $self->param('override_clade') ) {
     $clade = $self->param('override_clade');
