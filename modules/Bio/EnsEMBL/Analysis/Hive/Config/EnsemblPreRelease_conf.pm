@@ -33,16 +33,16 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BUSCO parameters
-    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
-    'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
-    'helixer_singularity_image' => '/nfs/production/flicek/ensembl/genebuild/swati/softwares/helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif',
-    'gffread_path' => '/hps/software/users/ensembl/compara/shared/build/gffread/0.12.7/bin/gffread',
+    'busco_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco_v5.8.2_cv1.sif',
+    'busco_download_path'       => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
+    'helixer_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/helixer-docker_helixer_v0.3.5_cuda_12.2.2-cudnn8.sif',
+    'gffread_path' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
-    'dbowner'                      => 'swati' || $ENV{EHIVE_USER} || $ENV{USER},
-    'base_output_dir'              => '/hps/nobackup/flicek/ensembl/genebuild/swati/anno_fungal_annotations/',
+    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'base_output_dir'              => '',
     'init_config'               => '', #path for configuration file (custom loading)
     'override_clade'               => '', #optional, already defined in ProcessGCA
     'protein_file'                 => '', #optional, already defined in ProcessGCA
@@ -55,11 +55,11 @@ sub default_options {
     'validation_type'              => 'moderate',
     'release_number'               => '114' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => 'fungi_clade_test' || $self->o('production_name') . $self->o('production_name_modifier'),
+    'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
-    'password'                     => 'ensembl',                                                                                                                # password for write db user
-    'server_set'                   => 'set1',                                                                                                                # What server set to user, e.g. set1
+    'password'                     => '',                                                                                                                # password for write db user
+    'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
     'taxon_id'                     => '', #optional, already defined in ProcessGCA, should be in the assembly report file
@@ -478,29 +478,44 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '1GB',
       -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short' ,
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short -l 500' ,
         
       },
         -flow_into => {
-        1 => ['check_sr_file'],
+        1 => ['download_genus_rnaseq_csv'],
       },
     },
   
-
-  {
-     -logic_name => 'check_sr_file',
-     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-     -rc_name => 'default',
-     -parameters => {
-                cmd => 'if [ -s "#rnaseq_summary_file#" ]; then exit 0; else exit 42;fi',
-                return_codes_2_branches => { '42' => 2 },
+    {
+      -logic_name => 'download_genus_rnaseq_csv',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '1GB',
+      -parameters => {
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 250' ,
        },
-         -flow_into => {
-            1 => ['create_sr_fastq_download_jobs'],  # flow if file_columns has values
-            2 => ['download_long_read_csv'],         # fallback if empty
+      -flow_into => {
+        '1->A' => WHEN(
+	    # if rnaseq_summary_file has at least 20 lines, i.e. 10 runs (2 read files per run) 
+	    '[ $(wc -l < "#rnaseq_summary_file#") -ge 20 ]' => {'fan_short_read_download' => {'inputfile'  => '#rnaseq_summary_file#','input_dir'  => '#short_read_dir#',},},
+	    # if rnaseq_summary_file has less than 20 lines BUT rnaseq_summary_file_genus has at least 10 lines, i.e. 5 runs, use that
+	    '[ $(wc -l < "#rnaseq_summary_file#") -lt 20 ] && [ $(wc -l < "#rnaseq_summary_file_genus#") -ge 10 ]' => {'fan_short_read_download' => {'inputfile'  => '#rnaseq_summary_file_genus#','input_dir'  => '#short_read_dir#',},}
+	    ),
+        'A->1' => ['download_long_read_csv'],
       },
-   },
-  
+    },
+      
+    {
+      -logic_name => 'fan_short_read_download',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd                     => 'if [ -s "#inputfile#" ]; then exit 0; else exit 42;fi',
+        return_codes_2_branches => { '42' => 2 },
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+	1 => { 'create_sr_fastq_download_jobs' => { 'inputfile' => '#inputfile#', 'input_dir' => '#input_dir#' } },
+      },
+    },
       
     {
       -logic_name => 'create_sr_fastq_download_jobs',
@@ -535,13 +550,6 @@ sub pipeline_analyses {
       -rc_name    => '1GB',
       -parameters => {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #long_read_summary_file# --read_type long' ,
-        # This is specifically for gbiab, as taxon_id is populated in the input id with
-        # the actual taxon, had to add some code override. Definitely better solutions available,
-        # one might be to just branch this off and then only pass the genus taxon id
-        #override_taxon_id => 1,
-        #taxon_id          => '#genus_taxon_id#',
-        #read_type         => 'isoseq',
-        #inputfile         => '#long_read_summary_file#',
       },
 
       -flow_into => {
@@ -887,7 +895,7 @@ sub pipeline_analyses {
       -parameters => {
 	cmd => 'mkdir -p #output_path#/helixer;' .
 	  'singularity exec --nv '.  $self->o ('helixer_singularity_image') .  ' bash -c "'. 
-	  'export PATH=\$PATH:/nfs/production/flicek/ensembl/genebuild/swati/softwares/HelixerPost/target/release/ && '. 
+	  'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && '. 
 	  'Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage fungi --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#.gff3";' .
 	  $self->o('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
           $self->o ('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -y #output_path#/helixer/helixer_proteins.fa;',  
@@ -1363,10 +1371,58 @@ sub pipeline_analyses {
 	      -max_retry_count => 1,
 	      -hive_capacity   => 50,
 	      -rc_name => '50GB',
-	      -flow_into       => { 1 => ['update_assembly_registry_status'], }
+	      -flow_into       => { 1 => ['load_genome_busco_into_core'], }
       },
 
-      
+    {
+        -logic_name => 'load_genome_busco_into_core',
+          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+          -parameters => {
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics','busco_metakeys_patch.py' ) .
+           ' -db #core_dbname# -host ' .  $self->o('dna_db_server') . 
+           ' -port ' . $self->o('dna_db_port') . 
+           ' -user ' . $self->o('user') . 
+           ' -password ' . $self->o('password') . 
+           ' -assembly_id #assembly_id#' .
+           ' -file #output_path#/busco_core_genome_mode_output/#species_strain_group#_genome_busco_short_summary.txt ' .
+           ' -output_dir #output_path#/busco_core_genome_mode_output/ -run_query true',
+    
+    },
+         -rc_name => 'default',
+         -flow_into       => { 1 => ['load_protein_busco_into_core'], },
+    }, 
+    {
+        -logic_name => 'load_protein_busco_into_core',
+          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+          -parameters => {
+          cmd => 'python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics','busco_metakeys_patch.py' ) .
+           ' -db #core_dbname# -host ' .  $self->o('dna_db_server') .
+           ' -port ' . $self->o('dna_db_port') .
+           ' -user ' . $self->o('user') .
+           ' -password ' . $self->o('password') .
+           ' -assembly_id #assembly_id#' .
+           ' -file #output_path#/busco_core_protein_mode_output/#species_strain_group#_busco_short_summary.txt ' .
+           ' -output_dir #output_path#/busco_core_protein_mode_output/ -run_query true',
+
+    },
+         -rc_name => 'default',
+         -flow_into       => { 1 => ['check_busco_score'], },
+    },
+    {
+        -logic_name => 'check_busco_score',
+          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+          -parameters => {
+          cmd => 'if python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
+          ' --genome #output_path#/busco_core_genome_mode_output/#core_dbname#_busco_genome_metakey.json ' .
+          ' --protein #output_path#/busco_core_protein_mode_output/#core_dbname#_busco_protein_metakey.json' . '; then exit 0; else exit 42; fi',
+        return_codes_2_branches => { '42' => 2 },
+    },
+         -rc_name => 'default',
+         -flow_into  => {
+              1 => 'backbone_job_pipeline',
+              0 => 'update_registry_as_check',
+    }
+    },
   {
     -logic_name => 'update_assembly_registry_status',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
