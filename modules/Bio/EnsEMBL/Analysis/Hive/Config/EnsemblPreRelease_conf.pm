@@ -458,24 +458,13 @@ sub pipeline_analyses {
       -rc_name => 'default',
 
       -flow_into => {
-        1 => ['update_annotation_tracking_started'],
+        1 => ['download_rnaseq_csv'],
       },
       -analysis_capacity => 1,
       -input_ids         => [
         #{'assembly_accession' => 'GCA_910591885.1'},
 	  ],
     },
-    
-      {#we need to insert the script or command to update the annotation tracking in the new assembly registry
-	  -logic_name => 'update_annotation_tracking_started',
-          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-	  -parameters => {
-		cmd => 'echo update command goes here',
-	},
-            -rc_name => 'default',
-	    -flow_into       => { 1 => ['download_rnaseq_csv'], },
-	},
-
     {
       -logic_name => 'download_rnaseq_csv',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1426,72 +1415,7 @@ sub pipeline_analyses {
               0 => 'update_registry_as_check',
     }
     },
-  {
-    -logic_name => 'update_assembly_registry_status',
-    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-	cmd => 'perl ' . $self->o('registry_status_update_script') .
-	    ' -user ' . $self->o('user') .
-	    ' -pass ' . $self->o('password') .
-	    ' -assembly_accession ' . '#assembly_accession#' .
-	    ' -registry_host ' . $self->o('registry_db_server') .
-	    ' -registry_port ' . $self->o('registry_db_port') .
-	    ' -registry_db ' . $self->o('registry_db_name'),
-    },
-	-rc_name => 'default',
-	-flow_into       => { 1 => ['update_annotation_tracking_complete'], },
-  },
 
-  {
-    #we need to insert the script or command to update the annotation tracking in the new assembly registry
-     # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
-     # to something like 'to be checked' or 'pre-released'
-  -logic_name => 'update_annotation_tracking_complete',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-    cmd => 'echo update command goes here',
-        },
-      -rc_name => 'default',
-      -flow_into       => { 1 => ['delete_short_reads'], },
-    },
-    
-    {
-    -logic_name => 'delete_short_reads',
-    -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-      cmd => 'if [ -f ' . '#short_read_dir#' . '/*.gz ]; then rm ' . '#short_read_dir#' . '/*.gz; fi',
-    },
-    -rc_name => 'default',
-    -flow_into       => { 1 => ['delete_long_reads'], },
-    },
-    {
-    -logic_name => 'delete_long_reads',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
-      },
-      -rc_name => 'default',
-      -flow_into       => { 1 => ['busco_check'], },
-    },
-    {
-    #we need to insert the script or command to update the annotation tracking in the new assembly registry
-    # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
-    # to something like 'to be checked' or 'pre-released'
-    -logic_name => 'busco_check',
-    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-      cmd => 'echo ',
-      threshold => $self->o('busco_threshold'),
-    },
-    -rc_name    => 'default',
-    -flow_into  => {
-      # maybe we need to parse this with a different analysis and for this to be a dummy only working on this
-      1 => WHEN(
-        '#some_parameter# >= #threshold#' => [ 'backbone_job_pipeline' ],
-        '#some_parameter# < #threshold#'  => [ 'update_registry_as_check' ],
-      ), # furthermore, we can make it so that the script "fails" if the busco check fails, and then redirect channel "-2" to update_registry_as_check, and normal channel "1" to backbone_job_pipeline
-    },
-  },
   {
     -logic_name => 'update_registry_as_check',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1642,11 +1566,43 @@ sub pipeline_analyses {
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters    => {
         cmd => 'echo update registry command goes here',
-      }
-  }
+      },
+      -flow_into       => { 1 => ['delete_short_reads'], },
+  },
+  #   {
+  #   -logic_name => 'update_assembly_registry_status',
+  #   -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+  #   -parameters => {
+	# cmd => 'perl ' . $self->o('registry_status_update_script') .
+	#     ' -user ' . $self->o('user') .
+	#     ' -pass ' . $self->o('password') .
+	#     ' -assembly_accession ' . '#assembly_accession#' .
+	#     ' -registry_host ' . $self->o('registry_db_server') .
+	#     ' -registry_port ' . $self->o('registry_db_port') .
+	#     ' -registry_db ' . $self->o('registry_db_name'),
+  #   },
+	# -rc_name => 'default',
+	# -flow_into       => { 1 => ['delete_short_reads'], },
+  # },
+    {
+    -logic_name => 'delete_short_reads',
+    -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      cmd => 'if [ -f ' . '#short_read_dir#' . '/*.gz ]; then rm ' . '#short_read_dir#' . '/*.gz; fi',
+    },
+    -rc_name => 'default',
+    -flow_into       => { 1 => ['delete_long_reads'], },
+    },
+    {
+    -logic_name => 'delete_long_reads',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
+      },
+      -rc_name => 'default',
+    }
   ];
 }
-
 sub resource_classes {
   my $self = shift;
 
