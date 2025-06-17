@@ -83,15 +83,17 @@ else{
  $self->throw("Could not update annotation status");
 }
 
-$sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set date_completed =? where assembly_id=? and is_current=? and annotation_source = ?");
- $sth->bind_param(1,$date);
- $sth->bind_param(2,$registry_assembly_id);
- $sth->bind_param(3,1);
- $sth->bind_param(4,'pending');
- if ($sth->execute){
- }
- else{
- $self->throw("Could not update genebuild status with date completed");
+if ($status eq 'completed') {
+    $sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set date_completed =? where assembly_id=? and is_current=? and annotation_source = ?");
+    $sth->bind_param(1,$date);
+  $sth->bind_param(2,$registry_assembly_id);
+  $sth->bind_param(3,1);
+  $sth->bind_param(4,'pending');
+  if ($sth->execute){
+  }
+  else{
+  $self->throw("Could not update genebuild status with date completed");
+  }
 }
 
 #------------------------------------------------------------------------------
