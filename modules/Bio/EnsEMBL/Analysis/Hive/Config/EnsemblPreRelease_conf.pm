@@ -1417,12 +1417,19 @@ sub pipeline_analyses {
     },
 
   {
-    -logic_name => 'update_registry_as_check',
-    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-      cmd => 'echo update command goes here',
-    },
-    -rc_name => 'default',
+      -logic_name => 'update_registry_as_check',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'perl ' . $self->o('registry_status_update_script') .
+              ' --user ' . $self->o('user') .
+              ' --pass ' . $self->o('password') .
+              ' --assembly_accession ' . '#assembly_accession#' .
+              ' --registry_host ' . $self->o('registry_db_server') .
+              ' --registry_port ' . $self->o('registry_db_port') .
+              ' --registry_db ' . $self->o('registry_db_name') .
+              ' --status "Check BUSCO"',
+      },
+      -rc_name => 'default',
   },
   {
     -logic_name     => 'backbone_job_pipeline',
@@ -1562,28 +1569,21 @@ sub pipeline_analyses {
       },
   },
   {
-      -logic_name    => 'update_registry_pre_release',
-      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters    => {
-        cmd => 'echo update registry command goes here',
+      -logic_name => 'update_registry_pre_release',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'perl ' . $self->o('registry_status_update_script') .
+              ' --user ' . $self->o('user') .
+              ' --pass ' . $self->o('password') .
+              ' --assembly_accession ' . '#assembly_accession#' .
+              ' --registry_host ' . $self->o('registry_db_server') .
+              ' --registry_port ' . $self->o('registry_db_port') .
+              ' --registry_db ' . $self->o('registry_db_name') .
+              ' --status completed', # Completed here means pre-released. 
       },
-      -flow_into       => { 1 => ['delete_short_reads'], },
+      -rc_name => '1GB',
+      -flow_into => { 1 => ['delete_short_reads'], },
   },
-  #   {
-  #   -logic_name => 'update_assembly_registry_status',
-  #   -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-  #   -parameters => {
-	# cmd => 'perl ' . $self->o('registry_status_update_script') .
-	#     ' -user ' . $self->o('user') .
-	#     ' -pass ' . $self->o('password') .
-	#     ' -assembly_accession ' . '#assembly_accession#' .
-	#     ' -registry_host ' . $self->o('registry_db_server') .
-	#     ' -registry_port ' . $self->o('registry_db_port') .
-	#     ' -registry_db ' . $self->o('registry_db_name'),
-  #   },
-	# -rc_name => 'default',
-	# -flow_into       => { 1 => ['delete_short_reads'], },
-  # },
     {
     -logic_name => 'delete_short_reads',
     -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1621,7 +1621,7 @@ sub resource_classes {
      SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
     },
     };
-    }
+}
 
 sub hive_capacity_classes {
   my $self = shift;
