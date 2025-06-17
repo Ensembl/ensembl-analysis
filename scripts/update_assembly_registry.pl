@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-# Update assembly table with annotation status once genbuild is complete pre-handover
+# Update assembly annotation status in registry database
 
 #
 
@@ -47,6 +47,7 @@ my $registry_port = '';
 my $registry_db = '';
 my $dt   = DateTime->now;   # Stores current date and time as datetime object
 my $date = $dt->ymd;
+my $status = '';
 
 GetOptions('user:s' => \$user,
            'pass:s' => \$pass,
@@ -55,7 +56,10 @@ GetOptions('user:s' => \$user,
            'registry_host:s' => \$registry_host,
            'registry_port:s' => \$registry_port,
            'registry_db:s' => \$registry_db,
+           'status:s' => \$status,
           );
+die "Error: --status parameter is required\n" unless $status;
+die "Error: --assembly_accession parameter is required\n" unless $assembly_accession;
 
 my $registry_dba = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
   -host    => $registry_host,
@@ -68,12 +72,12 @@ my $registry_dba = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdap
 my $registry_assembly_id = $registry_dba->fetch_assembly_id_by_gca($assembly_accession);
 #my $sth = $registry_dba->dbc->prepare("UPDATE assembly set annotated_status =? where assembly_id=?");
 my $sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set progress_status =? where assembly_id=? and is_current=? and annotation_source = ?");
-$sth->bind_param(1,'completed');
+$sth->bind_param(1,$status);
 $sth->bind_param(2,$registry_assembly_id);
 $sth->bind_param(3,1);
 $sth->bind_param(4,'pending');
 if ($sth->execute){
-say "Status COMPLETED";	
+say "Status updated to: $status";
 }
 else{
  $self->throw("Could not update annotation status");
@@ -106,6 +110,9 @@ Usage: perl $0 <options>
   --driver|mysqldriver
   
   --assembly_accession|gca
+
+  --status          Status to set (required)
+                    Common values: completed, in_progress, failed, running
 
   --help            This message.
 
