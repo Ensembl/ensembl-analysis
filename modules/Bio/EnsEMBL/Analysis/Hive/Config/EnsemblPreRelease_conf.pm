@@ -41,9 +41,9 @@ sub default_options {
     'cores'                        => 30,
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
-    'dbowner'                      => 'swati' || $ENV{EHIVE_USER} || $ENV{USER},
-    'base_output_dir'              => '/hps/nobackup/flicek/ensembl/genebuild/swati/anno_fungal_annotations/',
-    'init_config'               => '', #path for configuration file (custom loading)
+    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'base_output_dir'              => '',
+    'init_config'                  => '', #path for configuration file (custom loading)
     'override_clade'               => '', #optional, already defined in ProcessGCA
     'protein_file'                 => '', #optional, already defined in ProcessGCA
     'busco_protein_file'           => '', #optional, already defined in ProcessGCA
@@ -53,13 +53,13 @@ sub default_options {
     'generic_registry_file'        => '',                                                                                                                # Could use this to hold the path to ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm to copy as a generic registry
     'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
     'validation_type'              => 'moderate',
-    'release_number'               => '114' || $self->o('ensembl_release'),
+    'release_number'               => '' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => 'fungi_clade_test' || $self->o('production_name') . $self->o('production_name_modifier'),
+    'pipeline_name'                => 'test_dumps' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
     'password'                     => 'ensembl',                                                                                                                # password for write db user
-    'server_set'                   => 'set1',                                                                                                                # What server set to user, e.g. set1
+    'server_set'                   => 'set2',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
     'taxon_id'                     => '', #optional, already defined in ProcessGCA, should be in the assembly report file
@@ -90,19 +90,6 @@ sub default_options {
     # busco threshold for the analysis that checks wether produce pre-release files or not!
     'busco_threshold' => 70, # If the busco score is above this threshold, the pre-release files will be produced
 
-    #gff file dump options
-    'gt_exe'                 => 'gt',
-    'gff3_tidy'              => $self->o('gt_exe') . ' gff3 -tidy -sort -retainids -fixregionboundaries -force',
-    'gff3_validate'          => $self->o('gt_exe') . ' gff3validator',
-
-    'feature_type'           => [ 'Gene', 'Transcript', 'SimpleFeature' ], #'RepeatFeature'
-    'per_chromosome'         => 1,
-    'include_scaffold'       => 1,
-    'logic_name'             => [],
-    'db_type'                => 'core',
-    'out_file_stem'          => undef,
-    'xrefs'                  => 0,
-
 ########################
 # Pipe and ref db info
 ########################
@@ -116,7 +103,7 @@ sub default_options {
 
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
-    'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
+    'ensembl_release'      => $ENV{ENSEMBL_RELEASE} || $ENV{ENSEMBL_VERSION},     # this is the current release version on staging to be able to get the correct database
     'production_db_server' => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
@@ -130,13 +117,13 @@ sub default_options {
     frameshift_attrib_script          => catfile( $self->o('ensembl_misc_script'),     'frameshift_transcript_attribs.pl' ),
     select_canonical_script           => catfile( $self->o('ensembl_misc_script'),     'canonical_transcripts', 'select_canonical_transcripts.pl' ),
     print_protein_script_path         => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'print_translations.pl' ),
-    ensembl_gst_script                => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'pipelines' , 'gene_symbol_classifier'  ),   
+    ensembl_gst_script                => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'pipelines' , 'gene_symbol_classifier'  ),
     gst_dump_proteins_script          => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
-    gst_load_symbols_script          => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),	
+    gst_load_symbols_script          => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
     registry_status_update_script => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
     core_metadata_script     => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
-    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),	
-	
+    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),
+
 ########################
 # Extra db settings
 ########################
@@ -175,7 +162,7 @@ sub default_options {
 
     'rnaseq_summary_file'          => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '.csv' ),                                     # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus'    => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '_gen.csv' ),                                 # Set this if you have a pre-existing genus level cvs file with the expected columns
-    'long_read_dir'       => catdir( $self->o('output_path'),   'long_read' ),
+    'long_read_dir'                => catdir( $self->o('output_path'),   'long_read' ),
     'long_read_summary_file'       => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read.csv' ),                           # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_summary_file_genus' => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read_gen.csv' ),                       # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_fastq_dir'          => '' || catdir( $self->o('long_read_dir'), 'input' ),
@@ -237,13 +224,13 @@ sub default_options {
 ########################
 # db info
 ########################
-    'pipe_db_server'               => $ENV{GBS4},                                                                                                        # host for pipe db
-    'dna_db_server'                => $ENV{GBS2},                                                                                                        # host for dna db
-    'pipe_db_port'                 => $ENV{GBP4},                                                                                                        # port for pipeline host
-    'dna_db_port'                  => $ENV{GBP2},                                                                                                        # port for dna db host
+    'pipe_db_server'               => $ENV{GBS7},                                                                                                        # host for pipe db
+    'dna_db_server'                => $ENV{GBS6},                                                                                                        # host for dna db
+    'pipe_db_port'                 => $ENV{GBP7},                                                                                                        # port for pipeline host
+    'dna_db_port'                  => $ENV{GBP6},                                                                                                        # port for dna db host
     'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
-    'registry_db_name'             => 'gb_assembly_registry', 
+    'registry_db_name'             => 'gb_assembly_registry',
 
     'core_db' => {
       -dbname => $self->o('dna_db_name'),
@@ -295,7 +282,6 @@ sub default_options {
     # Extra db settings
     ########################
     num_tokens => 10,
-
   };
 }
 
@@ -1172,8 +1158,8 @@ sub pipeline_analyses {
       -rc_name   => '32GB',
       -flow_into => { 1 => ['fan_busco_output'] },
     },
-    
-     {
+
+    {
       -logic_name => 'fan_busco_output',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -1351,22 +1337,21 @@ sub pipeline_analyses {
     },
 
     {
-	  -logic_name => 'pepstats',
-	      -module     => 'Bio::EnsEMBL::Production::Pipeline::Production::PepStatsBatch',
-	      -parameters => {
-		  dbtype => 'core',
-		  species => '#production_name#',
-		  pepstats_binary => 'pepstats',
-		  tmpdir => '#output_path#',
-		  reg_conf => '#registry_file#',
-	  },
-	      -max_retry_count => 1,
-	      -hive_capacity   => 50,
-	      -rc_name => '50GB',
-	      -flow_into       => { 1 => ['update_assembly_registry_status'], }
+      -logic_name => 'pepstats',
+      -module     => 'Bio::EnsEMBL::Production::Pipeline::Production::PepStatsBatch',
+      -parameters => {
+        dbtype => 'core',
+        species => '#production_name#',
+        pepstats_binary => 'pepstats',
+        tmpdir => '#output_path#',
+        reg_conf => '#registry_file#',
       },
+      -max_retry_count => 1,
+      -hive_capacity   => 50,
+      -rc_name => '50GB',
+      -flow_into       => { 1 => ['update_assembly_registry_status'], }
+    },
 
-      
   {
     -logic_name => 'update_assembly_registry_status',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1395,7 +1380,7 @@ sub pipeline_analyses {
       -rc_name => 'default',
       -flow_into       => { 1 => ['delete_short_reads'], },
     },
-    
+
     {
     -logic_name => 'delete_short_reads',
     -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1416,7 +1401,7 @@ sub pipeline_analyses {
     },
     {
     #we need to insert the script or command to update the annotation tracking in the new assembly registry
-    # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updated 
+    # Update status to COMPLETE to indicate that the pipeline made it this far. Should be quickly updatedcd
     # to something like 'to be checked' or 'pre-released'
     -logic_name => 'busco_check',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1428,7 +1413,7 @@ sub pipeline_analyses {
     -flow_into  => {
       # maybe we need to parse this with a different analysis and for this to be a dummy only working on this
       1 => WHEN(
-        '#some_parameter# >= #threshold#' => [ 'backbone_job_pipeline' ],
+        '#some_parameter# >= #threshold#' => [ 'create_registry_file' ],
         '#some_parameter# < #threshold#'  => [ 'update_registry_as_check' ],
       ), # furthermore, we can make it so that the script "fails" if the busco check fails, and then redirect channel "-2" to update_registry_as_check, and normal channel "1" to backbone_job_pipeline
     },
@@ -1440,6 +1425,16 @@ sub pipeline_analyses {
       cmd => 'echo update command goes here',
     },
     -rc_name => 'default',
+  },
+  {
+    -logic_name => 'create_registry_file',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      'cmd'   => 'cat ' . $self->o('registry_file') . ' | head -8 > #output_path#/registry.pm; echo "' . "Bio::EnsEMBL::Registry->load_registry_from_url('mysql://ensadmin:ensembl@" . $self->o('dna_db_server') . ":" . $self->o('dna_db_port') . "/" . "#core_dbname#" . "?group=core&species=" . "#production_name#" . "');" . '" >> #output_path#/registry.pm; tail -n +9 ' . $self->o('registry_file') . ' >> #output_path#/registry.pm',
+    },
+    -flow_into => {
+      1 => ['backbone_job_pipeline'],
+    },
   },
   {
     -logic_name     => 'backbone_job_pipeline',
@@ -1467,6 +1462,7 @@ sub pipeline_analyses {
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
       -hive_capacity => 10,
+      -rc_name       => '2GB',
   },
   ### GTF
   { -logic_name      => 'gtf',
@@ -1478,7 +1474,7 @@ sub pipeline_analyses {
           gene            => $self->o('gene')
       },
       -hive_capacity => 50,
-      -rc_name       => '2GB',
+      -rc_name       => 'registry_2GB',
       -flow_into     => { '-1' => 'gtf_32GB', '1' => 'move_gtf'},
   },
 
@@ -1491,7 +1487,7 @@ sub pipeline_analyses {
           gene            => $self->o('gene')
       },
       -hive_capacity => 50,
-      -rc_name       => '32GB',
+      -rc_name       => 'registry_32GB',
       -flow_into     => 'move_gtf',
   },
 
@@ -1501,6 +1497,7 @@ sub pipeline_analyses {
       -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
       -hive_capacity => 10,
       -flow_into     => 'validate_gff3',
+      -rc_name
   },
 
 
@@ -1508,22 +1505,22 @@ sub pipeline_analyses {
   { -logic_name      => 'gff3',
       -module        => 'Bio::EnsEMBL::Production::Pipeline::GFF3::DumpFile',
       -parameters    => {
-          feature_type     => $self->o('feature_type'),
-          per_chromosome   => $self->o('per_chromosome'),
-          include_scaffold => $self->o('include_scaffold'),
-          logic_name       => $self->o('logic_name'),
-          db_type          => $self->o('db_type'),
-          abinitio         => $self->o('abinitio'),
-          gene             => $self->o('gene'),
-          out_file_stem    => $self->o('out_file_stem'),
-          xrefs            => $self->o('xrefs'),
-          base_path        => $self->o('output_path'),
-          species          => $self->o('production_name'),
-          release          => $self->o('release_number'),
+          feature_type        => $self->o('feature_type'),
+          per_chromosome      => $self->o('per_chromosome'),
+          include_scaffold    => $self->o('include_scaffold'),
+          logic_name          => $self->o('logic_name'),
+          db_type             => $self->o('db_type'),
+          abinitio            => $self->o('abinitio'),
+          gene                => $self->o('gene'),
+          out_file_stem       => $self->o('out_file_stem'),
+          xrefs               => $self->o('xrefs'),
+          registry_file_path  => '#output_path#/registry.pm',
+          species             => '#production_name#',
+          group               => 'core',
       },
-      -hive_capacity => 50,
-      -rc_name       => '2GB',
-      -flow_into     => { '-1' => 'gff3_32GB', '1' => 'tidy_gff3', },
+      -hive_capacity  => 50,
+      -rc_name        => 'registry_2GB',
+      -flow_into      => { '-1' => 'gff3_32GB', '1' => 'tidy_gff3', },
   },
 
   { -logic_name      => 'gff3_32GB',
@@ -1540,7 +1537,7 @@ sub pipeline_analyses {
           xrefs            => $self->o('xrefs'),
       },
       -hive_capacity => 50,
-      -rc_name       => '32GB',
+      -rc_name       => 'registry_32GB',
       -flow_into     => { '1' => 'tidy_gff3', },
   },
 
@@ -1551,6 +1548,7 @@ sub pipeline_analyses {
       -hive_capacity => 10,
       -batch_size    => 10,
       -flow_into     => 'move_gff3',
+      -rc_name       => '2GB',
   },
 
   {
@@ -1559,6 +1557,7 @@ sub pipeline_analyses {
       -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
       -hive_capacity => 10,
       -flow_into     => 'validate_gff3',
+      -rc_name       => '2GB',
   },
 
   {
@@ -1567,6 +1566,7 @@ sub pipeline_analyses {
       -parameters    => { cmd => $self->o('gff3_validate') . ' #out_file#', },
       -hive_capacity => 10,
       -batch_size    => 10,
+      -rc_name       => '2GB',
   },
 
   {
@@ -1578,14 +1578,16 @@ sub pipeline_analyses {
       -flow_into => {
           1 => ['update_registry_pre_release'],
       },
+      -rc_name => '2GB',
   },
   {
       -logic_name    => 'update_registry_pre_release',
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters    => {
         cmd => 'echo update registry command goes here',
-      }
-  }
+      },
+      -rc_name => '2GB',
+  },
   ];
 }
 
@@ -1594,20 +1596,30 @@ sub resource_classes {
 
   return {
     #inherit other stuff from the base class
-     %{ $self->SUPER::resource_classes() },
-     'anno'             => {
-     SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
-     },
-     
-     'helixer'       => {
-     SLURM =>  $self->slurm_resource_builder(100000, '7-00:00:00',undef, $self->default_options->{'gpu'} ),
-     },
-     
-     '32GB'           => {
-     SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
+    %{ $self->SUPER::resource_classes() },
+    'anno' => {
+      SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
     },
-    };
-    }
+    'helixer' => {
+      SLURM =>  $self->slurm_resource_builder(100000, '7-00:00:00',undef, $self->default_options->{'gpu'} ),
+    },
+    '32GB' => {
+      SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
+    },
+    'registry_2GB' => {
+      SLURM =>  [
+        $self->slurm_resource_builder(2000, '2-00:00:00',  $self->default_options->{'cores'} ),
+        ' -reg_conf #registry_file_path#',
+      ],
+    },
+    'registry_32GB' => {
+      SLURM =>  [
+        $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
+        ' -reg_conf #registry_file_path#',
+      ],
+    },
+  };
+}
 
 sub hive_capacity_classes {
   my $self = shift;
