@@ -42,7 +42,7 @@ sub default_options {
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
     'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'base_output_dir'              => '',
+    'base_output_dir'              => '/hps/nobackup/flicek/ensembl/genebuild/jackt/',
     'init_config'               => '', #path for configuration file (custom loading)
     'override_clade'               => '', #optional, already defined in ProcessGCA
     'protein_file'                 => '', #optional, already defined in ProcessGCA
@@ -58,7 +58,7 @@ sub default_options {
     'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
-    'password'                     => '',                                                                                                                # password for write db user
+    'password'                     => 'ensembl',                                                                                                                # password for write db user
     'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
@@ -246,7 +246,7 @@ sub default_options {
     'dna_db_port'                  => $ENV{GBP2},                                                                                                        # port for dna db host
     'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
-    'registry_db_name'             => 'gb_assembly_registry', 
+    'registry_db_name'             => 'gb_assembly_registry_status_test', 
 
     'core_db' => {
       -dbname => $self->o('dna_db_name'),
@@ -1619,7 +1619,48 @@ sub resource_classes {
      
      '32GB'           => {
      SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
-    },
+     },
+     
+     # Memory-based resource classes:
+     '1GB'            => {
+     SLURM =>  $self->slurm_resource_builder(1000, '1:00:00', 1),
+     },
+     '2GB'            => {
+     SLURM =>  $self->slurm_resource_builder(2000, '2:00:00', 1),
+     },
+     '3GB'            => {
+     SLURM =>  $self->slurm_resource_builder(3000, '3:00:00', 1),
+     },
+     '4GB'            => {
+     SLURM =>  $self->slurm_resource_builder(4000, '4:00:00', 1),
+     },
+     '5GB'            => {
+     SLURM =>  $self->slurm_resource_builder(5000, '5:00:00', 1),
+     },
+     '8GB'            => {
+     SLURM =>  $self->slurm_resource_builder(8000, '6:00:00', 1),
+     },
+     '10GB'           => {
+     SLURM =>  $self->slurm_resource_builder(10000, '8:00:00', 1),
+     },
+     '16GB'           => {
+     SLURM =>  $self->slurm_resource_builder(16000, '12:00:00', 1),
+     },
+     '50GB'           => {
+     SLURM =>  $self->slurm_resource_builder(50000, '24:00:00', 1),
+     },
+     'default'        => {
+     SLURM =>  $self->slurm_resource_builder(2000, '2:00:00', 1),
+     },
+     
+     'anno'             => {
+     SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00', $self->default_options->{'num_threads'} ),
+     },
+     
+     # Named resource classes:
+     'default_registry' => {
+     SLURM =>  $self->slurm_resource_builder(2000, '1:00:00', 1),
+     },
     };
 }
 
