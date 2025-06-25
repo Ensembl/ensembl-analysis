@@ -42,7 +42,7 @@ sub default_options {
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
     'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'base_output_dir'              => '',
+    'base_output_dir'              => '/hps/software/users/ensembl/genebuild/ereboperezsilva/modenv/anno_pre_release/test',
     'init_config'                  => '', #path for configuration file (custom loading)
     'override_clade'               => '', #optional, already defined in ProcessGCA
     'protein_file'                 => '', #optional, already defined in ProcessGCA
@@ -55,7 +55,7 @@ sub default_options {
     'validation_type'              => 'moderate',
     'release_number'               => '' || $self->o('ensembl_release'),
     'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => 'test_dumps' || $self->o('production_name') . $self->o('production_name_modifier'),
+    'pipeline_name'                => 'test_2_dumps' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
     'password'                     => 'ensembl',                                                                                                                # password for write db user
@@ -1514,9 +1514,10 @@ sub pipeline_analyses {
           gene                => $self->o('gene'),
           out_file_stem       => $self->o('out_file_stem'),
           xrefs               => $self->o('xrefs'),
-          registry_file_path  => '#output_path#/registry.pm',
           species             => '#production_name#',
           group               => 'core',
+          base_path           => "#output_path#",
+          release             => "#ensembl_release#",
       },
       -hive_capacity  => 50,
       -rc_name        => 'registry_2GB',
@@ -1609,13 +1610,13 @@ sub resource_classes {
     'registry_2GB' => {
       SLURM =>  [
         $self->slurm_resource_builder(2000, '2-00:00:00',  $self->default_options->{'cores'} ),
-        ' -reg_conf #registry_file_path#',
+        ' -reg_conf ' . $self->o('registry_file'),
       ],
     },
     'registry_32GB' => {
       SLURM =>  [
         $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
-        ' -reg_conf #registry_file_path#',
+        ' -reg_conf ' . $self->o('registry_file'),
       ],
     },
   };
