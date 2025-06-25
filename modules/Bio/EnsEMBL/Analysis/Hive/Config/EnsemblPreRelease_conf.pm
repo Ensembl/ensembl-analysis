@@ -1427,16 +1427,6 @@ sub pipeline_analyses {
     -rc_name => 'default',
   },
   {
-    -logic_name => 'create_registry_file',
-    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-      'cmd'   => 'cat ' . $self->o('registry_file') . ' | head -8 > #output_path#/registry.pm; echo "' . "Bio::EnsEMBL::Registry->load_registry_from_url('mysql://ensadmin:ensembl@" . $self->o('dna_db_server') . ":" . $self->o('dna_db_port') . "/" . "#core_dbname#" . "?group=core&species=" . "#production_name#" . "');" . '" >> #output_path#/registry.pm; tail -n +9 ' . $self->o('registry_file') . ' >> #output_path#/registry.pm',
-    },
-    -flow_into => {
-      1 => ['backbone_job_pipeline'],
-    },
-  },
-  {
     -logic_name     => 'backbone_job_pipeline',
     -module         => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
     -hive_capacity  => -1,
@@ -1610,13 +1600,13 @@ sub resource_classes {
     'registry_2GB' => {
       SLURM =>  [
         $self->slurm_resource_builder(2000, '2-00:00:00',  $self->default_options->{'cores'} ),
-        ' -reg_conf ' . $self->o('registry_file'),
+        ' -reg_conf ' . catfile( $self->o('base_output_dir'),"Databases.pm" )
       ],
     },
     'registry_32GB' => {
       SLURM =>  [
         $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
-        ' -reg_conf ' . $self->o('registry_file'),
+        ' -reg_conf ' . catfile( $self->o('base_output_dir'),"Databases.pm" )
       ],
     },
   };
