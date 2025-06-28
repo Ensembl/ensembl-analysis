@@ -82,11 +82,15 @@ sub default_options {
     'load_toplevel_only'        => '1',                                                                                                                  # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     'custom_toplevel_file_path' => '',                                                                                                                   # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'     => '', #no needed, it can be an option for the anno command This should be the path to a custom repeat library, leave blank if none exists
-    'base_blast_db_path'    => $ENV{BLASTDB_DIR},
+    'base_blast_db_path'        => $ENV{BLASTDB_DIR},
     'protein_entry_loc'         => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                       # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
     'softmask_logic_names' => [],
 
+    # RNA-seq file line count thresholds
+    'rnaseq_main_file_min_lines'  => 20,  # 10 runs (2 files per run)
+    'rnaseq_genus_file_min_lines' => 10,  # 5 runs (2 files per run)
+        
     # busco threshold for the analysis that checks wether produce pre-release files or not!
     'busco_threshold' => 70, # If the busco score is above this threshold, the pre-release files will be produced
 
@@ -118,6 +122,7 @@ sub default_options {
     'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('pipeline_name') . '_pipe_' . $self->o('release_number'),
     'dna_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_core_' . $self->o('release_number'),
 
+    'production_ftp_dir' => '/nfs/ftp/public/databases/ensembl/pre-release',
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE} || $ENV{ENSEMBL_VERSION},     # this is the current release version on staging to be able to get the correct database
@@ -452,10 +457,10 @@ sub pipeline_analyses {
         'override_clade'              => $self->o('override_clade'),
         'pipe_db'                     => $self->o('pipe_db'),
         'current_genebuild'           => $self->o('current_genebuild'),
-	'init_config'     =>$self->o('init_config'),
-        'assembly_accession'     =>$self->o('assembly_accession'),
-   	'repeatmodeler_library' =>$self->o('repeatmodeler_library'),
-   },
+	      'init_config'                 =>$self->o('init_config'),
+        'assembly_accession'          =>$self->o('assembly_accession'),
+   	    'repeatmodeler_library'       =>$self->o('repeatmodeler_library'),
+      },
       -rc_name => 'default',
 
       -flow_into => {
@@ -485,18 +490,34 @@ sub pipeline_analyses {
       -rc_name    => '1GB',
       -parameters => {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 250' ,
-       },
+      },
       -flow_into => {
-        '1->A' => WHEN(
-	    # if rnaseq_summary_file has at least 20 lines, i.e. 10 runs (2 read files per run) 
-	    '[ $(wc -l < "#rnaseq_summary_file#") -ge 20 ]' => {'fan_short_read_download' => {'inputfile'  => '#rnaseq_summary_file#','input_dir'  => '#short_read_dir#',},},
-	    # if rnaseq_summary_file has less than 20 lines BUT rnaseq_summary_file_genus has at least 10 lines, i.e. 5 runs, use that
-	    '[ $(wc -l < "#rnaseq_summary_file#") -lt 20 ] && [ $(wc -l < "#rnaseq_summary_file_genus#") -ge 10 ]' => {'fan_short_read_download' => {'inputfile'  => '#rnaseq_summary_file_genus#','input_dir'  => '#short_read_dir#',},}
-	    ),
+        '1->A' => ['check_rnaseq_files'],
         'A->1' => ['download_long_read_csv'],
       },
+    },  
+
+    {
+      -logic_name => 'check_rnaseq_files',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
+              'if [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ]; then exit 1; ' .
+              'elif [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ]; then exit 2; ' .
+              'else exit 3; fi',
+        return_codes_2_branches => { 
+          '1' => 1,  # Use main file (species-level)
+          '2' => 2,  # Use genus file
+          '3' => 3,  # No suitable RNA-seq data found
+        },
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        1 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
+        2 => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file_genus#', 'input_dir' => '#short_read_dir#' } },
+        # Branch 3 does not flow anywhere, effectively stopping the pipeline if no suitable data is found
+      },
     },
-      
     {
       -logic_name => 'fan_short_read_download',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -506,7 +527,7 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-	1 => { 'create_sr_fastq_download_jobs' => { 'inputfile' => '#inputfile#', 'input_dir' => '#input_dir#' } },
+	        1 => { 'create_sr_fastq_download_jobs' => { 'inputfile' => '#inputfile#', 'input_dir' => '#input_dir#' } },
       },
     },
       
@@ -531,9 +552,6 @@ sub pipeline_analyses {
         input_dir    => $self->o('input_dir'),
       },
       -analysis_capacity => 50,
-      -flow_into => {
-        1 => ['download_long_read_csv'],
-      },
     },
 
 
@@ -709,8 +727,13 @@ sub pipeline_analyses {
       -logic_name => 'check_load_meta_info',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
+        cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
+              'if [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] || [ -s "#long_read_summary_file#" ]; then exit 1; ' .
+              'else exit 2; fi',
+        return_codes_2_branches => { 
+          '1' => 1,  # Sufficient transcriptomic data - load anno meta info
+          '2' => 2,  # Insufficient transcriptomic data - load helixir meta info
+        },
       },
       -rc_name => 'default',
       -flow_into => {
@@ -718,7 +741,6 @@ sub pipeline_analyses {
         2 => ['helixer_load_meta_info'],
       },
     },
-    
     {
       # Load some meta info and seq_region_synonyms
       -logic_name => 'anno_load_meta_info',
@@ -847,16 +869,20 @@ sub pipeline_analyses {
       -logic_name => 'check_transcriptomic_data',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] ||[ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
+        cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
+              'if [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] || [ -s "#long_read_summary_file#" ]; then exit 1; ' .
+              'else exit 2; fi',
+        return_codes_2_branches => { 
+          '1' => 1,  # Sufficient transcriptomic data - use RNA-seq annotation
+          '2' => 2,  # Insufficient transcriptomic data - use softmasking annotation
+        },
       },
+      -rc_name => 'default',
       -flow_into => {
         1 => ['run_anno'],
         2 => ['run_anno_softmasking'],
       },
-      -rc_name => 'default',
     },
-
     {
       -logic_name => 'run_anno',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -882,16 +908,19 @@ sub pipeline_analyses {
         1 => ['run_helixer'],
       },
     },
+    # Helixer does not like the reheadered file and adds a leading underscore to the ID, so we use a sed to remove this prior to dumping the protien fasta
     {
       -logic_name => 'run_helixer',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	cmd => 'mkdir -p #output_path#/helixer;' .
-	  'singularity exec --nv '.  $self->o ('helixer_singularity_image') .  ' bash -c "'. 
-	  'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && '. 
-	  'Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage fungi --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#.gff3";' .
-	  $self->o('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
-          $self->o ('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -y #output_path#/helixer/helixer_proteins.fa;',  
+        cmd => 'mkdir -p #output_path#/helixer;' .
+          'singularity exec --nv '.  $self->o ('helixer_singularity_image') .  ' bash -c "'. 
+          'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && '. 
+          'Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage fungi --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3";' .
+          'sed -E \'s/(ID|Parent)=_([^;]*)/\\1=\\2/g\' #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3 > #output_path#/helixer/#assembly_accession#_#species_name#.gff3;' .
+          'rm #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3;' .
+          $self->o('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
+          $self->o ('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop -y #output_path#/helixer/helixer_proteins.fa;', 
       },
       -rc_name         => 'helixer',
       -max_retry_count => 0,
@@ -1045,19 +1074,21 @@ sub pipeline_analyses {
         1 => ['check_run_stable_ids'],
       },
     },
-
     {
       -logic_name => 'check_run_stable_ids',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
+        cmd => 'if [ -f "#output_path#/helixer/helixer.gtf" ]; then exit 2; else exit 1; fi',
+        return_codes_2_branches => { 
+          '1' => 1,  # No helixir GTF found - use anno stable IDs
+          '2' => 2,  # Helixir GTF exists - use helixir stable IDs
+        },
       },
+      -rc_name => 'default',
       -flow_into => {
         1 => ['anno_run_stable_ids'],
         2 => ['helixer_run_stable_ids'],
       },
-      -rc_name => 'default',
     },
     {
       -logic_name => 'anno_run_stable_ids',
@@ -1178,10 +1209,13 @@ sub pipeline_analyses {
       -logic_name => 'fan_busco_output',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd                     => 'if [ -s "#rnaseq_summary_file#" ] || [ -s "#long_read_summary_file#" ]; then exit 0; else  exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
+        cmd => 'if [ -f "#output_path#/helixer/helixer.gtf" ]; then exit 2; else exit 1; fi',
+        return_codes_2_branches => { 
+          '1' => 1,  # No helixir GTF - run BUSCO on anno results
+          '2' => 2,  # Helixir GTF exists - run BUSCO on helixir results
+        },
       },
-      -rc_name   => 'default',
+      -rc_name => 'default',
       -flow_into => {
         1 => ['create_busco_dirs'],
         2 => ['run_helixer_busco'],
@@ -1352,42 +1386,34 @@ sub pipeline_analyses {
     },
 
     {
-
 	  -logic_name => 'pepstats',
 	      -module     => 'Bio::EnsEMBL::Production::Pipeline::Production::PepStatsBatch',
 	      -parameters => {
-		  dbtype => 'core',
-		  species => '#production_name#',
-		  pepstats_binary => 'pepstats',
-		  tmpdir => '#output_path#',
-		  reg_conf => '#registry_file#',
-	  },
+          dbtype => 'core',
+          species => '#production_name#',
+          pepstats_binary => 'pepstats',
+          tmpdir => '#output_path#',
+          reg_conf => '#registry_file#',
+        },
 	      -max_retry_count => 1,
 	      -hive_capacity   => 50,
 	      -rc_name => '50GB',
 	      -flow_into       => { 1 => ['load_genome_busco_into_core'], }
-      },
-      -max_retry_count => 1,
-      -hive_capacity   => 50,
-      -rc_name => '50GB',
-      -flow_into       => { 1 => ['update_assembly_registry_status'], }
     },
-
     {
         -logic_name => 'load_genome_busco_into_core',
           -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
           -parameters => {
           cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics','busco_metakeys_patch.py' ) .
-           ' -db #core_dbname# -host ' .  $self->o('dna_db_server') . 
-           ' -port ' . $self->o('dna_db_port') . 
-           ' -user ' . $self->o('user') . 
-           ' -password ' . $self->o('password') . 
-           ' -assembly_id #assembly_id#' .
-           ' -file #output_path#/busco_core_genome_mode_output/#species_strain_group#_genome_busco_short_summary.txt ' .
-           ' -output_dir #output_path#/busco_core_genome_mode_output/ -run_query true',
-    
-    },
-         -rc_name => 'default',
+              ' -db #core_dbname# -host ' .  $self->o('dna_db_server') . 
+              ' -port ' . $self->o('dna_db_port') . 
+              ' -user ' . $self->o('user') . 
+              ' -password ' . $self->o('password') . 
+              # ' -assembly_id #assembly_id#' . # excluded until adoption of new registry - JT June 2025
+              ' -file #output_path#/busco_core_genome_mode_output/#species_strain_group#_genome_busco_short_summary.txt ' .
+              ' -output_dir #output_path#/busco_core_genome_mode_output/ -run_query true',
+          },
+         -rc_name         => 'default',
          -flow_into       => { 1 => ['load_protein_busco_into_core'], },
     }, 
     {
@@ -1399,7 +1425,7 @@ sub pipeline_analyses {
            ' -port ' . $self->o('dna_db_port') .
            ' -user ' . $self->o('user') .
            ' -password ' . $self->o('password') .
-           ' -assembly_id #assembly_id#' .
+          #  ' -assembly_id #assembly_id#' .  # excluded until adoption of new registry - JT June 2025
            ' -file #output_path#/busco_core_protein_mode_output/#species_strain_group#_busco_short_summary.txt ' .
            ' -output_dir #output_path#/busco_core_protein_mode_output/ -run_query true',
 
@@ -1419,7 +1445,7 @@ sub pipeline_analyses {
          -rc_name => 'default',
          -flow_into  => {
               1 => 'backbone_job_pipeline',
-              0 => 'update_registry_as_check',
+              2 => 'update_registry_as_check',
     }
     },
 
@@ -1443,28 +1469,40 @@ sub pipeline_analyses {
     -module         => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
     -hive_capacity  => -1,
     -flow_into      => {
-      '1->A'  => ['gff3','gtf','softmasked_genome_copy'],
-      'A->1'  => ['checksum_generator'],
+      '1->A'  => ['gff3','gtf', 'gzip_softmasked_fasta', 'prepare_twobit'],
+      'A->1'  => ['prepare_pre_release_ftp'],
     }
   },
   {
-    -logic_name      => 'checksum_generator',
-    -module        => 'Bio::EnsEMBL::Production::Pipeline::Common::ChksumGenerator',
-    -parameters    => {
-      dumps              => ['gff3','gtf','softmasked_genome_copy'],
-      # skip_convert_fasta => $self->o('skip_convert_fasta')
-    },
+    -logic_name      => 'prepare_pre_release_ftp',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts','genebuild','pre_release_ftp.py' ) . ' -p "#output_path#"' . ' -g "#assembly_accession#"' . ' -s "#species_name#"',
+      },
     -hive_capacity => 10,
     -flow_into => {
-      '1' => ['sync'],
+      '1' => ['rsync_ftp_release'],
     },
   },
+  
   {
-    -logic_name => 'softmasked_genome_copy',
-      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
-      -hive_capacity => 10,
-      -rc_name       => '2GB',
+    -logic_name => 'gzip_softmasked_fasta',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+        cmd => 'gzip -c ' .  catfile( '#output_path#', '#species_name#_softmasked_toplevel.fa') . ' > ' . catfile('#output_path#', '#species_name#_softmasked_toplevel.fa.gz'),
+      },
+    -hive_capacity => 10,
+    -rc_name       => '2GB',
+  },
+
+{
+    -logic_name => 'prepare_twobit',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+          cmd => 'faToTwoBit ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.fa') . ' ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.2bit') 
+      },
+    -hive_capacity => 10,
+    -rc_name       => '2GB',
   },
   ### GTF
   { -logic_name      => 'gtf',
@@ -1473,11 +1511,15 @@ sub pipeline_analyses {
           gtf_to_genepred => $self->o('gtftogenepred_exe'),
           gene_pred_check => $self->o('genepredcheck_exe'),
           abinitio        => $self->o('abinitio'),
-          gene            => $self->o('gene')
+          gene            => $self->o('gene'),
+          species             => '#production_name#',
+          group               => 'core',
+          base_path           => "#output_path#",
+          release             => "#ensembl_release#"
       },
       -hive_capacity => 50,
       -rc_name       => 'registry_2GB',
-      -flow_into     => { '-1' => 'gtf_32GB', '1' => 'move_gtf'},
+      -flow_into     => { '-1' => 'gtf_32GB'},
   },
 
   { -logic_name      => 'gtf_32GB',
@@ -1486,18 +1528,14 @@ sub pipeline_analyses {
           gtf_to_genepred => $self->o('gtftogenepred_exe'),
           gene_pred_check => $self->o('genepredcheck_exe'),
           abinitio        => $self->o('abinitio'),
-          gene            => $self->o('gene')
+          gene            => $self->o('gene'),
+          species             => '#production_name#',
+          group               => 'core',
+          base_path           => "#output_path#",
+          release             => "#ensembl_release#"
       },
       -hive_capacity => 50,
       -rc_name       => 'registry_32GB',
-      -flow_into     => 'move_gtf',
-  },
-
-  {
-      -logic_name    => 'move_gtf',
-      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
-      -hive_capacity => 10,
   },
 
 
@@ -1527,15 +1565,19 @@ sub pipeline_analyses {
   { -logic_name      => 'gff3_32GB',
       -module        => 'Bio::EnsEMBL::Production::Pipeline::GFF3::DumpFile',
       -parameters    => {
-          feature_type     => $self->o('feature_type'),
-          per_chromosome   => $self->o('per_chromosome'),
-          include_scaffold => $self->o('include_scaffold'),
-          logic_name       => $self->o('logic_name'),
-          db_type          => $self->o('db_type'),
-          abinitio         => $self->o('abinitio'),
-          gene             => $self->o('gene'),
-          out_file_stem    => $self->o('out_file_stem'),
-          xrefs            => $self->o('xrefs'),
+          feature_type        => $self->o('feature_type'),
+          per_chromosome      => $self->o('per_chromosome'),
+          include_scaffold    => $self->o('include_scaffold'),
+          logic_name          => $self->o('logic_name'),
+          db_type             => $self->o('db_type'),
+          abinitio            => $self->o('abinitio'),
+          gene                => $self->o('gene'),
+          out_file_stem       => $self->o('out_file_stem'),
+          xrefs               => $self->o('xrefs'),
+          species             => '#production_name#',
+          group               => 'core',
+          base_path           => "#output_path#",
+          release             => "#ensembl_release#",
       },
       -hive_capacity => 50,
       -rc_name       => 'registry_32GB',
@@ -1548,19 +1590,9 @@ sub pipeline_analyses {
       -parameters    => { cmd => $self->o('gff3_tidy') . ' -gzip -o #out_file#.sorted.gz #out_file#', },
       -hive_capacity => 10,
       -batch_size    => 10,
-      -flow_into     => 'move_gff3',
-      -rc_name       => '2GB',
-  },
-
-  {
-      -logic_name    => 'move_gff3',
-      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters    => { cmd => 'mv #out_file#.sorted.gz #out_file#', },
-      -hive_capacity => 10,
       -flow_into     => 'validate_gff3',
       -rc_name       => '2GB',
   },
-
   {
       -logic_name    => 'validate_gff3',
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1571,16 +1603,28 @@ sub pipeline_analyses {
   },
 
   {
-      -logic_name    => 'sync',
-      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters    => {
-          cmd => 'echo "Syncing files to the output directory with rsync"',
-      },
-      -flow_into => {
-          1 => ['update_registry_pre_release'],
-      },
-      -rc_name => '2GB',
+    -logic_name => 'rsync_ftp_release',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+        cmd => 'sudo -u genebuild rsync -ahvW #output_path#/ftp_release/ ' . $self->o('production_ftp_dir') 
+            },
+    -rc_name => 'datamover',
+    -flow_into => {
+        1 => ['set_dir_permission'],
+    },
   },
+
+  {
+    -logic_name => 'set_dir_permission',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+        cmd => "sudo -u genebuild find " . catdir($self->o('production_ftp_dir'), ucfirst($self->o('species_name'))) . " -user genebuild -exec chmod g+w {} \\;",
+    },
+    -rc_name => 'datamover',
+    -flow_into => {
+        1 => ['update_registry_pre_release'],
+    },
+  }, 
   {
       -logic_name => 'update_registry_pre_release',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1592,7 +1636,7 @@ sub pipeline_analyses {
               ' --registry_host ' . $self->o('registry_db_server') .
               ' --registry_port ' . $self->o('registry_db_port') .
               ' --registry_db ' . $self->o('registry_db_name') .
-              ' --status completed', # Completed here means pre-released. 
+              ' --status pre-released', 
       },
       -rc_name => '1GB',
       -flow_into => { 1 => ['delete_short_reads'], },
@@ -1613,7 +1657,7 @@ sub pipeline_analyses {
         cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
       },
       -rc_name => 'default',
-    }
+    },
   ];
 }
 sub resource_classes {
@@ -1630,6 +1674,9 @@ sub resource_classes {
     },
     '32GB' => {
       SLURM =>  $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
+    },
+    'datamover' => {
+      SLURM =>  $self->slurm_resource_builder(2000, '2:00:00', 1, undef, ' --partition=datamover'),
     },
     'registry_2GB' => {
       SLURM =>  [
