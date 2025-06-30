@@ -2066,6 +2066,12 @@ sub process_results {
 
     $self->set_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
     $self->qc_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
+
+    # Filter transcripts with excessive internal stops at gene level
+    my @transcript_list = values %$best_transcripts_by_id;
+    my $filtered_transcripts = $self->filter_excessive_internal_stops(\@transcript_list);
+    $best_transcripts_by_id = { map { $_->stable_id => $_ } @$filtered_transcripts };
+    
     $self->set_transcript_descriptions($best_transcripts_by_id,$source_transcript_id_hash);
 
     my $all_transcripts = $self->label_transcript_status($best_transcripts_by_id);
@@ -3096,6 +3102,88 @@ sub project_cds {
   }
 }
 
+
+sub filter_excessive_internal_stops {
+  my ($self, $gene_transcripts) = @_;
+  
+  my $threshold = 3; # if there are more than 3 internal stops, we consider it excessive
+  my (@good_transcripts, @bad_transcripts);
+  
+  # Separate transcripts by internal stop count
+  foreach my $transcript (@$gene_transcripts) {
+    my $short_intron_count = 0;
+    my $introns = $transcript->get_all_Introns();
+    foreach my $intron (@$introns) {
+      if ($intron->length == 3 || $intron->length == 6) {  # 3nt or 6nt introns from stop replacement
+        $short_intron_count++;
+      }
+    }
+
+    if ($short_intron_count <= $threshold) {
+      push @good_transcripts, $transcript;
+    } else {
+      push @bad_transcripts, { transcript => $transcript, stops => $short_intron_count };
+    }
+  }
+  
+  # Apply filtering logic
+  if (@good_transcripts) {
+    # Have good transcripts - drop the bad ones
+    if ($self->{_logger} && @bad_transcripts) {
+      my $gene_id = $gene_transcripts->[0]->stable_id || 'unknown';
+      $self->{_logger}->log(
+        "Minimap2Remap-excessive_stops_filtered",
+        {
+          feature_id => $gene_id,
+          feature_type => 'gene',
+          result => 'dropped_excessive_stops',
+          details => {
+            good_transcripts => scalar(@good_transcripts),
+            dropped_transcripts => scalar(@bad_transcripts),
+            threshold => $threshold
+          },
+          message => "Dropped " . scalar(@bad_transcripts) . " transcripts with >$threshold internal stops"
+        }
+      );
+    }
+    return \@good_transcripts;
+  } else {
+    # No good transcripts - keep the best bad one
+    if (@bad_transcripts) {
+      # Sort by ratio of length to problematic stops (higher is better)
+      my @sorted = sort { 
+        ($b->{transcript}->length / ($b->{stops} || 1)) <=> 
+        ($a->{transcript}->length / ($a->{stops} || 1))
+      } @bad_transcripts;
+      my $best = $sorted[0]->{transcript};
+      
+      if ($self->{_logger}) {
+        my $gene_id = $gene_transcripts->[0]->stable_id || 'unknown';
+        my $ratio = $sorted[0]->{transcript}->length / ($sorted[0]->{stops} || 1);
+        $self->{_logger}->log(
+          "Minimap2Remap-kept_best_poor_transcript",
+          {
+            feature_id => $gene_id,
+            feature_type => 'gene',
+            result => 'kept_least_problematic',
+            details => {
+              total_transcripts => scalar(@bad_transcripts),
+              kept_transcript_stops => $sorted[0]->{stops},
+              kept_transcript_length => $sorted[0]->{transcript}->length,
+              length_to_stops_ratio => sprintf("%.2f", $ratio),
+              threshold => $threshold
+            },
+            message => "No clean transcripts - kept best with ratio " . sprintf("%.2f", $ratio) . " (length " . $sorted[0]->{transcript}->length . " / " . $sorted[0]->{stops} . " stops)"
+          }
+        );
+      }
+      return [$best];
+    }
+    
+    # Fallback - return original list
+    return $gene_transcripts;
+  }
+}
 
 sub filter_paf_hits {
   my ($self,$gene,$paf_results) = @_;
