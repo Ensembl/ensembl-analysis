@@ -88,7 +88,7 @@ def find_reheadered_fasta(output_path: str) -> tuple[str, str]:
         FileNotFoundError: If reheadered FASTA file or its FAI index is not found
     """
     # Find FASTA file
-    fasta_pattern = os.path.join(output_path, "*_softmasked_toplevel.fa*")
+    fasta_pattern = os.path.join(output_path, "*_softmasked_toplevel.fa.gz")
     fasta_matches = glob.glob(fasta_pattern)
     if not fasta_matches:
         raise FileNotFoundError(
@@ -115,7 +115,7 @@ def find_2bit(output_path: str) -> Optional[str]:
 
 def find_annotation_files(output_path: str) -> Dict[str, Optional[str]]:
     """
-    Find GFF3 and GTF annotation files in the vertebrates directory structure.
+    Find GFF3 and GTF annotation files in the clade (vertabrates/ etc) directory structure.
 
     Args:
         output_path: Path to the base output directory
@@ -184,7 +184,7 @@ def generate_new_filename(
         str: Standardized filename
     """
     species_lower = species_name.lower()
-    new_name = f"{species_lower}_gca{gca_number}v{version}.{file_type}.gz"
+    new_name = f"{species_lower}_gca{gca_number}v{version}.{file_type}"
     return new_name
 
 
