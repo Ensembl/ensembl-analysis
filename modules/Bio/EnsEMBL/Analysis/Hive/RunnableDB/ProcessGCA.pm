@@ -312,6 +312,7 @@ sub fetch_input {
   my $rfam_accessions_file = $clade_params->{'rfam_accessions_file'};
   my $busco_group          = $clade_params->{'busco_group'};
   my $max_intron_length    = $clade_params->{'max_intron_length'};
+  my $helixer_lineage      = $clade_params->{'helixer_lineage'} || '';
 
   # Meta details
   my $species_division = $clade_params->{'species_division'};
@@ -445,6 +446,7 @@ sub fetch_input {
   $output_params->{'protein_file'}                    = $protein_file;
   $output_params->{'busco_protein_file'}              = $busco_protein_file;
   $output_params->{'busco_group'}                     = $busco_group;
+  $output_params->{'helixer_lineage'}                 = $helixer_lineage;
   $output_params->{'rfam_accessions_file'}            = $rfam_accessions_file;
   $output_params->{'anno_commandline'}                = $anno_commandline;
   $output_params->{'anno_red_commandline'}            = $anno_red_commandline;
@@ -565,7 +567,8 @@ sub get_clade_params {
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_orthodb_proteins_reheader.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblPlants',
-      $clade_params->{'busco_group'}          = 'viridiplantae_odb12',;
+      $clade_params->{'busco_group'}          = 'viridiplantae_odb12',
+      $clade_params->{'helixer_lineage'}        = 'land_plant',;
    } elsif ( $clade eq 'porifera' ) { #sponges
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/porifera_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/metazoa_orthodb_proteins.fa',
@@ -639,21 +642,24 @@ sub get_clade_params {
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/ascomycota_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblFungi',
-      $clade_params->{'busco_group'}          = 'ascomycota_odb12',;
+      $clade_params->{'busco_group'}          = 'ascomycota_odb12',
+      $clade_params->{'helixer_lineage'}      = 'fungi',;
   }elsif ( $clade eq 'basidiomycota' ) {
       $clade_params->{'max_intron_length'}    =1000;
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/fungi_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/basidiomycota_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblFungi',
-      $clade_params->{'busco_group'}          = 'basidiomycota_odb12',;
+      $clade_params->{'busco_group'}          = 'basidiomycota_odb12',
+      $clade_params->{'helixer_lineage'}      = 'fungi',;
   }elsif ( $clade eq 'mucoromycota' ) {
       $clade_params->{'max_intron_length'}    =1000;
       $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/fungi_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mucoromycota_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblFungi',
-      $clade_params->{'busco_group'}          = 'mucoromycota_odb12',;
+      $clade_params->{'busco_group'}          = 'mucoromycota_odb12',
+      $clade_params->{'helixer_lineage'}      = 'fungi',;
   }
   elsif ( $clade eq 'aves' ) {
       $clade_params->{'protein_file'} = '',
