@@ -16,7 +16,7 @@ limitations under the License.
 
 =cut
 
-package EnsemblPreRelease_conf;
+package EnsemblAnnoHelixer_conf;
 
 use strict;
 use warnings;
@@ -1470,22 +1470,22 @@ sub pipeline_analyses {
     },
     {
         -logic_name => 'check_busco_score',
-          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-          -parameters => {
-          cmd => 'if python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
-          ' --genome #output_path#/busco_core_genome_mode_output/#core_dbname#_busco_genome_metakey.json ' .
-          ' --protein #output_path#/busco_core_protein_mode_output/#core_dbname#_busco_protein_metakey.json' . 
-          ' --min_range_protein_score "#busco_lower_threshold#"' .
-          ' --max_range_protein_score "#busco_threshold#"' .
-          ' --diff_prot_gen_mode "#busco_difference_threshold#"' .
-           '; then exit 0; else exit 42; fi',
-        return_codes_2_branches => { '42' => 2 },
-    },
-         -rc_name => 'default',
-         -flow_into  => {
-              1 => 'backbone_job_pipeline',
-              2 => 'update_registry_as_check',
-    }
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+            cmd => 'if python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
+            ' --genome #output_path#/busco_core_genome_mode_output/#core_dbname#_busco_genome_metakey.json ' .
+            ' --protein #output_path#/busco_core_protein_mode_output/#core_dbname#_busco_protein_metakey.json' . 
+            ' --min_range_protein_score "' . $self->o('busco_lower_threshold') . '"' .
+            ' --max_range_protein_score "' . $self->o('busco_threshold') . '"' .
+            ' --diff_prot_gen_mode "' . $self->o('busco_difference_threshold') . '"' .
+            '; then exit 0; else exit 42; fi',
+          return_codes_2_branches => { '42' => 2 },
+        },
+        -rc_name => 'default',
+        -flow_into  => {
+            1 => 'backbone_job_pipeline',
+            2 => 'update_registry_as_check',
+        }
     },
   {
       -logic_name => 'update_registry_as_check',
