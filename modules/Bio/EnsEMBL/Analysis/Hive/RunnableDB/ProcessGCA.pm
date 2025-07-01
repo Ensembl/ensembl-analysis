@@ -55,6 +55,7 @@ sub param_defaults {
   my ($self) = @_;
 
   return {
+      %{$self->SUPER::param_defaults},  # inherit defaults from HiveBaseRunnableDB or parent
   };
 }
 
