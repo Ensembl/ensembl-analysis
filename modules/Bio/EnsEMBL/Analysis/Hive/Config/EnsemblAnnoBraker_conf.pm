@@ -207,7 +207,7 @@ sub default_options {
     'dna_db_port'                  => $ENV{GBP6},                                                                                                        # port for dna db host
     'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
-    'registry_db_name'             => 'gb_assembly_registry',
+    'registry_db_name'             => 'gb_assembly_metadata',
 
 
     'core_db' => {
