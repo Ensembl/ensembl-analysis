@@ -47,6 +47,11 @@ use warnings;
 use strict;
 use feature 'say';
 use JSON;
+use IPC::Open3;
+use File::Spec::Functions qw(catfile);
+use Symbol qw(gensym);
+use Data::Dumper;
+
 
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -67,24 +72,54 @@ p
 
 =cut
 
+
 sub run {
   my ($self) = @_;
 
-  my $python_script =  catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'start_pipeline_from_registry.py');
+  my $python_script =  catfile(
+    $self->param('enscode_root_dir'),
+    'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'start_pipeline_from_registry.py'
+  );
+
+  # Get all params as hashref - this method is not allowed :(((((((
+  my $all_param = $self->param;
+  say Dumper($all_param);  # returns a hashref of all parameters
+
+  # Encode all params to JSON
+  my $input_json = encode_json($all_param);
+  say "Input JSON to python:\n$input_json";
 
   my $cmd = "python $python_script";
-  say "Running: $cmd";
 
+  say "Running: $cmd with input JSON: $input_json";
 
-  my $json_output = `$cmd`;
-  if ($? != 0) {
-    $self->throw("Python script failed with exit code $? - output:\n$json_output");
+  my $err = gensym;  # for capturing stderr
+
+  my $pid = open3(my $in, my $out, $err, $cmd);
+
+  # Write JSON input to python stdin and close
+  print $in $input_json;
+  close $in;
+
+  # Read stdout and stderr from Python
+  my $json_output = do { local $/; <$out> };
+  my $stderr_output = do { local $/; <$err> };
+
+  waitpid($pid, 0);
+  my $exit_code = $? >> 8;
+
+  if ($exit_code != 0) {
+    $self->throw("Python script failed with exit code $exit_code\nSTDERR:\n$stderr_output\nSTDOUT:\n$json_output");
   }
 
-  # Convert JSON string to Perl hash
-  my $result_hash = decode_json($json_output);
+  my $result_hash;
+  eval {
+    $result_hash = decode_json($json_output);
+  };
+  if ($@) {
+    $self->throw("Failed to decode JSON output from Python script: $@\nOutput was:\n$json_output\nSTDERR:\n$stderr_output");
+  }
 
-  # Store results for write_output
   $self->param('output_params', $result_hash);
 
   say "Assembly Accession: " . $result_hash->{'assembly_accession'};

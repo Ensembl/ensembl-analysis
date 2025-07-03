@@ -33,6 +33,7 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BUSCO parameters
+    'clade_settings_path'     =>  catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'clade_settings.json'),
     'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
     'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
     'helixer_singularity_image' => '/nfs/production/flicek/ensembl/genebuild/swati/softwares/helixer-docker_helixer_v0.3.4_cuda_12.2.2-cudnn8.sif',
@@ -48,7 +49,7 @@ sub default_options {
     'protein_file'                 => '', #optional, already defined in ProcessGCA
     'busco_protein_file'           => '', #optional, already defined in ProcessGCA
     'rfam_accessions_file'         => '', #optional, already defined in ProcessGCA
-    'use_existing_short_read_dir'  => '', #path for esisting short read data
+    'use_existing_short_read_dir'  => 'No', #path for esisting short read data
     'registry_file'                => catfile( $self->o('enscode_root_dir'),'ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm' ), # This should be the path to the pipeline's copy of the Databases.pm registry file, core adaptors will be written to it
     'generic_registry_file'        => '',                                                                                                                # Could use this to hold the path to ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm to copy as a generic registry
     'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
@@ -81,7 +82,7 @@ sub default_options {
     # Keys for custom loading, only set/modify if that's what you're doing
     'load_toplevel_only'        => '1',                                                                                                                  # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     'custom_toplevel_file_path' => '',                                                                                                                   # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
-    'repeatmodeler_library'     => '', #no needed, it can be an option for the anno command This should be the path to a custom repeat library, leave blank if none exists
+    'repeatmodeler_library'     => 'No', #no needed, it can be an option for the anno command This should be the path to a custom repeat library
     'base_blast_db_path'    => $ENV{BLASTDB_DIR},
     'protein_entry_loc'         => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                       # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
@@ -395,8 +396,9 @@ sub pipeline_analyses {
 
     {
       # Creates a reference db for each species
-      -logic_name => 'process_gca',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::ProcessGCA',
+      -logic_name => 'process_gca_python',
+      -module     => 'ProcessGCApython',
+      -language   => 'python3',
       -parameters => {
         'num_threads'                 => $self->o('num_threads'),
         'dbowner'                     => $self->o('dbowner'),
@@ -412,6 +414,7 @@ sub pipeline_analyses {
         'override_clade'              => $self->o('override_clade'),
         'pipe_db'                     => $self->o('pipe_db'),
         'current_genebuild'           => $self->o('current_genebuild'),
+        'clade_settings_path' => $self->o('clade_settings_path'),
 	'init_config'     =>$self->o('init_config'),
         'assembly_accession'     =>$self->o('assembly_accession'),
    	'repeatmodeler_library' =>$self->o('repeatmodeler_library'),
