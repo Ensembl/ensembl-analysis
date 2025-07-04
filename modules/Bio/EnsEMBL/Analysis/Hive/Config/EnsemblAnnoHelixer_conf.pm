@@ -1537,7 +1537,7 @@ sub pipeline_analyses {
     -logic_name => 'prepare_twobit',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-          cmd => 'faToTwoBit ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.fa') . ' ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.2bit') 
+          cmd => 'faToTwoBit ' . catfile( '#output_path#', 'red_output', 'mask_output', '#species_name#_reheadered_toplevel.msk')  . ' ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.2bit') 
       },
     -hive_capacity => 10,
     -rc_name       => '2GB',
