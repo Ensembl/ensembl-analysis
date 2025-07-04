@@ -254,7 +254,7 @@ sub default_options {
     'dna_db_port'                  => $ENV{GBP6},                                                                                                        # port for dna db host
     'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
-    'registry_db_name'             => 'gb_assembly_registry_status_test',
+    'registry_db_name'             => 'gb_assembly_registry',
 
     'core_db' => {
       -dbname => $self->o('dna_db_name'),
@@ -1527,7 +1527,7 @@ sub pipeline_analyses {
     -logic_name => 'gzip_softmasked_fasta',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-        cmd => 'gzip -c ' .  catfile( '#output_path#', 'red_output', 'mask_output', '#species_name#_reheadered_toplevel.msk') . ' > ' . catfile('#output_path#', '#species_name#_softmasked_toplevel.fa.gz'),
+        cmd => 'gzip -c ' .  catfile( '#output_path#', 'red_output', 'mask_output', '#species_name#_reheadered_toplevel.msk') . ' > ' . catfile('#output_path#', '#species_name#_softmasked_toplevel.fa.gz '),
       },
     -hive_capacity => 10,
     -rc_name       => '2GB',
@@ -1537,7 +1537,7 @@ sub pipeline_analyses {
     -logic_name => 'prepare_twobit',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-          cmd => 'faToTwoBit ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.fa') . ' ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.2bit') 
+          cmd => 'faToTwoBit ' . catfile( '#output_path#', 'red_output', 'mask_output', '#species_name#_reheadered_toplevel.msk')  . ' ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.2bit') 
       },
     -hive_capacity => 10,
     -rc_name       => '2GB',
