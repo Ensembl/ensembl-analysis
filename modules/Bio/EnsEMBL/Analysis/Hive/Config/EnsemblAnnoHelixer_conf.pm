@@ -381,6 +381,7 @@ sub pipeline_wide_parameters {
     wide_ensembl_release => $self->o('ensembl_release'),
     load_toplevel_only => $self->o('load_toplevel_only'),
     skip_braker => 1, # default skip otherfeatures braker
+    override_evidence_threshold => 0, # default do not override evidence threshold
   };
 }
 
@@ -502,10 +503,12 @@ sub pipeline_analyses {
       -logic_name => 'check_rnaseq_files',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
-              'if [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ]; then exit 1; ' .
-              'elif [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ]; then exit 2; ' .
-              'else exit 3; fi',
+          cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
+                'if [ "#override_evidence_threshold#" -eq 1 ]; then ' .
+                '  if [ $MAIN_LINES -ge 1 ]; then exit 1; else exit 2; fi; ' .
+                'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ]; then exit 1; ' .
+                'elif [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ]; then exit 2; ' .
+                'else exit 3; fi',
         return_codes_2_branches => { 
           '1' => 1,  # Use main file (species-level)
           '2' => 2,  # Use genus file
@@ -574,7 +577,8 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
-              'if [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
+              'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 0; ' .
+              'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
               '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
               '[ -s "#long_read_summary_file#" ] || ' .
               '[ -n "#helixer_lineage#" ]; then exit 0; ' .
@@ -758,8 +762,8 @@ sub pipeline_analyses {
       -logic_name => 'check_load_meta_info',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
-              'if [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
+        cmd => 'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 1; ' .
+              'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
               '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
               '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
               'else exit 2; fi',
@@ -902,11 +906,11 @@ sub pipeline_analyses {
       -logic_name => 'check_transcriptomic_data',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
-              'if [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
-              '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
-              '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
-              'else exit 2; fi',
+          cmd => 'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 1; ' .
+                'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
+                '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
+                '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
+                'else exit 2; fi', 
         return_codes_2_branches => { 
           '1' => 1,  # Sufficient transcriptomic data - use RNA-seq annotation
           '2' => 2,  # Insufficient transcriptomic data - use softmasking annotation
