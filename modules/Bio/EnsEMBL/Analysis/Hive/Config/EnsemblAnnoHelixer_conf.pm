@@ -1527,7 +1527,7 @@ sub pipeline_analyses {
     -logic_name => 'gzip_softmasked_fasta',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-        cmd => 'gzip -c ' .  catfile( '#output_path#', '#species_name#_softmasked_toplevel.fa') . ' > ' . catfile('#output_path#', '#species_name#_softmasked_toplevel.fa.gz'),
+        cmd => 'gzip -c ' .  catfile( '#output_path#', 'red_output', 'mask_output', '#species_name#_reheadered_toplevel.msk') . ' > ' . catfile('#output_path#', '#species_name#_softmasked_toplevel.fa.gz'),
       },
     -hive_capacity => 10,
     -rc_name       => '2GB',
