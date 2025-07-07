@@ -4,16 +4,25 @@ use warnings;
 use JSON;
 use File::Path qw(make_path);
 use Time::HiRes qw(gettimeofday);
-
+use POSIX qw(strftime);
 
 sub new {
   my ($class, %args) = @_;
+  
+  # Generate run ID based on current datetime
+  my $run_id = $args{run_id} || $class->_generate_run_id();
+  
   my $self = bless {
-    log_dir           => $args{log_dir} || 'logs', # default log directory - should typically be analysis directory
+    log_dir           => $args{log_dir} || 'logs',
+    run_id            => $run_id,
     json              => JSON->new->utf8->canonical->pretty(0)->allow_blessed(1)->convert_blessed(1),
   }, $class;
 
   $self->{log_dir} =~ s/\/$//; # remove trailing slash if present
+  
+  # Create run-specific directory structure
+  $self->{run_dir} = "$self->{log_dir}/runs/$run_id";
+  
   $self->_initialize_directories();
 
   return $self;
@@ -25,8 +34,9 @@ sub log {
     # Add timestamp if not provided
     $data->{timestamp} ||= $self->_timestamp();
     
-    # Add stage to data
+    # Add stage and run_id to data
     $data->{stage} = $stage;
+    $data->{run_id} = $self->{run_id};
     
     # Convert to JSON
     my $json_string;
@@ -41,14 +51,35 @@ sub log {
         $json_string = $self->{json}->encode($data);
     }
     
-    # Create stage directory if needed
-    my $dir = "$self->{log_dir}/by_stage";
-    make_path($dir) unless -d $dir;
-    
-    # Write to log file
+    # Write to both run-specific and stage-specific log files
     $self->_write_to_log_file($stage, $json_string);
     
     return 1;
+}
+
+# Get the current run directory path
+sub get_run_dir {
+    my ($self) = @_;
+    return $self->{run_dir};
+}
+
+# Get the current run ID
+sub get_run_id {
+    my ($self) = @_;
+    return $self->{run_id};
+}
+
+# List all previous runs
+sub list_runs {
+    my ($self) = @_;
+    my $runs_dir = "$self->{log_dir}/runs";
+    return [] unless -d $runs_dir;
+    
+    opendir(my $dh, $runs_dir) or die "Could not open $runs_dir: $!";
+    my @runs = grep { -d "$runs_dir/$_" && $_ !~ /^\./ } readdir($dh);
+    closedir($dh);
+    
+    return [sort @runs];
 }
 
 # ## Example Call 
@@ -67,32 +98,90 @@ sub log {
 #     }
 # );
 
+# ## Example with custom run_id:
+# my $logger = Bio::EnsEMBL::Analysis::Provenance::Logger->new(
+#     log_dir => '/path/to/logs',
+#     run_id => 'manual_run_001'
+# );
 
 ###########################
 ##### Private methods #####
 ###########################
 
+sub _generate_run_id {
+    my ($class) = @_;
+    
+    # Create run ID with format: YYYYMMDD_HHMMSS_microseconds
+    my ($seconds, $microseconds) = gettimeofday();
+    my $datetime = strftime("%Y%m%d_%H%M%S", localtime($seconds));
+    my $micro_suffix = sprintf("%06d", $microseconds);
+    
+    return "${datetime}_${micro_suffix}";
+}
+
 sub _initialize_directories {
     my ($self) = @_;
     
     my $base_dir = $self->{log_dir};
+    my $run_dir = $self->{run_dir};
     
     # Create main directories
     foreach my $dir (
-        "$base_dir/by_stage",
-        "$base_dir/indexes"
+        "$base_dir/runs",
+        "$run_dir/by_stage",
+        "$run_dir/indexes",
+        "$base_dir/current" # symlink target for current run
     ) {
         eval { make_path($dir) };
         if ($@) {
             die "Could not create log directory $dir: $@";
         }
     }
+    
+    # Create/update symlink to current run
+    my $current_link = "$base_dir/current";
+    if (-l $current_link) {
+        unlink($current_link) or warn "Could not remove existing symlink: $!";
+    }
+    
+    # Create relative symlink to current run
+    my $relative_path = "runs/" . $self->{run_id};
+    symlink($relative_path, $current_link) or warn "Could not create symlink to current run: $!";
+    
+    # Write run metadata
+    $self->_write_run_metadata();
+}
+
+sub _write_run_metadata {
+    my ($self) = @_;
+    
+    my $metadata = {
+        run_id => $self->{run_id},
+        start_time => $self->_timestamp(),
+        log_dir => $self->{log_dir},
+        run_dir => $self->{run_dir},
+        perl_version => $^V ? $^V->stringify : $],
+        hostname => $ENV{HOSTNAME} || `hostname 2>/dev/null` || 'unknown',
+        user => $ENV{USER} || $ENV{USERNAME} || 'unknown',
+        working_directory => `pwd 2>/dev/null` || 'unknown'
+    };
+    
+    # Clean up newlines
+    chomp($metadata->{hostname});
+    chomp($metadata->{working_directory});
+    
+    my $metadata_file = "$self->{run_dir}/run_metadata.json";
+    my $json_string = $self->{json}->encode($metadata);
+    
+    open(my $fh, ">", $metadata_file) or die "Could not create metadata file $metadata_file: $!";
+    print $fh $json_string . "\n";
+    close($fh) or die "Could not close metadata file: $!";
 }
 
 sub _write_to_log_file {
     my ($self, $stage, $json_string) = @_;
     
-    my $file = "$self->{log_dir}/by_stage/$stage.log";
+    my $file = "$self->{run_dir}/by_stage/$stage.log";
     
     # Append to file (each line is a complete JSON object)
     open(my $fh, ">>", $file) or die "Could not open $file for appending: $!";

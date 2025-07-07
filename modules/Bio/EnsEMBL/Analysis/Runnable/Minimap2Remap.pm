@@ -1240,7 +1240,7 @@ sub set_expected_regions {
               details => {
                 left_boundary => $left_boundary,
                 right_boundary => $right_boundary,
-                target_slice => $target_slice->name,
+                target_slice => $target_slice,
                 five_prime_neighbours => [map { $_->stable_id } @$five_prime_neighbours],
                 three_prime_neighbours => [map { $_->stable_id } @$three_prime_neighbours],
               },
@@ -1837,6 +1837,26 @@ sub genes_by_stable_id {
   return($genes_by_id);
 }
 
+
+sub sort_genes_by_slice {
+  my ($self,$genes) = @_;
+
+  my $genes_by_slice_hash = {};
+  foreach my $gene (@$genes) {
+    unless($genes_by_slice_hash->{$gene->seq_region_name()}) {
+      $genes_by_slice_hash->{$gene->seq_region_name()} = [];
+    }
+    push(@{$genes_by_slice_hash->{$gene->seq_region_name()}},$gene);
+  }
+
+  foreach my $slice (keys(%$genes_by_slice_hash)) {
+    my $slice_genes = $genes_by_slice_hash->{$slice};
+    my @sorted_slice_genes  = sort { $a->start <=> $b->start } @{$slice_genes};
+    $genes_by_slice_hash->{$slice} = \@sorted_slice_genes;
+  }
+
+  return($genes_by_slice_hash);
+}
 
 sub process_results {
   my ($self,$source_gene,$gene_genomic_seqs_hash,$target_genes) = @_;
@@ -3109,20 +3129,56 @@ sub filter_excessive_internal_stops {
   my $threshold = 3; # if there are more than 3 internal stops, we consider it excessive
   my (@good_transcripts, @bad_transcripts);
   
-  # Separate transcripts by internal stop count
   foreach my $transcript (@$gene_transcripts) {
-    my $short_intron_count = 0;
+    my $stop_gap_count = 0;
     my $introns = $transcript->get_all_Introns();
     foreach my $intron (@$introns) {
-      if ($intron->length == 3 || $intron->length == 6) {  # 3nt or 6nt introns from stop replacement
-        $short_intron_count++;
+      if ($intron->length == 3 || $intron->length == 6) {  # 3nt or 6nt (eg TGATGA) introns from stop replacement
+        $stop_gap_count++;
       }
     }
 
-    if ($short_intron_count <= $threshold) {
+    #this is to taget the exact cases that throw errors in thoas loading where a 1nt exon has translation start at position 2. 
+    # We identify these by checking if the stop gap count is greater than 0 and if any exon has a length less than 3
+    # This is a heuristic to catch potential stop-replacement artifacts
+    my $has_stop_replacement_artifacts = 0;
+    if ($stop_gap_count > 0) {
+      my $exons = $transcript->get_all_Exons();
+      foreach my $exon (@$exons) {
+        if ($exon->length < 3) {
+          $has_stop_replacement_artifacts = 1;
+          last;
+        }
+      }
+    }
+    
+    # Skip transcripts with stop-replacement artifacts
+    if ($has_stop_replacement_artifacts) {
+      if ($self->{_logger}) {
+        my $gene_id = $gene_transcripts->[0]->stable_id || 'unknown';
+        $self->{_logger}->log(
+          "Minimap2Remap-stop_replacement_artifact",
+          {
+            feature_id => $gene_id,
+            feature_type => 'gene',
+            result => 'artifact_detected',
+            details => {
+              transcript_id => $transcript->stable_id,
+              stop_gap_count => $stop_gap_count,
+              reason => 'stop_replacement_artifact',
+              has_short_exon => 1
+            },
+            message => "Transcript with stop-replacement artifacts detected - skipping"
+          }
+        );
+      }
+      next; # Drop these completely
+    }
+
+    if ($stop_gap_count <= $threshold) {
       push @good_transcripts, $transcript;
     } else {
-      push @bad_transcripts, { transcript => $transcript, stops => $short_intron_count };
+      push @bad_transcripts, { transcript => $transcript, stops => $stop_gap_count };
     }
   }
   

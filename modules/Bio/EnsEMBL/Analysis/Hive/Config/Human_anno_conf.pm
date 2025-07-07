@@ -30,15 +30,15 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-    'reference_fasta'           => '',
+    'reference_fasta'           => '/hps/nobackup/flicek/ensembl/genebuild/jackt/hprc/hprc2_gb67_stop_handling/GRCh38_toplevel.fa',
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'user'                      => '', # write db user
+    'user'                      => 'ensadmin', # write db user
     'password'                  => '', # password for write db user
-    'base_output_dir'           => '', # Where to write the files to
+    'base_output_dir'           => '/hps/nobackup//flicek/ensembl/genebuild/jackt/hprc/hprc2_gb67_stop_handling', # Where to write the files to
     'registry_file'             => catfile($self->o('base_output_dir'), 'Databases.pm'), # This needs to be a standard registry with the production/meta data/taxonomy db adaptors in there
     'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('release_number'),
     'production_name'           => 'homo_sapiens' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
-    'release_number'            => '',
+    'release_number'            => '113',
     'ref_db_server'             => 'mysql-ens-genebuild-prod-5', # host for dna db
     'ref_db_port'               => '4531',
     'ref_db_name'               => 'homo_sapiens_core_113_38',
@@ -55,7 +55,7 @@ sub default_options {
     'registry_db_name'          => 'gb_assembly_registry', # name for registry db
     'species_name'              => '', # e.g. mus_musculus
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'production_name_modifier'  => '_hprc2_modenv', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'production_name_modifier'  => '_hprc2', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
     species_division            => 'EnsemblVertebrates',
     strain_type                 => 'haplotype',
     initial_release_date        => '2024-10',
