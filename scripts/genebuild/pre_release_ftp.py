@@ -116,6 +116,7 @@ def find_2bit(output_path: str) -> Optional[str]:
 def find_annotation_files(output_path: str) -> Dict[str, Optional[str]]:
     """
     Find GFF3 and GTF annotation files in the clade (vertabrates/ etc) directory structure.
+    Prioritizes main annotation files over specialized variants like abinitio.
 
     Args:
         output_path: Path to the base output directory
@@ -130,17 +131,70 @@ def find_annotation_files(output_path: str) -> Dict[str, Optional[str]]:
     gff3_pattern = os.path.join(output_path, '*', "gff3", "**", "*.gff3.gz")
     gff3_matches = glob.glob(gff3_pattern, recursive=True)
     if gff3_matches:
-        annotation_files["gff3"] = gff3_matches[0]  # Take first match
+        # Prioritize main GFF3 files over specialized variants
+        main_gff3 = _select_main_annotation_file(gff3_matches, "gff3")
+        annotation_files["gff3"] = main_gff3
 
     # Look for GTF files
     gtf_pattern = os.path.join(output_path, '*', "gtf", "**", "*.gtf.gz")
     gtf_matches = glob.glob(gtf_pattern, recursive=True)
     if gtf_matches:
-        annotation_files["gtf"] = gtf_matches[0]  # Take first match
+        # Prioritize main GTF files over specialized variants
+        main_gtf = _select_main_annotation_file(gtf_matches, "gtf")
+        annotation_files["gtf"] = main_gtf
 
     return annotation_files
 
 
+def _select_main_annotation_file(file_list: List[str], file_type: str) -> str:
+    """
+    Select the main annotation file from a list of candidates.
+    
+    Prioritizes files in this order:
+    1. Files ending with .{file_type}.gz (main annotation)
+    2. Files ending with .chr.{file_type}.gz (chromosome-level)
+    3. Any other files (avoiding abinitio, which are typically minimal)
+    
+    Args:
+        file_list: List of file paths to choose from
+        file_type: Type of file ('gtf' or 'gff3')
+    
+    Returns:
+        str: Path to the selected main annotation file
+    """
+    if not file_list:
+        raise ValueError("Empty file list provided")
+    
+    # Sort files by priority
+    main_files = []
+    chr_files = []
+    other_files = []
+    abinitio_files = []
+    
+    for filepath in file_list:
+        filename = os.path.basename(filepath)
+        
+        if 'abinitio' in filename.lower():
+            abinitio_files.append(filepath)
+        elif filename.endswith(f'.{file_type}.gz'):
+            main_files.append(filepath)
+        elif filename.endswith(f'.chr.{file_type}.gz'):
+            chr_files.append(filepath)
+        else:
+            other_files.append(filepath)
+    
+    # Return in order of preference
+    if main_files:
+        return main_files[0]
+    elif chr_files:
+        return chr_files[0]
+    elif other_files:
+        return other_files[0]
+    else:
+        # Only abinitio files found - return first one but this might not be ideal
+        return abinitio_files[0]
+    
+    
 def extract_species_from_filename(filename: str) -> str:
     """
     Extract species name from Ensembl filename format.
