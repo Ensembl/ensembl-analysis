@@ -193,8 +193,28 @@ def _select_main_annotation_file(file_list: List[str], file_type: str) -> str:
     else:
         # Only abinitio files found - return first one but this might not be ideal
         return abinitio_files[0]
+
+def is_compressed_file(filepath: str) -> bool:
+    """
+    Check if a file is actually compressed by examining its magic bytes.
     
+    Checks for gzip magic bytes (0x1f, 0x8b) at the beginning of the file.
     
+    Args:
+        filepath: Path to the file to check
+        
+    Returns:
+        bool: True if file is actually gzip compressed
+    """
+    try:
+        with open(filepath, 'rb') as f:
+            magic_bytes = f.read(2)
+            # Check for gzip magic bytes (0x1f, 0x8b)
+            return len(magic_bytes) == 2 and magic_bytes[0] == 0x1f and magic_bytes[1] == 0x8b
+    except (IOError, OSError):
+        # If we can't read the file, assume it's not compressed
+        return False    
+
 def extract_species_from_filename(filename: str) -> str:
     """
     Extract species name from Ensembl filename format.
@@ -239,6 +259,9 @@ def generate_new_filename(
     """
     species_lower = species_name.lower()
     new_name = f"{species_lower}_gca{gca_number}v{version}.{file_type}"
+
+    if is_compressed_file(original_file) and not new_name.endswith('.gz'):
+        new_name += '.gz'
     return new_name
 
 
