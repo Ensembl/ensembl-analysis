@@ -2505,6 +2505,36 @@ sub build_batch_genes {
         }
       } # end foreach my $source_transcript
       
+      my @transcript_list = @{$target_gene->get_all_Transcripts()};
+      if (@transcript_list) {
+          my $filtered_transcripts = $self->filter_excessive_internal_stops(\@transcript_list);
+          
+          # Clear existing transcripts and add filtered ones
+          $target_gene->flush_Transcripts();
+          foreach my $transcript (@$filtered_transcripts) {
+              $target_gene->add_Transcript($transcript);
+          }
+          
+          # Log filtering results
+          if ($self->{_logger}) {
+              my $original_count = scalar(@transcript_list);
+              my $filtered_count = scalar(@$filtered_transcripts);
+              $self->{_logger}->log(
+                  "LowDivergenceProjection-excessive_stops_filtering",
+                  {
+                      feature_type => "gene",
+                      status => "filtered",
+                      details => {
+                          gene_id => $gene_stable_id,
+                          original_transcript_count => $original_count,
+                          filtered_transcript_count => $filtered_count,
+                          transcripts_removed => $original_count - $filtered_count
+                      },
+                      message => "Applied excessive internal stops filter to gene $gene_stable_id: $filtered_count/$original_count transcripts retained"
+                  }
+              );
+          }
+      }
       # Log transcript reconstruction summary
       if ($self->{_logger}) {
         my $transcript_count = scalar(@$source_transcripts);

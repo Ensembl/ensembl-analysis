@@ -152,8 +152,10 @@ sub run {
     $target_genes_by_slice->{$slice->seq_region_name} = [sort {$a->start <=> $b->start} @{$slice->get_all_Genes}];
     push(@$target_genes, @{$target_genes_by_slice->{$slice->seq_region_name}});
   }
+  
   my $source_genes_by_stable_id = $self->genes_by_stable_id($source_genes);
   my $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
+
   say "Searching for missing source genes";
 
   my $missing_source_genes = $self->list_missing_genes($source_genes_by_stable_id,$target_genes_by_stable_id);
@@ -279,7 +281,7 @@ sub run {
     my $recovered_genes = $self->process_results($gene,$gene_genomic_seqs_hash,$target_genes);
     if(scalar(@$recovered_genes)) {
       foreach my $recovered_gene (@$recovered_genes) {
-        my $source_gene = ${$source_genes_by_stable_id->{$recovered_gene->stable_id()}}[0];
+        my $source_gene = $source_genes_by_stable_id->{$recovered_gene->stable_id()};
         unless($source_gene) {
           $self->throw("Couldn't find a source gene for recovered gene ".$recovered_gene->stable_id());
         }
@@ -1781,7 +1783,7 @@ sub list_missing_genes {
 
   # Log summary of missing genes
   $self->{_logger}->log(
-    "missing_gene_identification",
+    "Minimap2Remap-missing_gene_identification",
     {
       feature_type => "gene_set", 
       status => "completed",
@@ -3138,17 +3140,23 @@ sub filter_excessive_internal_stops {
       }
     }
 
-    #this is to taget the exact cases that throw errors in thoas loading where a 1nt exon has translation start at position 2. 
-    # We identify these by checking if the stop gap count is greater than 0 and if any exon has a length less than 3
-    # This is a heuristic to catch potential stop-replacement artifacts
+    # Check for invalid CDS coordinates (replaces original artifact detection)
     my $has_stop_replacement_artifacts = 0;
-    if ($stop_gap_count > 0) {
-      my $exons = $transcript->get_all_Exons();
-      foreach my $exon (@$exons) {
-        if ($exon->length < 3) {
-          $has_stop_replacement_artifacts = 1;
-          last;
-        }
+    my $artifact_reason = '';
+    
+    if ($transcript->translation) {
+      my $translation = $transcript->translation;
+      my $start_exon = $translation->start_Exon;
+      my $end_exon = $translation->end_Exon;
+      
+      # Check if CDS start/end coordinates are outside exon boundaries
+      if ($translation->start > $start_exon->length || $translation->start < 1) {
+        $has_stop_replacement_artifacts = 1;
+        $artifact_reason = 'invalid_cds_start_coordinate';
+      }
+      elsif ($translation->end > $end_exon->length || $translation->end < 1) {
+        $has_stop_replacement_artifacts = 1;
+        $artifact_reason = 'invalid_cds_end_coordinate';
       }
     }
     
@@ -3165,10 +3173,10 @@ sub filter_excessive_internal_stops {
             details => {
               transcript_id => $transcript->stable_id,
               stop_gap_count => $stop_gap_count,
-              reason => 'stop_replacement_artifact',
+              reason => $artifact_reason,
               has_short_exon => 1
             },
-            message => "Transcript with stop-replacement artifacts detected - skipping"
+            message => "Transcript with stop-replacement artifacts detected ($artifact_reason) - skipping"
           }
         );
       }
