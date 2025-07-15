@@ -296,9 +296,6 @@ sub fetch_input {
   my $core_dbname     = $self->param('dbowner') . '_' . $production_gca . '_core_' . $ensembl_release . '_1';
   $core_db_details->{'-dbname'} = $core_dbname;
 
-  my $otherfeatures_db_details = $self->param('otherfeatures_db');
-  my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $production_gca . '_otherfeatures_' . $ensembl_release . '_1';
-  $otherfeatures_db_details->{'-dbname'} = $otherfeatures_dbname;
 
   my $rnaseq_summary_file    = catfile( $short_read_dir, $production_name . '.csv' );
   my $rnaseq_summary_file_genus    = catfile( $short_read_dir, $production_name . '_gen.csv' );
@@ -388,10 +385,10 @@ sub fetch_input {
   }
 
   if ( -e $new_registry_file ) {
-    $self->create_registry_entry( $new_registry_file, $core_db_details, $otherfeatures_db_details, $production_name );
+    $self->create_registry_entry( $new_registry_file, $core_db_details, $production_name );
   } else {
     system( 'cp ' . $registry_file . ' ' . $new_registry_file );
-    $self->create_registry_entry( $new_registry_file, $core_db_details, $otherfeatures_db_details, $production_name );
+    $self->create_registry_entry( $new_registry_file, $core_db_details, $production_name );
   }
 
   #Check genebuild status of assembly unless custom loading no need to check registry
@@ -410,8 +407,6 @@ sub fetch_input {
   #Output
   $output_params->{'core_db'}                         = $core_db_details;
   $output_params->{'core_dbname'}                     = $core_dbname;
-  $output_params->{'otherfeatures_db'}                = $otherfeatures_db_details;
-  $output_params->{'otherfeatures_dbname'}            = $otherfeatures_dbname;
   $output_params->{'stable_id_start'}                 = $stable_id_start;
   $output_params->{'stable_id_prefix'}                = $stable_id_prefix;
   $output_params->{'clade'}                           = $clade;
@@ -681,7 +676,7 @@ sub get_clade_params {
 }
 
 sub create_registry_entry {
-  my ( $self, $registry_path, $core_db_details, $otherfeatures_db_details, $production_name ) = @_;
+  my ( $self, $registry_path, $core_db_details, $production_name ) = @_;
 
   unless ( -e $registry_path ) {
     $self->throw( "A registry file was not found on the path provided. Path:\n" . $registry_path );
@@ -696,15 +691,6 @@ sub create_registry_entry {
     "-species => '" . $production_name . "',\n" .
     "-group => 'core',\n" .
     ");\n";
-  my $otherfeatures_string = "Bio::EnsEMBL::DBSQL::DBAdaptor->new(\n" .
-    "-host => '" . $otherfeatures_db_details->{'-host'} . "',\n" .
-    "-port => '" . $otherfeatures_db_details->{'-port'} . "',\n" .
-    "-dbname => '" . $otherfeatures_db_details->{'-dbname'} . "',\n" .
-    "-user => '" . $otherfeatures_db_details->{'-user'} . "',\n" .
-    "-pass => '" . $otherfeatures_db_details->{'-pass'} . "',\n" .
-    "-species => '" . $production_name . "',\n" .
-    "-group => 'otherfeatures',\n" .
-    ");\n";
 
   open( my $in, '<', $registry_path )
   	or die "Can't open " . $registry_path . " for reading.\n";
@@ -717,7 +703,6 @@ sub create_registry_entry {
     print $out $line;
     if ( $line =~ /\{/ ) {
       print $out $core_string;
-      print $out $otherfeatures_string;
     }
   }
   close $out;
