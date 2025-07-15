@@ -5,6 +5,7 @@ import sys
 import pymysql
 import logging
 
+# Import path setup
 script_dir = str(Path(__file__).resolve().parents[3]/ "ensembl-genes"/ "src" / "python" / "ensembl" / "genes" / "info_from_registry")
 sys.path.append(script_dir)
 
@@ -17,132 +18,151 @@ from assign_clade_based_on_tax import (
     assign_clade_info_custom_loading,
 )
 
+# Configure logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-stdout_handler = logging.StreamHandler()
-stdout_handler.setLevel(logging.DEBUG)
-logger.addHandler(stdout_handler)
+if not logger.handlers:  # Avoid duplicate handlers
+    stdout_handler = logging.StreamHandler()
+    stdout_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    stdout_handler.setFormatter(formatter)
+    logger.addHandler(stdout_handler)
 
 
 class ProcessGCApython(BaseRunnable):
+    """Process metadata data for the annotation pipeline."""
+
     def fetch_input(self):
-        assembly_accession = self.param('assembly_accession')
-        production_gca = assembly_accession.replace('.', 'v').replace('_', '').lower()
-        print(production_gca)
+        """Fetch and prepare input data for the annotation pipeline."""
+        try:
+            assembly_accession = self.param('assembly_accession')
+            logger.info(f"Processing assembly accession: {assembly_accession}")
 
-        core_dbname = f"{self.param('dbowner')}_{production_gca}_core_{self.param('ensembl_release')}_1"
+            production_gca = assembly_accession.replace('.', 'v').replace('_', '').lower()
+            logger.debug(f"Generated production GCA: {production_gca}")
+
+            core_dbname = f"{self.param('dbowner')}_{production_gca}_core_{self.param('ensembl_release')}_1"
                  
-        # Prepare server info
-        server_info = {
-            "registry": {
-                "db_host": self.param("registry_db")["-host"],
-                "db_user": "ensro",
-                "db_port": self.param("registry_db")["-port"],
-                "db_password": ""
-            },
-            "pipeline_db": {
-                "db_host": self.param("pipe_db")["-host"],
-                "db_user": self.param("pipe_db")["-user"],
-                "db_port": self.param("pipe_db")["-port"],
-                "db_password":self.param("pipe_db")["-pass"],
-                "db_name": self.param("pipe_db")["-dbname"],
-            },
-            "core_db": {
-                "db_host": self.param("core_db")["-host"],
-                "db_user": self.param("core_db")["-user"],
-                "db_port": self.param("core_db")["-port"],
-                "db_password": self.param("core_db")["-pass"],
-                "db_name": core_dbname,
+            # Prepare server info
+            server_info = {
+                "registry": {
+                    "db_host": self.param("registry_db")["-host"],
+                    "db_user": "ensro",
+                    "db_port": self.param("registry_db")["-port"],
+                    "db_password": ""
+                },
+                "pipeline_db": {
+                    "db_host": self.param("pipe_db")["-host"],
+                    "db_user": self.param("pipe_db")["-user"],
+                    "db_port": self.param("pipe_db")["-port"],
+                    "db_password":self.param("pipe_db")["-pass"],
+                    "db_name": self.param("pipe_db")["-dbname"],
+                },
+                "core_db": {
+                    "db_host": self.param("core_db")["-host"],
+                    "db_user": self.param("core_db")["-user"],
+                    "db_port": self.param("core_db")["-port"],
+                    "db_password": self.param("core_db")["-pass"],
+                    "db_name": core_dbname,
+                }
             }
-        }
 
-        init_file = self.param("init_file")
+            # Handle custom initialization file if provided
+            init_file = self.param("init_file")
+            if init_file is not None and Path(init_file).is_file():
+                logger.info("Init file detected, checking if annotated.")
+                check_if_annotated(assembly_accession, server_info)
 
-        if init_file is not None and Path(init_file).is_file():
-            logger.info("Init file detected, checking if annotated.")
-            check_if_annotated(assembly_accession, server_info)
 
-        
-        clade_settings_path = self.param("clade_settings_path")
-        logger.debug(clade_settings_path)
+            # Add data from registry and create a dictionary
+            clade_settings_path = self.param("clade_settings_path")
+            info_dict = add_generated_data(server_info, assembly_accession, init_file, clade_settings_path, production_gca)
+            if info_dict is None:
+                raise ValueError("registry_info is None") 
 
-        # Add data from registry and create a dictionary
-        info_dict = add_generated_data(server_info, assembly_accession, init_file, clade_settings_path)
-        if info_dict is None:
-            raise ValueError("registry_info is None") 
-
-        logger.info("Added info from registry")
+            logger.info("Added metadata from the registry")
         
         
-        info_dict["core_db"] = server_info["core_db"]
-        base_output_dir = Path(self.param("base_output_dir"))
-        output_path = base_output_dir / assembly_accession
-        short_read_dir = output_path / "short_read_fastq"
+            info_dict["core_db"] = server_info["core_db"]
+            base_output_dir = Path(self.param("base_output_dir"))
+            output_path = base_output_dir / assembly_accession
+            short_read_dir = output_path / "short_read_fastq"
 
-        use_existing_dir = self.param("use_existing_short_read_dir")
+            use_existing_dir = self.param("use_existing_short_read_dir")
 
-        if use_existing_dir != "No" and os.path.isdir(use_existing_dir):
-            short_read_dir = use_existing_dir
+            if use_existing_dir != "No" and os.path.isdir(use_existing_dir):
+                short_read_dir = use_existing_dir
 
-        
-        repeatmodeler_library = self.param("repeatmodeler_library")
-        if repeatmodeler_library == "No" or not os.path.isdir(use_existing_dir):
-            repeatmodeler_library = ""
+            
+            repeatmodeler_library = self.param("repeatmodeler_library")
+            if repeatmodeler_library == "No" or not os.path.isdir(repeatmodeler_library):
+                repeatmodeler_library = ""
 
-        # Add values back to dictionary
-        info_dict.update(
-            {
-                "ensembl_release": self.param("ensembl_release"),
-                "output_path": output_path / assembly_accession,
-                "genome_files_dir": output_path / "genome_files",
-                "toplevel_genome_file": output_path / f"{info_dict['species_name']}_toplevel.fa",
-                "reheadered_toplevel_genome_file": output_path / f"{info_dict['species_name']}_reheadered_toplevel.fa",
-                "short_read_dir": str(short_read_dir),
-                "long_read_dir": output_path / "long_read_fastq",
-                "gst_dir": output_path / "gst",
-                "rnaseq_summary_file": output_path / f"{info_dict['production_name']}.csv",
-                "rnaseq_summary_file_genus": output_path / f"{info_dict['production_name']}_gen.csv",
-                "long_read_summary_file": output_path / "long_read_fastq" / f"{info_dict['production_name']}_long_read.csv",
-                "repeatmodeler_library": repeatmodeler_library,
-                "current_genebuild": self.param("current_genebuild"),
-                "assembly_accession": assembly_accession,
-                "core_dbname": self.param("core_dbname"),
-                "num_threads": self.param("num_threads"),
+            # Add values back to dictionary
+            info_dict.update(
+                {
+                    "ensembl_release": self.param("ensembl_release"),
+                    "output_path": output_path / assembly_accession,
+                    "genome_files_dir": output_path / "genome_files",
+                    "toplevel_genome_file": output_path / f"{info_dict['species_name']}_toplevel.fa",
+                    "reheadered_toplevel_genome_file": output_path / f"{info_dict['species_name']}_reheadered_toplevel.fa",
+                    "short_read_dir": str(short_read_dir),
+                    "long_read_dir": output_path / "long_read_fastq",
+                    "gst_dir": output_path / "gst",
+                    "rnaseq_summary_file": output_path / f"{info_dict['production_name']}.csv",
+                    "rnaseq_summary_file_genus": output_path / f"{info_dict['production_name']}_gen.csv",
+                    "long_read_summary_file": output_path / "long_read_fastq" / f"{info_dict['production_name']}_long_read.csv",
+                    "repeatmodeler_library": repeatmodeler_library,
+                    "current_genebuild": self.param("current_genebuild"),
+                    "assembly_accession": assembly_accession,
+                    "core_dbname": self.param("core_dbname"),
+                    "num_threads": self.param("num_threads"),
+                }
+            )
+
+
+
+            # Create directories
+            create_dir(info_dict["output_path"], mode=0o775)
+            for dir_path in [
+                info_dict["genome_files_dir"],
+                info_dict["short_read_dir"],
+                info_dict["long_read_dir"],
+                info_dict["gst_dir"],
+            ]:
+                create_dir(dir_path)
+
+            logger.info("Directories created")
+
+            # Registry and annotation commands
+            adaptors = {
+                "core_string": {
+                    "host": server_info["core_db"]["db_host"],
+                    "port": server_info["core_db"]["db_port"],
+                    "dbname": self.param("core_dbname"),
+                    "user": self.param("user"),
+                    "pass": self.param("password"),
+                    "species": info_dict["production_name"],
+                    "group": "core",
+                },
             }
-        )
-
-        # Create directories
-        create_dir(info_dict["output_path"], mode=0o775)
-        for dir_path in [
-            info_dict["genome_files_dir"],
-            info_dict["short_read_dir"],
-            info_dict["long_read_dir"],
-            info_dict["gst_dir"],
-        ]:
-            create_dir(dir_path)
-
-        # Registry and annotation commands
-        adaptors = {
-            "core_string": {
-                "host": server_info["core_db"]["db_host"],
-                "port": server_info["core_db"]["db_port"],
-                "dbname": self.param("core_dbname"),
-                "user": self.param("user"),
-                "pass": self.param("password"),
-                "species": info_dict["production_name"],
-                "group": "core",
-            },
-        }
         
-        registry_path = create_registry_entry(server_info, adaptors, base_output_dir, self.param("registry_file"))
+            registry_path = create_registry_entry(server_info, adaptors, base_output_dir, self.param("registry_file"))
 
-        info_dict["registry_file"] = str(registry_path)
-        build_annotation_commands(adaptors, info_dict)
+            info_dict["registry_file"] = str(registry_path)
+            build_annotation_commands(adaptors, info_dict)
+            logger.debug("Anno commands created successfully")
 
-        # Store output for write_output
-        self.output_params = info_dict
+            # Store output for write_output
+            self.output_params = info_dict
+            logger.info("Input fetch completed successfully")
+
+        except Exception as e:
+            logger.error(f"Error in fetch_input: {e}")
+            raise
 
     def run(self):
+        """Run method - currently empty as processing is done in fetch_input."""
         pass
 
 
@@ -216,7 +236,7 @@ def get_metadata_from_registry(server_info, assembly_accession, init_file):
         return {}
 
 
-def add_generated_data(server_info, assembly_accession, init_file, clade_settings_path):
+def add_generated_data(server_info, assembly_accession, init_file, clade_settings_path, production_gca):
     registry_info = get_metadata_from_registry(server_info, assembly_accession, init_file)
     if registry_info is None:
         raise ValueError("registry_info is None")
@@ -271,7 +291,6 @@ def add_generated_data(server_info, assembly_accession, init_file, clade_setting
         binomial_species_name = ""
         production_name = ""
 
-    production_gca = assembly_accession.replace('.', 'v').replace('_', '').lower()
     production_name += f"_{production_gca}"
 
     # Update dictionary
