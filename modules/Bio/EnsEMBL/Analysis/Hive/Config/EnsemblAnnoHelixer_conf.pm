@@ -762,7 +762,8 @@ sub pipeline_analyses {
       -logic_name => 'check_load_meta_info',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 1; ' .
+        cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
+              'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 0; ' .
               'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
               '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
               '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
@@ -906,7 +907,8 @@ sub pipeline_analyses {
       -logic_name => 'check_transcriptomic_data',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 1; ' .
+        cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
+              'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 0; ' .
                 'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
                 '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
                 '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
