@@ -32,9 +32,9 @@ sub default_options {
     %{ $self->SUPER::default_options() },
     'reference_fasta'           => '',
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'user'                      => '', # write db user
-    'password'                  => '', # password for write db user
-    'base_output_dir'           => '', # Where to write the files to
+    'user'                      => 'ensadmin', # write db user
+    'password'                  => 'ensembl', # password for write db user
+    'base_output_dir'           => '/hps/nobackup/flicek/ensembl/genebuild/jackt/hprc/hprc2_gb67_production', # Where to write the files to
     'registry_file'             => catfile($self->o('base_output_dir'), 'Databases.pm'), # This needs to be a standard registry with the production/meta data/taxonomy db adaptors in there
     'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('release_number'),
     'production_name'           => 'homo_sapiens' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -55,7 +55,7 @@ sub default_options {
     'registry_db_name'          => 'gb_assembly_registry', # name for registry db
     'species_name'              => '', # e.g. mus_musculus
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'production_name_modifier'  => '_hprc2_modenv', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'production_name_modifier'  => '_hprc2_production_batch1', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
     species_division            => 'EnsemblVertebrates',
     strain_type                 => 'haplotype',
     initial_release_date        => '2024-10',
@@ -214,15 +214,15 @@ sub pipeline_analyses {
         -logic_name => 'process_gca',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::ProcessGCA',
         -parameters => {
-                         'num_threads'      => $self->o('num_threads'),
-                         'dbowner'                     => $self->o('dbowner'),
-                         'core_db'          => $self->o('core_db'),
-                         'ensembl_release'  => $self->o('release_number'),
-                         'base_output_dir'  => $self->o('base_output_dir'),
-                         'registry_db'      => $self->o('registry_db'),
-                         'registry_file'      => $self->o('registry_file'),
-                         'current_genebuild'           => $self->o('current_genebuild'),
-                         'assembly_accession'     =>$self->o('assembly_accession'),
+                         'num_threads'          => $self->o('num_threads'),
+                         'dbowner'              => $self->o('dbowner'),
+                         'core_db'              => $self->o('core_db'),
+                         'ensembl_release'      => $self->o('release_number'),
+                         'base_output_dir'      => $self->o('base_output_dir'),
+                         'registry_db'          => $self->o('registry_db'),
+                         'registry_file'        => $self->o('registry_file'),
+                         'current_genebuild'    => $self->o('current_genebuild'),
+                         'assembly_accession'   =>$self->o('assembly_accession'),
                        },
         -rc_name    => '4GB',
 
@@ -356,15 +356,17 @@ sub pipeline_analyses {
 
 
       {
-        -logic_name => 'dump_toplevel_file',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpGenome',
-        -parameters => {
-                         'coord_system_name'    => 'toplevel',
-                         'target_db'            => '#core_db#',
-                         'output_path'          => '#output_path#',
-                         'enscode_root_dir'     => $self->o('enscode_root_dir'),
-                         'species_name'         => '#species_name#',
-                         'repeat_logic_names'   => [], # This is emtpy as we just use masking present in downloaded file
+        -logic_name => 'dump_toplevel_md5sums',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => { 
+                        cmd => 'mysql ' . 
+                                '-h ' . $self->o('dna_db_server') . 
+                                ' -P ' .  $self->o('dna_db_port') . 
+                                ' -u ' .  $self->o('dna_db_user') . 
+                                ' ' .  $self->o('dna_db_name') . 
+                                ' -NB -e "SELECT seq_region.name, MD5(dna.sequence) as MD5 FROM dna JOIN seq_region ON seq_region.seq_region_id = dna.seq_region_id;" ' .
+                                '> #output_path#/toplevel_md5sums.tsv'
+                                 },
                        },
         -flow_into => {
           1 => ['reheader_toplevel_file'],
@@ -378,10 +380,10 @@ sub pipeline_analyses {
         -logic_name => 'reheader_toplevel_file',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'convert_genome_dump.pl').
-                                      ' -conversion_type slice_name_to_seq_region_name'.
-                                      ' -input_file #toplevel_genome_file#'.
-                                      ' -output_file #reheadered_toplevel_genome_file#',
+                         cmd => 'python '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'hprc_fasta_reheader.py').
+                                      ' #output_path#/#assembly_accession#_#assembly_name#_genomic.fna'.
+                                      ' #reheadered_toplevel_genome_file#'.
+                                      ' --verify #output_path#/toplevel_md5sums.tsv'.,
                        },
         -rc_name => '4GB',
         -flow_into => {
