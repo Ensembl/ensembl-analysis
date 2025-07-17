@@ -350,7 +350,7 @@ sub pipeline_analyses {
         -rc_name    => '4GB',
 
         -flow_into  => {
-                          1 => ['dump_toplevel_file'],#['load_windowmasker_repeats'],# 'fan_refseq_import'],
+                          1 => ['dump_toplevel_md5sums'],#['load_windowmasker_repeats'],# 'fan_refseq_import'],
                        },
       },
 
