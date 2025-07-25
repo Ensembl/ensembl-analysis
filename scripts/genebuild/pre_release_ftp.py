@@ -74,7 +74,7 @@ def parse_gca_id(gca_string: str) -> Tuple[str, str]:
     return gca_number, version
 
 
-def find_reheadered_fasta(output_path: str) -> tuple[str, str]:
+def find_reheadered_fasta(output_path: str) -> Tuple[str, str]:
     """
     Find the reheadered toplevel FASTA file and its corresponding FAI index file.
 
