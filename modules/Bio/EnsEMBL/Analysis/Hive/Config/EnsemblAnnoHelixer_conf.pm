@@ -33,10 +33,10 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BUSCO parameters
-    'busco_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco_v5.8.2_cv1.sif',
-    'busco_download_path'       => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
-    'helixer_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/helixer-docker_helixer_v0.3.5_cuda_12.2.2-cudnn8.sif',
-    'gffread_path' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
+    'busco_singularity_image'      => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco_v5.8.2_cv1.sif',
+    'busco_download_path'          => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
+    'helixer_singularity_image'    => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/helixer-docker_helixer_v0.3.5_cuda_12.2.2-cudnn8.sif',
+    'gffread_path'                 => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
@@ -1701,9 +1701,67 @@ sub pipeline_analyses {
         cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
       },
       -rc_name => 'default',
+      -flow_into       => { 1 => ['create_target_db_gb1'], },
     },
+    {
+      -logic_name => 'create_target_db_gb1',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+          'target_db' => {
+              -dbname => '#production_name#' . '_core_' . $self->o('ensembl_release') . '_1',
+              -host   => $ENV{GBS1},
+              -port   => $ENV{GBP1},
+              -user   => $self->o('user'),
+              -pass   => $self->o('password'),
+              -driver => $self->o('hive_driver'),
+          },
+          'create_type' => 'core_only',
+      },
+      -rc_name => 'default',
+      -flow_into => {
+          1 => ['copy_core_db_to_gb1'],
+      },
+  },
+
+  {
+      -logic_name => 'copy_core_db_to_gb1', 
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper',
+      -parameters => {
+          'src_db_conn' => '#core_db#',
+          'output_db' => {
+              -dbname => '#production_name#' . '_core_' . $self->o('ensembl_release') . '_1',
+              -host   => $ENV{GBS1},
+              -port   => $ENV{GBP1},
+              -user   => $self->o('user'),
+              -pass   => $self->o('password'),
+              -driver => $self->o('hive_driver'),
+          },
+          'exclude_ehive' => 1,
+      },
+      -rc_name => '10GB',
+      -flow_into => {
+          1 => ['update_registry_final'],
+      },
+  },
+    {
+      -logic_name => 'update_registry_final',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'perl ' . $self->o('registry_status_update_script') .
+              ' --user ' . $self->o('user') .
+              ' --pass ' . $self->o('password') .
+              ' --assembly_accession ' . '#assembly_accession#' .
+              ' --registry_host ' . $self->o('registry_db_server') .
+              ' --registry_port ' . $self->o('registry_db_port') .
+              ' --registry_db ' . $self->o('registry_db_name') .
+              ' --status "Completed"',
+      },
+      -rc_name => 'default',
+  },
   ];
 }
+
+
 sub resource_classes {
   my $self = shift;
 
