@@ -74,6 +74,13 @@ sub default_options {
     'protein_entry_loc'  => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),    # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
     'registry_file'      => catfile($self->o('output_path'), 'Databases.pm'), # Path to databse registry for LastaZ and Production sync
     'gst_dir'            => catfile($self->o('output_path'), 'gst'),
+
+    # registry updates options
+    'registry_status_update_script' => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
+    'gb_registry_db_server' => $ENV{GBS1},
+    'gb_registry_db_port'   => $ENV{GBP1},
+    'gb_registry_db_name'  => 'gb_assembly_registry',
+
 ########################
 # Pipe and ref db info
 ########################
@@ -118,11 +125,11 @@ sub default_options {
     select_canonical_script  => catfile( $self->o('ensembl_misc_script'),     'canonical_transcripts', 'select_canonical_transcripts.pl' ),
     assembly_name_script     => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_name.pl' ),
     core_metadata_script     => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
-    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),	
-    ensembl_gst_script       => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'pipelines' , 'gene_symbol_classifier'),   
+    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),
+    ensembl_gst_script       => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'pipelines' , 'gene_symbol_classifier'),
     gst_dump_proteins_script => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
     gst_load_symbols_script  => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
-	
+
     # Genes biotypes to ignore from the final db when copying to core
     copy_biotypes_to_ignore => {
       'low_coverage' => 1,
@@ -723,8 +730,26 @@ sub pipeline_analyses {
         },
       },
       -rc_name => '4GB',    # Adjust this based on your resource class
+      -flow_into => {
+        1 => ['update_registry_as_pre_released'],
+      },
     },
- 
+    {
+      -logic_name => 'update_registry_as_pre_released',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'perl ' . $self->o('registry_status_update_script') .
+              ' --user ' . $self->o('user') .
+              ' --pass ' . $self->o('password') .
+              ' --assembly_accession ' . $self->o('assembly_accession') .
+              ' --registry_host ' . $self->o('gb_registry_db_server') .
+              ' --registry_port ' . $self->o('gb_registry_db_port') .
+              ' --registry_db ' . $self->o('gb_registry_db_name') .
+              ' --status "pre_released"',
+      },
+      -rc_name => 'default',
+  },
+
   ];
 }
 
