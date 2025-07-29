@@ -53,11 +53,11 @@ sub default_options {
     pipe_db_port                     => '', # port for pipeline host
     databases_port                   => '', # port for general output db host
     dna_db_port                      => '', # port for dna db host
-                                    
+
     registry_host                    => '', # host for registry db
     registry_port                    => '', # port for registry db
     registry_db                      => '', # name for registry db
-                                    
+
     release_number                   => '' || $ENV{ENSEMBL_RELEASE},
     species_name                     => '', # e.g. mus_musculus
     production_name                  => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -241,6 +241,11 @@ sub default_options {
     taxonomy_db_port        => $self->o('production_db_port'),
 
     databases_to_delete => [],
+
+    # registry updates options
+    'gb_registry_db_server' => $ENV{GBS1},
+    'gb_registry_db_port'   => $ENV{GBP1},
+    'gb_registry_db_name'  => 'gb_assembly_registry',
 
 
 ######################################################
@@ -682,14 +687,21 @@ sub pipeline_analyses {
 
   return [
     {
-      -logic_name => 'download_rnaseq_csv',
+      -logic_name => 'update_registry_as_in_progress',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => '1GB',
       -parameters => {
-	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
+          cmd => 'perl ' . $self->o('registry_status_update_script') .
+              ' --user ' . $self->o('user') .
+              ' --pass ' . $self->o('password') .
+              ' --assembly_accession ' . $self->o('assembly_accession') .
+              ' --registry_host ' . $self->o('gb_registry_db_server') .
+              ' --registry_port ' . $self->o('gb_registry_db_port') .
+              ' --registry_db ' . $self->o('gb_registry_db_name') .
+              ' --status "in_progress"',
       },
+      -rc_name => 'default',
       -flow_into => {
-        1 => ['download_genus_rnaseq_csv'],
+        1 => ['download_rnaseq_csv'],
       },
       -input_ids  => [
         {
@@ -698,6 +710,18 @@ sub pipeline_analyses {
           assembly_refseq_accession => $self->o('assembly_refseq_accession'),
         },
       ],
+    },
+
+    {
+      -logic_name => 'download_rnaseq_csv',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name => '1GB',
+      -parameters => {
+    cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
+      },
+      -flow_into => {
+        1 => ['download_genus_rnaseq_csv'],
+      },
     },
 
     {
