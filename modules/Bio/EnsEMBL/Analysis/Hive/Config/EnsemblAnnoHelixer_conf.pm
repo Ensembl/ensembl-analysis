@@ -1715,6 +1715,7 @@ sub pipeline_analyses {
               -pass   => $self->o('password'),
               -driver => $self->o('hive_driver'),
           },
+          'enscode_root_dir' => $self->o('enscode_root_dir'),
           'create_type' => 'core_only',
       },
       -rc_name => 'default',
