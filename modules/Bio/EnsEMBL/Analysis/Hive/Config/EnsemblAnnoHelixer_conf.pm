@@ -436,17 +436,18 @@ sub pipeline_analyses {
 # ASSEMBLY LOADING ANALYSES
 #
 ###############################################################################
-# 1) Process GCA - works out settings, flows them down the pipeline -> this should be seeded by another analysis later
+# 1) Settings are worked out via the setup script and seeded into analysis 1
 # 2) Standard create core, populate tables, download data etc
 # 3) Either run gbiab or setup gbiab
 # 4) Finalise steps
 
 
     {
-      # Creates a reference db for each species
-      -logic_name => 'process_gca',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::ProcessGCA',
+      # Initial registry status update - first analysis in pipeline  
+      -logic_name => 'update_registry_in_progress',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
+        # All the ProcessGCA parameters to ensure downstream flow works
         'num_threads'                 => $self->o('num_threads'),
         'dbowner'                     => $self->o('dbowner'),
         'core_db'                     => $self->o('core_db'),
@@ -461,20 +462,31 @@ sub pipeline_analyses {
         'override_clade'              => $self->o('override_clade'),
         'pipe_db'                     => $self->o('pipe_db'),
         'current_genebuild'           => $self->o('current_genebuild'),
-	      'init_config'                 =>$self->o('init_config'),
-        'assembly_accession'          =>$self->o('assembly_accession'),
-   	    'repeatmodeler_library'       =>$self->o('repeatmodeler_library'),
-        
-      },
-      -rc_name => 'default',
+        'init_config'                 => $self->o('init_config'),
+        'assembly_accession'          => $self->o('assembly_accession'),
+        'repeatmodeler_library'       => $self->o('repeatmodeler_library'),
 
+        # The actual registry update command
+        cmd => 'python ' . $self->o('new_registry_status_update_script') .
+            ' --host ' . $self->o('registry_db_server') .
+            ' --port ' . $self->o('registry_db_port') .
+            ' --user ' . $self->o('user') .
+            ' --password ' . $self->o('password') .
+            ' --database ' . $self->o('new_registry_db_name') .
+            ' --assembly #assembly_accession#' .
+            ' --status in_progress' .
+            ' --genebuilder ' . $ENV{USER} .
+            ' --annotation_source ensembl' .
+            ' --annotation_method pending',
+      },
+      -rc_name => '1GB',
       -flow_into => {
         1 => ['download_rnaseq_csv'],
       },
       -analysis_capacity => 1,
-      -input_ids         => [
-        #{'assembly_accession' => 'GCA_910591885.1'},
-	  ],
+      -input_ids => [
+        # {'assembly_accession' => 'GCA_910591885.1'},
+      ],
     },
     {
       -logic_name => 'download_rnaseq_csv',
