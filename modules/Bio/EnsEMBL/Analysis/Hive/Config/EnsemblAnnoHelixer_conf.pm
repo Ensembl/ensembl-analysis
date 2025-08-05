@@ -141,10 +141,11 @@ sub default_options {
     print_protein_script_path         => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'print_translations.pl' ),
     ensembl_gst_script                => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'pipelines' , 'gene_symbol_classifier'  ),
     gst_dump_proteins_script          => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
-    gst_load_symbols_script          => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
-    registry_status_update_script => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
-    core_metadata_script     => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
-    core_stats_script        => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),
+    gst_load_symbols_script           => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
+    registry_status_update_script     => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
+    new_registry_status_update_script => catfile( self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
+    core_metadata_script              => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
+    core_stats_script                 => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),
 
 
 ########################
@@ -255,6 +256,7 @@ sub default_options {
     'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
     'registry_db_name'             => 'gb_assembly_registry',
+    'new_registry_db_name'         => 'gb_assembly_registry_status_test',
 
     'core_db' => {
       -dbname => $self->o('dna_db_name'),
@@ -462,6 +464,7 @@ sub pipeline_analyses {
 	      'init_config'                 =>$self->o('init_config'),
         'assembly_accession'          =>$self->o('assembly_accession'),
    	    'repeatmodeler_library'       =>$self->o('repeatmodeler_library'),
+        
       },
       -rc_name => 'default',
 
@@ -603,6 +606,27 @@ sub pipeline_analyses {
                 ' --registry_port ' . $self->o('registry_db_port') .
                 ' --registry_db ' . $self->o('registry_db_name') .
                 ' --status "Insufficient Data"' , 
+        },
+        -rc_name => '1GB',
+        -flow_into => {
+            1 => ['update_new_registry_insufficient_data'],
+        },
+    },
+    {
+        -logic_name => 'update_new_registry_insufficient_data',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+            cmd => 'python ' . $self->o('registry_status_update_python_script') .
+                ' --host ' . $self->o('registry_db_server') .
+                ' --port ' . $self->o('registry_db_port') .
+                ' --user ' . $self->o('user') .
+                ' --password ' . $self->o('password') .
+                ' --database ' . $self->o('new_registry_db_name') .
+                ' --assembly #assembly_accession#' .
+                ' --status insufficient_data' .
+                ' --genebuilder #genebuilder_id#' .
+                ' --annotation_source ensembl' .
+                ' --annotation_method pending',
         },
         -rc_name => '1GB',
     },
@@ -1507,6 +1531,27 @@ sub pipeline_analyses {
               ' --status "Check BUSCO"',
       },
       -rc_name => 'default',
+      -flow_into => {
+          1 => ['update_new_registry_as_check'],
+      }
+  },
+  {
+      -logic_name => 'update_new_registry_as_check',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+              ' --host ' . $self->o('registry_db_server') .
+              ' --port ' . $self->o('registry_db_port') .
+              ' --user ' . $self->o('user') .
+              ' --password ' . $self->o('password') .
+              ' --database ' . $self->o('new_registry_db_name') .
+              ' --assembly #assembly_accession#' .
+              ' --status check_busco' .
+              ' --genebuilder #genebuilder_id#' .
+              ' --annotation_source ensembl' .
+              ' --annotation_method full_genebuild',
+      },
+      -rc_name => 'default',
   },
   {
     -logic_name     => 'backbone_job_pipeline',
@@ -1683,9 +1728,29 @@ sub pipeline_analyses {
               ' --status "Pre-Released"', 
       },
       -rc_name => '1GB',
-      -flow_into => { 1 => ['delete_short_reads'], },
+      -flow_into => { 1 => ['update_new_registry_pre_release'], },
   },
-    {
+  {
+      -logic_name => 'update_new_registry_pre_release',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+              ' --host ' . $self->o('registry_db_server') .
+              ' --port ' . $self->o('registry_db_port') .
+              ' --user ' . $self->o('user') .
+              ' --password ' . $self->o('password') .
+              ' --database ' . $self->o('new_registry_db_name') .
+              ' --assembly #assembly_accession#' .
+              ' --status pre-released' .
+              ' --genebuilder #genebuilder_id#' .
+              ' --annotation_source ensembl' .
+              ' --annotation_method full_genebuild',
+      },
+      -rc_name => '1GB',
+      -flow_into => { 1 => ['delete_short_reads'], },
+
+  },
+  {
     -logic_name => 'delete_short_reads',
     -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
@@ -1756,6 +1821,27 @@ sub pipeline_analyses {
               ' --registry_port ' . $self->o('registry_db_port') .
               ' --registry_db ' . $self->o('registry_db_name') .
               ' --status "Completed"',
+      },
+      -rc_name => 'default',
+      -flow_into => {
+          1 => ['update_new_registry_final'],
+      }
+  },
+  {
+      -logic_name => 'update_new_registry_final',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+              ' --host ' . $self->o('registry_db_server') .
+              ' --port ' . $self->o('registry_db_port') .
+              ' --user ' . $self->o('user') .
+              ' --password ' . $self->o('password') .
+              ' --database ' . $self->o('new_registry_db_name') .
+              ' --assembly #assembly_accession#' .
+              ' --status completed' .
+              ' --genebuilder #genebuilder_id#' .
+              ' --annotation_source ensembl' .
+              ' --annotation_method full_genebuild',
       },
       -rc_name => 'default',
   },
