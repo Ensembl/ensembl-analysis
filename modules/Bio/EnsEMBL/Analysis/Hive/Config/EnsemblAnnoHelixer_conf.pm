@@ -58,7 +58,7 @@ sub default_options {
     'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier'),
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
-    'password'                     => '',                                                                                                                # password for write db user
+    'password'                     => 'ensembl',                                                                                                                # password for write db user
     'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
     'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
@@ -76,7 +76,7 @@ sub default_options {
     'stable_id_start'              => '', #optional, already defined in ProcessGCA When mapping is not required this is usually set to 0
     'mapping_required'             => '0',# If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'uniprot_version'              => 'uniprot_2021_04',                                                                                                 # What UniProt data dir to use for various analyses
-    'production_name_modifier'     => '',                                                                                                                # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'production_name_modifier'     => 'reg_test',                                                                                                                # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'load_toplevel_only'        => '1',                                                                                                                  # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
@@ -143,7 +143,7 @@ sub default_options {
     gst_dump_proteins_script          => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
     gst_load_symbols_script           => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
     registry_status_update_script     => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
-    new_registry_status_update_script => catfile( self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
+    registry_status_update_python_script => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
     core_metadata_script              => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
     core_stats_script                 => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),
 
@@ -467,7 +467,7 @@ sub pipeline_analyses {
         'repeatmodeler_library'       => $self->o('repeatmodeler_library'),
 
         # The actual registry update command
-        cmd => 'python ' . $self->o('new_registry_status_update_script') .
+        cmd => 'python ' . $self->o('registry_status_update_python_script') .
             ' --host ' . $self->o('registry_db_server') .
             ' --port ' . $self->o('registry_db_port') .
             ' --user ' . $self->o('user') .
