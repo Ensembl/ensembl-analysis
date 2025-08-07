@@ -686,7 +686,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
+	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
       },
       -flow_into => {
         1 => ['download_genus_rnaseq_csv'],
@@ -705,7 +705,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('rnaseq_summary_file_genus') . ' --read_type short --tree -l 100' ,
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('rnaseq_summary_file_genus') . ' --read_type short --tree -l 100' ,
       },
       -flow_into => {
         1 => ['download_long_read_csv'],
@@ -717,7 +717,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('long_read_summary_file') . ' --read_type long --tree' ,
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('long_read_summary_file') . ' --read_type long --tree' ,
       },
       -flow_into => {
         1 => ['download_genus_long_read_csv'],
@@ -729,7 +729,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('long_read_summary_file_genus') . ' --read_type long --tree -l 100' ,
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('long_read_summary_file_genus') . ' --read_type long --tree -l 100' ,
       },
       -flow_into => {
         1 => ['create_load_assembly_pipeline_job'],
