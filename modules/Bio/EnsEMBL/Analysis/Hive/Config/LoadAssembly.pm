@@ -21,13 +21,20 @@ package Bio::EnsEMBL::Analysis::Hive::Config::LoadAssembly;
 
 use strict;
 use warnings;
+use Data::Dumper;
 use File::Spec::Functions;
 
 use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf; # Needed for the WHEN ELSE structure
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
 
 sub default_options {
   my ($self) = @_;
+
+  ## Build software path based on new software type
+  my $software_type = $ENV{SOFTWARE_TYPE};
+  my $samtools_path = get_software_path($software_type, 'samtools');
+  
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
@@ -40,6 +47,8 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
+    software_type             => $software_type,
+    samtools_path             => $samtools_path,
     dbowner                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     pipeline_name             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
     user_r                    => '', # read only db user
@@ -115,13 +124,6 @@ sub default_options {
     ensembl_analysis_script => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     sequence_dump_script    => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
 
-
-########################
-# Executable paths
-########################
-    samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
-
-
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -166,6 +168,8 @@ sub default_options {
   };
 }
 
+
+
 sub pipeline_create_commands {
   my ($self) = @_;
 
@@ -185,6 +189,7 @@ sub pipeline_wide_parameters {
     load_toplevel_only => $self->o('load_toplevel_only'),
   }
 }
+
 
 
 ## See diagram for pipeline structure

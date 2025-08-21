@@ -26,9 +26,14 @@ use File::Spec::Functions;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
+
 
 sub default_options {
   my ($self) = @_;
+  my $software_type = $ENV{SOFTWARE_TYPE};
+  my $blastn_exe_path = get_software_path($software_type, 'blastn');
+  my $cmsearch_exe_path = get_software_path($software_type, 'cmsearch');
 
   return {
     # inherit other stuff from the base class
@@ -42,6 +47,7 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
+    software_type             => $software_type,
     dbowner                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     pipeline_name             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
     user_r                    => '', # read only db user
@@ -130,9 +136,9 @@ sub default_options {
 # Executable paths
 ########################
     blast_type => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
-    blastn_exe_path => catfile($self->o('binary_base'), 'blastn'),
-    cmsearch_exe_path    => catfile($self->o('binary_base'), 'cmsearch'), # #'opt', 'infernal10', 'bin', 'cmsearch'),
-
+    blastn_exe_path           => $blastn_exe_path,
+    cmsearch_exe_path         => $cmsearch_exe_path,
+    
 ########################
 # Misc setup info
 ########################

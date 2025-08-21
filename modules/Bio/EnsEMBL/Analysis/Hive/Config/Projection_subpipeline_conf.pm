@@ -26,9 +26,16 @@ use File::Spec::Functions;
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
+
 
 sub default_options {
   my ($self) = @_;
+
+  my $software_type = $ENV{SOFTWARE_TYPE};
+  my $cesar_path = get_software_path($software_type, 'cesar');
+
+
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
@@ -41,6 +48,8 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
+    software_type             => $software_type,
+    cesar_path                 => $cesar_path,
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -105,11 +114,6 @@ sub default_options {
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     flag_potential_pseudogenes_script => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'flag_potential_pseudogenes.pl'),
 
-########################
-# Executable paths
-########################
-
-    'cesar_path' => catdir($self->o('linuxbrew_home_path'),'opt','cesar','bin'),
 
 # Max internal stops for projected transcripts
     'projection_pid'                        => '50',
