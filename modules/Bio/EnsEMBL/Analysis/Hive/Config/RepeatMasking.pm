@@ -23,6 +23,7 @@ package Bio::EnsEMBL::Analysis::Hive::Config::RepeatMasking;
 use strict;
 use warnings;
 use File::Spec::Functions;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
@@ -41,6 +42,7 @@ sub default_options {
 ########################
     # Misc setup info
 ########################
+    'sanity_set' => '',                # Which sanity check set to use, see SanityChecksStatic.pm
     'dbowner' => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name' => '' || $self->o('production_name') . '_' . $self->o('ensembl_release'),
     dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
@@ -210,7 +212,7 @@ sub pipeline_analyses {
       -input_ids  => [{}],
       -flow_into => {
         '2->A' => ['semaphore_10mb_slices'],
-        'A->1' => ['insert_fixed_repeat_analysis_meta_key_jobs'],
+        'A->1' => ['genome_prep_sanity_checks'],
         1 => ['repeatdetector'],
       },
     },
@@ -388,6 +390,22 @@ sub pipeline_analyses {
       },
       -rc_name      => 'default',
       -can_be_empty => 1,
+    },
+
+    {
+      -logic_name => 'genome_prep_sanity_checks',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+      -parameters => {
+        target_db => $self->o('dna_db'),
+        sanity_check_type => 'genome_preparation_checks',
+        min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+            'genome_preparation_checks')->{$self->o('sanity_set')},
+      },
+
+      -flow_into =>  {
+        1 => ['insert_fixed_repeat_analysis_meta_key_jobs'],
+      },
+      -rc_name    => '15GB',
     },
 
     {

@@ -902,7 +902,7 @@ sub pipeline_analyses {
       -max_retry_count => 0,
       -flow_into => {
         '2->A' => ['initialise_repeat_masking'],
-        'A->1' => ['genome_prep_sanity_checks'],
+        'A->1' => ['set_repeat_types'],
       }
     },
 
@@ -933,6 +933,11 @@ sub pipeline_analyses {
 	  skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
 	  batch_target_size => $self->o('batch_target_size'),
 	  repeatmasker_slice_size => $self->o('repeatmasker_slice_size'),
+    binary_base => $self->o('binary_base'),
+    hive_driver => $self->o('hive_driver'),
+    hc_normal => $self->o('hc_normal'),
+    sanity_set => $self->o('sanity_set'),
+    linuxbrew_home_path => $self->o('linuxbrew_home_path'),
         },
       },
       -rc_name      => 'default',
@@ -950,23 +955,6 @@ sub pipeline_analyses {
       },
       -rc_name      => 'default',
       -max_retry_count => 1,
-    },
-
-
-    {
-      -logic_name => 'genome_prep_sanity_checks',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-      -parameters => {
-        target_db => $self->o('dna_db'),
-        sanity_check_type => 'genome_preparation_checks',
-        min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-            'genome_preparation_checks')->{$self->o('sanity_set')},
-      },
-
-      -flow_into =>  {
-        1 => ['set_repeat_types'],
-      },
-      -rc_name    => '15GB',
     },
 
 
