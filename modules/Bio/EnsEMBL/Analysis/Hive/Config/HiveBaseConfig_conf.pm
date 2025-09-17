@@ -440,61 +440,61 @@ sub resource_classes {
 
   return {
     '1GB'              => {
-      LSF => $self->lsf_resource_builder('production', 1000),
-      SLURM =>  $self->slurm_resource_builder(1000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(1000, '2-00:00:00'),
       },
     '2GB'              => {
-      LSF => $self->lsf_resource_builder('production', 2000),
-      SLURM =>  $self->slurm_resource_builder(2000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(2000, '2-00:00:00'),
       },
     '3GB'              => {
-      LSF => $self->lsf_resource_builder('production', 3000),
-      SLURM =>  $self->slurm_resource_builder(3000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(3000, '2-00:00:00'),
       },  
-    '3GB_3cpus' => { LSF => $self->lsf_resource_builder('production', 3000, undef, undef, 3),
-                 SLURM =>  $self->slurm_resource_builder(3000, '7-00:00:00', 3 ),  
+    '3GB_3cpus' => { SLURM =>  $self->slurm_resource_builder(3000, '2-00:00:00', 3 ),  
       },
     '4GB'              => {
-      LSF => $self->lsf_resource_builder('production', 4000),
-      SLURM =>  $self->slurm_resource_builder(4000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(4000, '2-00:00:00'),
       },
     '5GB'              => {
-      LSF => $self->lsf_resource_builder('production', 5000),
-      SLURM =>  $self->slurm_resource_builder(5000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(5000, '2-00:00:00'),
       },  
     '6GB'              => {
-      LSF => $self->lsf_resource_builder('production', 6000),
-      SLURM =>  $self->slurm_resource_builder(6000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(6000, '2-00:00:00'),
       },  
     '8GB'              => {
-      LSF => $self->lsf_resource_builder('production', 8000),
-      SLURM =>  $self->slurm_resource_builder(8000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(8000, '2-00:00:00'),
       },  
     '10GB'             => {
-      LSF => $self->lsf_resource_builder('production', 10000),
-      SLURM =>  $self->slurm_resource_builder(10000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(10000, '2-00:00:00'),
       },
-    '10GB_3cpus' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, 3),
-                      SLURM =>  $self->slurm_resource_builder(10000, '7-00:00:00', 3 ),  
+    '10GB_3cpus' => { SLURM =>  $self->slurm_resource_builder(10000, '2-00:00:00', 3 ),  
       },
     '15GB'             => {
-      LSF => $self->lsf_resource_builder('production', 15000),
-      SLURM =>  $self->slurm_resource_builder(15000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(15000, '2-00:00:00'),
       }, 
     '30GB'             => {
-      LSF => $self->lsf_resource_builder('production', 30000),
-      SLURM =>  $self->slurm_resource_builder(30000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(30000, '2-00:00:00'),
       },  
     '50GB'              => {
-      LSF => $self->lsf_resource_builder('production', 50000),
-      SLURM =>  $self->slurm_resource_builder(50000, '7-00:00:00'),
+      SLURM =>  $self->slurm_resource_builder(50000, '2-00:00:00'),
       },  
-    'default'          => {
-      LSF => $self->lsf_resource_builder('production', 900),
-      SLURM =>  $self->slurm_resource_builder(900, '7-00:00:00'),
+    '80GB_30cpus'       => { 
+      SLURM =>  $self->slurm_resource_builder(80000, '2-00:00:00', 30 ),
       },
+    'default'          => {
+      SLURM =>  $self->slurm_resource_builder(900, '2-00:00:00'),
+      },
+    '50GB_registry'    => {
+      SLURM => [ $self->slurm_resource_builder(50000, '2-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
+      }, 
+    '2GB_registry'    => {
+      SLURM => [ $self->slurm_resource_builder(2000, '2-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
+      },     
+    '32GB_registry'    => {
+      SLURM => [ $self->slurm_resource_builder(32000, '2-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
+      },
+    'datamover' => {
+      SLURM => $self->slurm_resource_builder(2000, '2:00:00', 1, undef, ' --partition=datamover'),
+      },	
     'default_registry' => {
-            LSF => [$self->lsf_resource_builder('production', 900), '-reg_conf ' . $self->default_options->{'registry_file'}]  ,
             SLURM => [ $self->slurm_resource_builder(900, '1-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
     },
   };
