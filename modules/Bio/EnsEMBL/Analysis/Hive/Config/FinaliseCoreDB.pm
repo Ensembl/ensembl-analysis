@@ -776,7 +776,7 @@ sub pipeline_analyses {
        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
        -parameters => {
 	 cmd => 'cd '. $self->o('output_path') . ';' .
-	 'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f '. '-i '. $self->o('output_path') . '/*.fna ' . '-m genome -l #lineage# -c 30 ' . '-o busco_genome ' . '--offline '. $self->o('busco_download_path') . ';' 
+	 'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f '. '-i '. $self->o('output_path') . 'genome_dumps/' . $self->o('species_name').'_toplevel.fa '.'-m genome -l #lineage# -c 30 ' . '-o busco_genome ' . '--offline --download_path '. $self->o('busco_download_path') . ';' 
       },
            -rc_name => '80GB_30cpus',
            -flow_into => {
@@ -789,7 +789,7 @@ sub pipeline_analyses {
        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
        -parameters => {
          cmd => 'cd '. $self->o('output_path') . ';' .
-	 'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f '. '-i '. $self->o('gst_dir') . '/' . $self->o('production_name') . '_protein_sequences.fa ' . '-m protein -l #lineage# -c 30 ' . '-o busco_protein '. '--offline '. $self->o('busco_download_path') . ';' 
+	 'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f '. '-i '. $self->o('gst_dir') . '/' . $self->o('production_name') . '_protein_sequences.fa ' . '-m protein -l #lineage# -c 30 ' . '-o busco_protein '. '--offline --download_path '. $self->o('busco_download_path') . ';' 
       },
            -rc_name => '80GB_30cpus',
            -flow_into => {
