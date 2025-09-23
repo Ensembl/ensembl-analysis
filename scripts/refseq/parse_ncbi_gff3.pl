@@ -818,8 +818,27 @@ sub process_cds {
       add_xrefs(\%xrefs, $attributes->{Dbxref}, $translation);
     }
     if (exists $attributes->{transl_except}) {
-      foreach my $attribute_string (split(',', $attributes->{transl_except})) {
-        my ($attribute_start, $attribute_end, $type) = $attribute_string =~ /(\d+)..(\d+)\)?[^:]+:(\w+)/;
+      # URL decode
+      my $transl_except = $attributes->{transl_except};
+      $transl_except =~ s/%2C/,/g;
+
+      my @entries;
+      if ($transl_except =~ /\(pos:complement\(join\(/) {
+        # Complex case - extract simple ranges only
+        while ($transl_except =~ /(\d+)\.\.(\d+)[^,)]*aa:(\w+)/g) {
+          push @entries, "$1..$2,aa:$3";
+        }
+      } else {
+        # Simple case
+        @entries = split(',', $transl_except);
+      }
+
+      foreach my $attribute_string (@entries) {
+        my ($attribute_start, $attribute_end, $type) = $attribute_string =~ /(\d+)\.\.(\d+)\)?[^:]+:(\w+)/;
+
+        # Validation
+        next unless defined $attribute_start && defined $attribute_end && defined $type;
+
         my $attribute;
         if ($type eq 'Sec') {
           $attribute = Bio::EnsEMBL::Attribute->new(
