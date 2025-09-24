@@ -823,21 +823,48 @@ sub process_cds {
       $transl_except =~ s/%2C/,/g;
 
       my @entries;
-      if ($transl_except =~ /\(pos:complement\(join\(/) {
-        # Complex case - extract simple ranges only
-        while ($transl_except =~ /(\d+)\.\.(\d+)[^,)]*aa:(\w+)/g) {
-          push @entries, "$1..$2,aa:$3";
-        }
+      if ($transl_except =~ /join\(/) {
+        # Skip join constructs - downstream cannot handle split codons
+        print STDERR "DEBUG: Skipping join() construct for transcript: " . $transcript->display_id . "\n";
+        print STDERR "DEBUG: transl_except value: '$transl_except'\n";
+        next;
       } else {
-        # Simple case
-        @entries = split(',', $transl_except);
+        # Split on ),( to separate complete entries
+        $transl_except =~ s/^\(|\)$//g;  # Remove outer parentheses
+        my @raw_entries = split /\),\(/, $transl_except;
+        @entries = map { "($_)" } @raw_entries;  # Add parentheses back
+        #print STDERR "DEBUG: Found " . scalar(@entries) . " transl_except entries for " . $transcript->display_id . "\n";
       }
 
       foreach my $attribute_string (@entries) {
-        my ($attribute_start, $attribute_end, $type) = $attribute_string =~ /(\d+)\.\.(\d+)\)?[^:]+:(\w+)/;
+        my ($attribute_start, $attribute_end, $type);
 
-        # Validation
-        next unless defined $attribute_start && defined $attribute_end && defined $type;
+        #print STDERR "DEBUG: Processing entry: '$attribute_string'\n";
+
+        if ($attribute_string =~ /\(pos:(\d+)\.\.(\d+),aa:(\w+)\)/) {
+          # Simple range: (pos:123..456,aa:Other)
+          ($attribute_start, $attribute_end, $type) = ($1, $2, $3);
+          #print STDERR "DEBUG: Parsed simple range: $attribute_start..$attribute_end, type=$type\n";
+        }
+        elsif ($attribute_string =~ /\(pos:complement\((\d+)\.\.(\d+)\),aa:(\w+)\)/) {
+          # Complement range: (pos:complement(123..456),aa:Other)
+          ($attribute_start, $attribute_end, $type) = ($1, $2, $3);
+          #print STDERR "DEBUG: Parsed complement range: $attribute_start..$attribute_end, type=$type\n";
+        }
+        elsif ($attribute_string =~ /\(pos:(\d+),aa:(\w+)\)/) {
+          # Single position: (pos:123,aa:TERM)
+          ($attribute_start, $attribute_end, $type) = ($1, $1, $2);
+          #print STDERR "DEBUG: Parsed single position: $attribute_start, type=$type\n";
+        }
+        else {
+          print STDERR "DEBUG: Failed to parse entry: '$attribute_string'\n";
+        }
+
+        # Enhanced validation
+        unless (defined $attribute_start && defined $attribute_end && defined $type) {
+          print STDERR "DEBUG: Skipping malformed entry for transcript " . $transcript->display_id . ": '$attribute_string'\n";
+          next;
+        }
 
         my $attribute;
         if ($type eq 'Sec') {
