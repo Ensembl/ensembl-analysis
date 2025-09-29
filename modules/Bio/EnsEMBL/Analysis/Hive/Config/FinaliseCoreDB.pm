@@ -778,7 +778,7 @@ sub pipeline_analyses {
 	 cmd => 'cd '. $self->o('output_path') . ';' .
 	 'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f '. '-i '. $self->o('output_path') . 'genome_dumps/' . $self->o('species_name').'_toplevel.fa '.'-m genome -l #lineage# -c 30 ' . '-o busco_genome ' . '--offline --download_path '. $self->o('busco_download_path') . ';' 
       },
-           -rc_name => '80GB_30cpus',
+           -rc_name => '120GB_30cpus',
            -flow_into => {
               1 => {'run_busco_protein' => {lineage => '#lineage#'} },
       },

@@ -476,7 +476,10 @@ sub resource_classes {
     '50GB'              => {
       SLURM =>  $self->slurm_resource_builder(50000, '2-00:00:00'),
       },  
-    '80GB_30cpus'       => { 
+    '120GB_30cpus'       => { 
+      SLURM =>  $self->slurm_resource_builder(120000, '2-00:00:00', 30 ),
+      },
+    '80GB_30cpus'       => {
       SLURM =>  $self->slurm_resource_builder(80000, '2-00:00:00', 30 ),
       },
     'default'          => {
@@ -492,7 +495,7 @@ sub resource_classes {
       SLURM => [ $self->slurm_resource_builder(32000, '2-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
       },
     'datamover' => {
-      SLURM => $self->slurm_resource_builder(2000, '2:00:00', 1, undef, ' --partition=datamover'),
+      SLURM => $self->slurm_resource_builder(2000, '2:00:00', 1, ' --partition=datamover'),
       },	
     'default_registry' => {
             SLURM => [ $self->slurm_resource_builder(900, '1-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
