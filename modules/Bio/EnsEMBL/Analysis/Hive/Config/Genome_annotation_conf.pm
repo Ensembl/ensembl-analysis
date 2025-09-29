@@ -41,7 +41,7 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-    dbowner                          => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    dbowner                          => '',
     pipeline_name                    => '' || $self->o('production_name').'_'.$self->o('release_number'),
     user_r                           => '', # read only db user
     user                             => '', # write db user
@@ -74,7 +74,7 @@ sub default_options {
     assembly_name                    => '', # Name (as it appears in the assembly report file)
     assembly_accession               => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     assembly_refseq_accession        => '', # Versioned GCF accession, e.g. GCF_001857705.1
-    registry_file                    => '' || catfile($self->o('output_path'), "Databases.pm"), # Path to databse registry for LastaZ and Production sync
+    registry_file                    => '', # Path to databse registry for LastaZ and Production sync
     use_genome_flatfile              => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     repeatmasker_slice_size          => '1000000',# This is the default value for creating repeatmasker slice sizes
     batch_target_size                => '500000',# This is the default value for batching repeatmasker slice jobs
@@ -96,11 +96,11 @@ sub default_options {
     paired_end_only                  => '1', # Will only use paired-end rnaseq data if 1
     rnaseq_study_accession           => '', # A study accession for a transcriptomic dataset, if provided, only this data will be used
     long_read_study_accession        => '', # A study accession for a transcriptomic dataset, if provided, only this data will be used
-    rnaseq_summary_file              => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
-    rnaseq_summary_file_genus        => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
-    long_read_summary_file           => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    long_read_summary_file_genus     => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    long_read_fastq_dir              => '' || catdir($self->o('long_read_dir'),'input'),
+    rnaseq_summary_file              => '', # Set this if you have a pre-existing cvs file with the expected columns
+    rnaseq_summary_file_genus        => '', # Set this if you have a pre-existing genus level cvs file with the expected columns
+    long_read_summary_file           => '', # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    long_read_summary_file_genus     => '', # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    long_read_fastq_dir              => '',
 	
     skip_repeatmodeler               => '', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
     skip_post_repeat_analyses        => '0', # Will skip everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
@@ -142,7 +142,7 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-    pipe_db_name                  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pipe_'.$self->o('release_number'),
+    pipe_db_name                  => '',
     dna_db_name                   => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
 
     reference_db_name            => $self->o('dna_db_name'),
@@ -268,9 +268,9 @@ sub default_options {
 
     hive_beekeeper_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'beekeeper.pl'),
 
-    rnaseq_dir    => catdir($self->o('output_path'), 'rnaseq'),
-    long_read_dir => catdir($self->o('output_path'),'long_read'),
-    gst_dir       => catfile($self->o('output_path'), 'gst'),
+    rnaseq_dir    => '',
+    long_read_dir => '',
+    gst_dir       => '',
 	
     blast_type => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     cdna_threshold => 10, # The lowest number of genes using the cdna_db in the otherfeatures_db
@@ -689,7 +689,6 @@ sub pipeline_analyses {
 	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
       },
       -flow_into => {
-/transcriptomic_data
         1 => ['download_genus_rnaseq_csv'],
       },
       -input_ids  => [
