@@ -191,7 +191,8 @@ sub default_options {
     'long_read_fastq_dir'          => '' || catdir( $self->o('long_read_dir'), 'input' ),
 
     'helixer_lineage' => '', # If set in clade settings in processGCA.pm helixer will run with this as the lineage.
-    
+    'helixer_param'  => '', # If set in clade settings in processGCA.pm helixer will run with these parameters.
+
     # Please assign some or all columns from the summary file to the
     # some or all of the following categories.  Multiple values can be
     # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus,
@@ -949,26 +950,31 @@ sub pipeline_analyses {
         1 => ['run_helixer'],
       },
     },
-    # Helixer does not like the reheadered file and adds a leading underscore to the ID, so we use a sed to remove this prior to dumping the protien fasta
-    {
-      -logic_name => 'run_helixer',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'mkdir -p #output_path#/helixer;' .
-          'singularity exec --nv '.  $self->o ('helixer_singularity_image') .  ' bash -c "'. 
-          'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && '. 
-          'Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage #helixer_lineage# --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3";' .
-          'sed -E \'s/(ID|Parent)=_([^;]*)/\\1=\\2/g\' #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3 > #output_path#/helixer/#assembly_accession#_#species_name#.gff3;' .
-          'rm #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3;' .
-          $self->o('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
-          $self->o ('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop -y #output_path#/helixer/helixer_proteins.fa;', 
-      },
-      -rc_name         => 'helixer',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['load_gtf_file'],
-      },
-    },
+
+{
+  -logic_name => 'run_helixer',
+  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+  -parameters => {
+    cmd => 'mkdir -p #output_path#/helixer;' .
+      'singularity exec --nv ' . $self->o('helixer_singularity_image') . ' bash -c "' .
+        'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && ' .
+          'Helixer.py ' .
+            '--fasta-path #reheadered_toplevel_genome_file# ' .
+            '--lineage #helixer_lineage# ' .
+            '--downloaded-model-path /hps/software/users/ensembl/genebuild/genebuild_virtual_user/Helixer/models ' .
+            '#helixer_param# ' .
+            '--gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3"; ' .
+            'sed -E \'s/(ID|Parent)=_([^;]*)/\\1=\\2/g\' #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3 > #output_path#/helixer/#assembly_accession#_#species_name#.gff3;' .
+            'rm #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3;' .
+            $self->o('gffread_path') . ' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
+            $self->o('gffread_path') . ' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop -y #output_path#/helixer/helixer_proteins.fa;',
+  },
+  -rc_name         => 'helixer',
+  -max_retry_count => 0,
+  -flow_into       => {
+    1 => ['load_gtf_file'],
+  },
+},
     {		   
       -logic_name => 'load_gtf_file',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
