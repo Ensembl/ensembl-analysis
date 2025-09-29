@@ -757,7 +757,7 @@ sub pipeline_analyses {
 
 {
   -logic_name => 'select_busco_lineage',
-  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::RunExternalCmd',
+  -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRunExternalCmd',
   -parameters => {
     indir    => $self->o('output_path'),
     infile   => 'taxon.txt',
