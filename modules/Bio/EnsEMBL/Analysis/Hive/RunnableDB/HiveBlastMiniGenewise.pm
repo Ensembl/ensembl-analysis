@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -172,6 +172,9 @@ sub fetch_input{
     return;
   }
   $self->create_bmg_runnables(\%hit_list);
+  if ($self->param('disconnect_jobs')) {
+     $dna_db->dbc->disconnect_when_inactive(1);
+  }
   return 1;
 }
 
@@ -496,6 +499,7 @@ sub create_mask_list{
 
 sub run{
   my ($self) = @_;
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   my @transcripts;
   #print "HAVE ".@{$self->runnable}." runnables to run\n";
   foreach my $runnable(@{$self->runnable}){
@@ -527,6 +531,7 @@ sub run{
   #  print "FILTER ".$name." has ".$hash->{$name}." genes after filter\n";
   #}
   logger_info("HAVE ".@{$self->output}." genes to return");
+  $self->dbc->disconnect_when_inactive(0);
   return $self->output;
 }
 
@@ -600,6 +605,8 @@ sub write_output{
 
   my ($self) = @_;
   my $ga = $self->get_adaptor;
+  $ga->dbc->disconnect_when_inactive(0);
+
   my $sucessful_count = 0;
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
 
@@ -646,6 +653,9 @@ sub write_output{
     if($sucessful_count != @{$self->rejected_set}){
       $self->throw("Failed to write some rejected genes");
     }
+  }
+  if ($self->param('disconnect_jobs')) {
+    $ga->dbc->disconnect_when_inactive(1);
   }
   return 1;
 }

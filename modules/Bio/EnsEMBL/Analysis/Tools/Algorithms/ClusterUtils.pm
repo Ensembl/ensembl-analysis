@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -183,11 +183,6 @@ sub make_types_hash {
     @types_2{ map { $_->biotype } @{ $gene_set2 } } = 1 ;
     $types_hash{$gene_set2_name} = [ keys %types_2 ]  ; 
 
-    #my @tmp  = map { $_->biotype } @{ $gene_set2 };  
-    #for ( @tmp ) { 
-    #  print join("\n", $_ ) ; 
-    #}
-
     my @intersection ;
     for ( keys %types_1 ) {
        if ( exists $types_2{$_} ) {
@@ -195,7 +190,8 @@ sub make_types_hash {
        }
     }
     if ( @intersection > 0 ) {
-      warn("There are biotypes you try to cluster which are in both gene sets. This is fine is it is expected\n")  ;
+      warning("There are biotypes you try to cluster which are in both gene sets.\n".
+              "If you plan to compare the two sets, some genes may not be assigned in the correct group");
     }
     return \%types_hash;
 } 
@@ -747,7 +743,7 @@ sub get_coding_exons_for_gene {
 sub cluster_AlignFeatures {
   my ($features, $types_hash, $ignore_strand) = @_ ;
 
-  print "GOT " . scalar(@$features ) . " FEATURES to cluster \n" ; sleep(2) ; 
+  print "GOT " . scalar(@$features ) . " FEATURES to cluster \n" ;
   return ([],[]) if (!scalar(@$features));
 
   # sorting of ALL features

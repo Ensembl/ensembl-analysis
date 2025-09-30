@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [2018-2019] EMBL-European Bioinformatics Institute
+# Copyright [2018-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ unless(-d $full_master_dir_path) {
 say "The full path for the dir to be deleted is:\n".$full_master_dir_path;
 
 say "Getting subdir list...";
-my @subdirs = `lfs find $full_master_dir_path -type d`;
+my @subdirs = `find $full_master_dir_path -type d`;
 
 say "Found ".(scalar(@subdirs) - 1)." subdirs";
 

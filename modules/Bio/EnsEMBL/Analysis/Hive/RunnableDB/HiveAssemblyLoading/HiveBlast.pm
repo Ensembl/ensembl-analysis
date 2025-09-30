@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,26 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+               _batch_failed => 0, # Do not change or your module will think it failed
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _batch_failed => 0, # Do not change or your module will think it failed
+  }
+}
 
 
 =head2 fetch_input
@@ -144,9 +164,9 @@ sub run {
       chomp $except;
 
       if($except =~ /still running after your timer/) {
-        $self->warning("BLAST took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+        $self->warning("BLAST took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch RUNLIMIT (-2). Exception:\n$except");
         $self->batch_failed(1);
-        $self->param('_branch_to_flow_to_on_fail',-2);
+        $self->param('_branch_to_flow_to_on_fail', 'RUNLIMIT');
         last;
       } elsif ($except =~ /^\"([A-Z_]{1,40})\"$/i) {
         # only match '"ABC_DEFGH"' and not all possible throws
@@ -162,8 +182,15 @@ sub run {
           $self->throw("Blast Runnable returned unrecognised error string: ".$except);
         }
       } # end elsif ($except =~ /^\"([A-Z_]{1,40})\"$/i)
+      else {
+        $self->throw($@);
+      }
     } # end if($@)
     $self->output($runnable->output);
+    # This code was added in to deal with File::Temp having issues with having too many files open at once. The files are
+    # only deleted when the object is removed. As this module is currently batched on 5MB of 200KB slices, it means occasionally
+    # you might get a batch of lots if tiny slices. If the number of tiny slices >= 8185 then the job will die because of File::Temp
+    undef($runnable);
   }
 
   return 1;
@@ -419,6 +446,16 @@ sub BLAST_PARAMS {
       return;
   }
 }
+
+
+=head2 batch_failed
+
+ Arg [1]    : Boolean
+ Description: Getter/setter to indicate if one of the runnable died because of the timer
+ Returntype : Boolean
+ Exceptions : None
+
+=cut
 
 sub batch_failed {
   my ($self,$batch_failed) = @_;

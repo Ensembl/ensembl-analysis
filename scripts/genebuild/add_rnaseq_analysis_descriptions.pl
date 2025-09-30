@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,26 +18,33 @@ use strict;
 use warnings;
 
 use HTTP::Tiny;
-use Time::HiRes qw/sleep/;
-use JSON qw/decode_json/;
+use JSON;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use feature 'say';
 
 my ($help, $safe_mode, $dbname, $port, $host);
+my $use_datafile = 0;
+my $update_analysis_description = 0;
 
+my $dbuser = 'ensro';
+my $user = $ENV{USER};
 GetOptions(
 	   'help|h'       => \$help,
 	   'safe_mode'    => \$safe_mode,
 	   'dbname=s'     => \$dbname,
 	   'port=s'       => \$port,
 	   'host=s'       => \$host,
+     'dbuser=s'     => \$dbuser,
+     'user=s'       => \$user,
+     'df|Use_data_file!' => \$use_datafile,
+     'update!'      => \$update_analysis_description,
 );
 
 die &helptext if ( $help );
 
 say "Adding analysis decsriptions for logic name in database: ".$dbname;
-get_content($dbname, $port, $host);
+get_content($dbname, $port, $host, $use_datafile, $update_analysis_description);
 
 
 =head2 get_content
@@ -54,12 +61,15 @@ get_content($dbname, $port, $host);
 =cut
 
 sub get_content {
-  my ($dbname, $port, $host) = @_;
-  my $content;
+  my ($dbname, $port, $host, $use_datafile, $update_analysis_description) = @_;
 
+  my $json = JSON->new;
+  if ($safe_mode) {
+    $json->pretty([1]);
+  }
   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
       -port    => $port,
-      -user    => 'ensro',
+      -user    => $dbuser,
       -host    => $host,
       -dbname  => $dbname);
 
@@ -71,82 +81,112 @@ sub get_content {
   my $sth_logic = $db->dbc->prepare("select logic_name from analysis");
   $sth_logic->execute;
   my $http_client = HTTP::Tiny->new;
-  my $server = 'http://production-services.ensembl.org';
-  my $ext = '/production_db/api/analysisdescription';
+  my $server = 'https://services.ensembl-production.ebi.ac.uk';
+  my $ext = '/api/production_db/analysisdescription';
   my @rnaseq_logic_names = ();
   while (my $logic_name = $sth_logic->fetchrow) {
-    if($logic_name =~ /\_rnaseq_gene$/ || $logic_name =~ /\_rnaseq_bam$/ || $logic_name =~ /\_rnaseq_daf$/ || $logic_name =~ /\_rnaseq_ise$/) {
+    if($logic_name =~ /\_rnaseq_gene$/ || $logic_name =~ /\_rnaseq_bam$/ || $logic_name =~ /\_rnaseq_daf$/ || $logic_name =~ /\_rnaseq_ise$/ || $logic_name =~ /_isoseq$/) {
       my $response = $http_client->get("$server$ext/$logic_name");
-      push(@rnaseq_logic_names,$logic_name) unless ($response->{success});
+      if (!$update_analysis_description and $response->{success}) {
+        say "$logic_name already exists" if ($safe_mode);
+      }
+      else {
+        push(@rnaseq_logic_names,$logic_name);
+      }
     }
   }# end while
   foreach my $rnaseq_logic_name (@rnaseq_logic_names){
     my $logic_type = $rnaseq_logic_name;
-    $logic_type = $1 if $logic_type =~ /(rnaseq_.*)/;
-
-    my $sample_name = $rnaseq_logic_name;
-    $sample_name =~ s/$species_name// && $sample_name =~ s/_rnaseq_.*// && $sample_name =~ s/_// && $sample_name =~ s/_/ /g;
-
-    my %values_dict = get_values($sample_name, $logic_type);
-
-    if ($logic_type eq "rnaseq_ise"){
-      $content = "{
-                       \"logic_name\": \"".$rnaseq_logic_name."\",
-                       \"description\": \"".$values_dict{'description'}."\",
-                       \"display_label\": \"".$values_dict{'display_label'}."\"
-                     }";
+    if ($logic_type =~ /(rnaseq_.*)/) {
+      $logic_type = $1;
     }
-    else{
-      $content = "{
-                      \"web_data\": {
-                           \"data\": {
-                               \"zmenu\": \"".$values_dict{'web_data_zmenu'}."\",
-                               \"label_key\": \"".$values_dict{'web_data_label_key'}."\",
-                               \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\",
-                               \"type\": \"rnaseq\",";
+    elsif ($logic_type =~ /_isoseq$/) {
+      $logic_type = 'isoseq';
+    }
+
+    my (undef, $sample_name) = $rnaseq_logic_name =~ /(${species_name}_)?(\w+)_(rna|iso)seq.*/;
+    if ($sample_name eq $rnaseq_logic_name) {
+      die("Could not retrieve the sample name from $rnaseq_logic_name");
+    }
+    my $provider = 'ENA';
+    if ($use_datafile and $rnaseq_logic_name =~ /_rnaseq_/) {
+      my $analysis = $rnaseq_logic_name;
+      $analysis =~ s/_[^_]+$/_bam/;
+      my $data_files = $db->get_DataFileAdaptor->fetch_all_by_logic_name($analysis);
+      if (@$data_files != 1) {
+        warn('You have '.scalar(@$data_files).' this should not happen, I will use the default provider');
+      }
+      else {
+        ($provider) = $data_files->[0]->name =~ /\.([^.]+)\.$sample_name/;
+      }
+    }
+    $sample_name =~ s/_+/ /g;
+
+    my $values_dict = get_values($sample_name, $logic_type);
+
+    my %json_data = (
+      user => $user,
+      logic_name => $rnaseq_logic_name,
+      description => $values_dict->{description},
+      display_label => $values_dict->{display_label},
+    );
+    if ($logic_type eq 'isoseq') {
+      $json_data{web_data} = {
+        data => {
+          zmenu => $values_dict->{web_data_zmenu},
+          label_key => $values_dict->{web_data_label_key},
+          colour_key => $values_dict->{web_data_colour_key},
+          type => 'longreads',
+        },
+      };
+    }
+    elsif ($logic_type ne "rnaseq_ise"){
+      $json_data{web_data} = {
+        data => {
+          zmenu => $values_dict->{web_data_zmenu},
+          label_key => $values_dict->{web_data_label_key},
+          colour_key => $values_dict->{web_data_colour_key},
+          matrix => {
+            column => $values_dict->{matrix_column},
+            menu => 'rnaseq',
+            group => $provider,
+            row => ucfirst($sample_name),
+            group_order => $values_dict->{matrix_group_order},
+          },
+          type => 'rnaseq',
+        },
+      };
       if ($logic_type eq "rnaseq_daf") {
-	$content .=           "
-                               \"additional_renderers\": ".$values_dict{'web_data_additional_renders'}.""
+        $json_data{web_data}{data}{additional_renderers} = $values_dict->{web_data_additional_renders},
       }
-      $content .=              "
-                               \"matrix\": {";
-      if ($logic_type eq "rnaseq_bam") {
-	$content .=                         "
-                                           \"group_order\": \"".$values_dict{'matrix_group_order'}."\","
-      }
-      $content .=                           "
-                                           \"column\": \"".$values_dict{'matrix_column'}."\",
-                                           \"menu\": \"rnaseq\",
-                                           \"group\": \"ENA\",
-                                           \"row\": \"".$sample_name."\"
-                                           }
-                                     }
-                                  },
-                      \"logic_name\": \"".$rnaseq_logic_name."\",
-                      \"description\": \"".$values_dict{'description'}."\",
-                      \"display_label\": \"".$values_dict{'display_label'}."\"
-                     }";
     }
 
     if ( $safe_mode ) {
-      print "RUN IN SAFE MODE\nCONTENT:\n".$sample_name." ".$logic_type."\n".$content."\n";
+      print "RUN IN SAFE MODE\nCONTENT:\n".$sample_name." ".$logic_type."\n".$json->encode(\%json_data)."\n";
     }
     else {
-      my $http = HTTP::Tiny->new;
-      my $response = $http->request('POST', $server.$ext, {
+      my $http_action = 'POST';
+      my $error_msg = 'add';
+      my $url = $server.$ext;
+      if ($update_analysis_description) {
+        $http_action = 'PATCH';
+        $error_msg = 'update';
+        $url .= "/$rnaseq_logic_name"
+      }
+      my $response = $http_client->request($http_action, $url, {
           headers => {
-		      'Content-type' => 'application/json',
-		      'Accept' => 'application/json'
-		     },
-          content => $content
-							  });
+          'Content-type' => 'application/json',
+          'Accept' => 'application/json'
+        },
+        content => $json->encode(\%json_data)
+      });
 
-      print "\nFailed to add analyses descriptions for ".$sample_name."!\n" unless $response->{success};
+      print "\nFailed to $error_msg analyses descriptions for $sample_name!\n  ".$response->{status}."\n  ".$response->{content}."\n"
+        unless $response->{success};
     }
 
   }# end foreach logic_name
 
-  return $content;
 
 }# end get_content
 
@@ -156,66 +196,69 @@ sub get_values {
 
   my %description = (
 		     'rnaseq_gene' => "Annotation generated from ".$sample_name." RNA-seq data",
-		     'rnaseq_bam'  => 'BWA alignments of '.$sample_name.' RNA-seq data. This BAM file can be downloaded from the <a href=\\"ftp://ftp.ensembl.org/pub/data_files/\\">Ensembl FTP site</a>',
+		     'rnaseq_bam'  => 'Alignments of '.$sample_name.' RNA-seq data. This BAM file can be downloaded from the <a href="https://ftp.ensembl.org/pub/data_files/">Ensembl FTP site</a>',
 		     'rnaseq_ise'  => "Spliced-read support for ".$sample_name,
 		     'rnaseq_daf'  => "Spliced-read support for ".$sample_name,
+         'isoseq'      => ucfirst($sample_name).' PacBio long reads from <a rel="external" href="https://www.ebi.ac.uk/ena">ENA</a> aligned to the genome using <a rel="external" href="https://doi.org/10.1093/bioinformatics/bty191">Minimap2</a>',
 		    );
 
   my %display_label = (
-         	     'rnaseq_gene' => $sample_name." RNA-seq gene models",
-		     'rnaseq_bam'  => $sample_name." RNA-seq BWA alignments",
-		     'rnaseq_ise'  => $sample_name." intron-spanning reads",
-	             'rnaseq_daf'  => $sample_name." intron-spanning reads",
+    rnaseq_gene => ucfirst($sample_name)." RNA-seq gene models",
+    rnaseq_bam  => ucfirst($sample_name)." RNA-seq alignments",
+    rnaseq_ise  => ucfirst($sample_name)." intron-spanning reads",
+    rnaseq_daf  => ucfirst($sample_name)." intron-spanning reads",
+    isoseq => ucfirst($sample_name).' PacBio long reads',
         	    );
 
   my %web_data_zmenu = (
 		      'rnaseq_gene' => "RNASeq",
 		      'rnaseq_bam'  => "RNASeq_bam",
 	              'rnaseq_daf'  => "Supporting_alignment",
+          isoseq => 'CLS',
 		    );
 
   my %web_data_label_key = (
 		       'rnaseq_gene' => "RNASeq [biotype]",
 		       'rnaseq_bam'  => "RNASeq [biotype]",
 		       'rnaseq_daf'  => "",
+           isoseq => '[biotype] [display_label]',
 		    );
 
   my %web_data_additional_renders = (
 		       'rnaseq_gene' => "",
 	       	       'rnaseq_bam'  => "",
-		       'rnaseq_daf'  => "\[\"histogram\", \"Variable height\"\],",
+       'rnaseq_daf'  => ["histogram", "Variable height"],
 		    );
 
   my %web_data_colour_key = (
 		       'rnaseq_gene' => "human_rnaseq",
 		       'rnaseq_bam'  => "bam",
 		       'rnaseq_daf'  => "intron_support",
+           isoseq => 'long_reads_isoseq',
 		    );
 
   my %matrix_group_order = (
-		        'rnaseq_gene' => "",
-			'rnaseq_bam'  => "1",
-			'rnaseq_daf'  => "",
-		    );
+      rnaseq_bam  => 1,
+      rnaseq_daf  => 2,
+      rnaseq_gene => 3,
+      );
 
   my %matrix_column = (
-			'rnaseq_gene' => "Gene models",
-			'rnaseq_bam'  => "BAM files",
-			'rnaseq_daf'  => "Intron-spanning reads",
-		   );
+    rnaseq_gene => 'Gene models',
+    rnaseq_bam  => 'BAM files',
+    rnaseq_daf  => 'Intron-spanning reads',
+  );
 
-  my %desc_info = (
-		        'description' => $description{$logic_type},
-		        'display_label' => $display_label{$logic_type},
-		        'web_data_zmenu' => $web_data_zmenu{$logic_type},
-		        'web_data_label_key' => $web_data_label_key{$logic_type},
-		        'web_data_additional_renders' => $web_data_additional_renders{$logic_type},
-		        'web_data_colour_key' => $web_data_colour_key{$logic_type},
-		        'matrix_group_order' => $matrix_group_order{$logic_type},
-		        'matrix_column' => $matrix_column{$logic_type},
-                  );
-
-  return %desc_info;
+  return {
+    description => $description{$logic_type},
+    display_label => $display_label{$logic_type},
+    web_data_zmenu => $web_data_zmenu{$logic_type},
+    web_data_label_key => $web_data_label_key{$logic_type},
+    web_data_additional_renders => $web_data_additional_renders{$logic_type},
+    web_data_colour_key => $web_data_colour_key{$logic_type},
+    matrix_group_order => $matrix_group_order{$logic_type},
+    matrix_column => $matrix_column{$logic_type},
+  };
 
 }# end get_values
 
@@ -227,6 +270,7 @@ IMPORTANT: it is strongly recommended that you run this in SAFE MODE and check t
 Usage: perl add_rnaseq_analysis_descriptions.pl -dbname <rnaseq_dbname> -host <host> -port <port>
 
 Options: -safe_mode -> run the script without POSTing to the production database, i.e. print the content that would be POSTed when not run in safe mode
+         -user <production services username>, default to your Unix user name
 
 HELPEND
   return $msg;

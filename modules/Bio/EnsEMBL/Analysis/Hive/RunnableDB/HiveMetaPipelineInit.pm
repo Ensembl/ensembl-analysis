@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@ use strict;
 use warnings;
 
 use File::Spec::Functions qw(catfile);
+use Bio::EnsEMBL::Hive::Utils qw(stringify);
+
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::SystemCmd');
 
 
@@ -72,7 +74,7 @@ sub param_defaults {
               databases you need to add the name of the database(s) in 'databases'. The
               parameters will be created by using "${db_name}_name" where $db_name is the
               name of the databases in 'hive_config'. You should also have paramters in
-              the config like "${db_name}_name", "${db_name}_port", "${db_name}_server",
+              the config like "${db_name}_name", "${db_name}_port", "${db_name}_host",
               "${db_name}_user", "${db_name}_password".
  Returntype : None
  Exceptions : Throws if 'ehive_url', 'pipeline_name', 'meta_pipeline_db' or 'hive_config' is not set
@@ -102,10 +104,13 @@ sub fetch_input {
     '-port', $pipeline_db->{'-port'},
     '-user', $pipeline_db->{'-user'},
     '-password', $pipeline_db->{'-pass'},
+    '-pipe_db_host', $pipeline_db->{'-host'},
+    '-pipe_db_port', $pipeline_db->{'-port'},
+    '-pipe_db_user', $pipeline_db->{'-user'},
+    '-pipe_db_pass', $pipeline_db->{'-pass'},
     '-pipe_db_name', $pipeline_db->{'-dbname'},
     '-pipeline_name', $self->param_required('pipeline_name'));
-  push(@cmd, '-enscode_root_dir', $self->param('enscode_root_dir'))
-    if ($self->param_is_defined('enscode_root_dir'));
+  push(@cmd, '-enscode_root_dir', $self->param('enscode_root_dir'));
   if ($dna_db) {
     $self->warning('Your dna dbname has upper case character, it might cause problems, '.$dna_db->{'-dbname'})
       if ($dna_db->{'-dbname'} =~ /[[:upper:]]/);
@@ -117,13 +122,38 @@ sub fetch_input {
   }
   foreach my $db_title (@{$self->param('databases')}) {
     my $db = $self->param($db_title);
-    $self->warning("Your $db_title dbname has upper case character, it might cause problems, ".$db->{'-dbname'})
-      if ($db->{'-dbname'} =~ /[[:upper:]]/);
-    push(@cmd, '-'.$db_title.'_name', $db->{'-dbname'});
-    push(@cmd, '-'.$db_title.'_host', $db->{'-host'});
-    push(@cmd, '-'.$db_title.'_port', $db->{'-port'});
-    push(@cmd, '-'.$db_title.'_user', $db->{'-user'}) if (exists $db->{'-user'});
-    push(@cmd, '-'.$db_title.'_pass', $db->{'-pass'}) if (exists $db->{'-pass'} and $db->{'-pass'});
+	if ($db){
+    	$self->warning("Your $db_title dbname has upper case character, it might cause problems, ".$db->{'-dbname'})
+    	  if ($db->{'-dbname'} =~ /[[:upper:]]/);
+    	push(@cmd, '-'.$db_title.'_name', $db->{'-dbname'});
+    	push(@cmd, '-'.$db_title.'_host', $db->{'-host'});
+    	push(@cmd, '-'.$db_title.'_port', $db->{'-port'});
+    	push(@cmd, '-'.$db_title.'_user', $db->{'-user'}) if (exists $db->{'-user'});
+    	push(@cmd, '-'.$db_title.'_pass', $db->{'-pass'}) if (exists $db->{'-pass'} and $db->{'-pass'});
+	}else{
+		$self->throw("$db_title is not found in your parameter");
+	}
+  }
+  if ($self->param_is_defined('extra_parameters')) {
+    my $extra_parameters = $self->param('extra_parameters');
+    if (ref($extra_parameters) eq 'HASH') {
+      foreach my $key (keys %$extra_parameters) {
+        if (ref($extra_parameters->{$key}) eq 'ARRAY') {
+          # We need to make sure that an arrayref/hashref is correctly passed to the init script
+          foreach my $arraydata (@{$extra_parameters->{$key}}) {
+            my $value = ref($arraydata) ? stringify($arraydata) : $arraydata;
+            push(@cmd, "-$key", $value);
+          }
+        }
+        else {
+          # We need to make sure that an arrayref/hashref is correctly passed to the init script
+          my $value = ref($extra_parameters->{$key}) ? stringify($extra_parameters->{$key}) : $extra_parameters->{$key};
+          if ($value or (defined $value and $value eq "0")) {
+            push(@cmd, "-$key", $value);
+          }
+        }
+      }
+    }
   }
   if ($self->param_is_defined('commandline_params')) {
     push(@cmd, $self->param('commandline_params'));

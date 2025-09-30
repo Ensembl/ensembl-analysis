@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ sub download_ftp_contigs {
 
   $source = lc($source);
   if($source eq 'ncbi') {
-    my $base = 'rsync -av ftp.ncbi.nlm.nih.gov::genbank/wgs/' ;  # wgs.AALT.*.fsa_nt.gz .  wget -nv "ftp://ftp.ncbi.nlm.nih.gov/genbank/wgs';
+    my $base = 'rsync -av ftp.ncbi.nlm.nih.gov::genbank/wgs/' ;  # wgs.AALT.*.fsa_nt.gz .  wget -nv "https://ftp.ncbi.nlm.nih.gov/genbank/wgs';
     foreach my $a_wgs_id (@wgs_ids) {
       $a_wgs_id =~ s/\d+//; # remove any digit 0-9
       $a_wgs_id = uc($a_wgs_id);

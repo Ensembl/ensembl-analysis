@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-Copyright [2018-2019] EMBL-European Bioinformatics Institute
+Copyright [2018-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -65,6 +65,8 @@ sub fetch_input {
   $self->param_required('rnaseq_summary_file');
   $self->param_required('fastq_dir');
   $self->param_required('iid');
+  $self->param_required('pairing_regex');
+  $self->param_required('single_regex');
 }
 
 
@@ -111,13 +113,22 @@ sub run {
   }
 
   say "Preparing to split the fastq file";
-  my $pairing_regex = '(\S+)(\_\d\.\S+)';
-  unless($fastq_file_name =~ /$pairing_regex/) {
-    $self->throw('Failed name did not match the regex. Regex used: '.$pairing_regex.' filename: '.$fastq_file_name);
+  my $sample_name;
+  my $remainder;
+  my $pairing_regex = $self->param('pairing_regex');
+  my $single_regex = $self->param('single_regex');
+  if ($fastq_file_name =~ /$pairing_regex/) {
+      $sample_name = $1;
+      $remainder = $2;
+  }
+  elsif ($fastq_file_name =~ /$single_regex/) {
+    $sample_name = $1;
+    $remainder = '_0'.$2;
+  }
+  else {
+    $self->throw('Failed name did not match the regex. Regex used: PAIRED: '.$pairing_regex.' OR SINGLE: '.$single_regex.' filename: '.$fastq_file_name);
   }
 
-  my $sample_name = $1;
-  my $remainder = $2;
   my $split_file_paths = $self->split_fastq($fastq_file_name,$self->param('fastq_dir'),$max_lines_per_split,$sample_name,$remainder);
   say "Fastq file has been split";
 

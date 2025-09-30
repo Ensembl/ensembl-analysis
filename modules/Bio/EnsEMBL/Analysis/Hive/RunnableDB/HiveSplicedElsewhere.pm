@@ -1,8 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2019] EMBL-European Bioinformatics Institute
-# Copyright [2017-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,10 +79,30 @@ use Bio::EnsEMBL::Analysis::Runnable::HiveSplicedElsewhere;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene remove_Transcript_from_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _retro_gene => [],
+    _real_gene => [],
+    _pseudo_gene => [],
+    _genes => [],
+  }
+}
 
 
 =head2 fetch_input
@@ -99,29 +118,16 @@ Title   :   fetch_input
 sub fetch_input{
   my ($self)=@_;
 
+  $self->setup_fasta_db;
   my $analysis = new Bio::EnsEMBL::Analysis(
                                              -logic_name => $self->param('logic_name'),
                                              -module => $self->param('module'),
                                            );
   $self->analysis($analysis);
 
-  my $input_dba = $self->hrdb_get_dba($self->param('input_gene_db'));
-  my $repeat_dba = $self->hrdb_get_dba($self->param('repeat_db'));
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-
-  if($self->param('use_genome_flatfile')) {
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param_required('genome_file'),
-               );
-  } else {
-    my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
-    $input_dba->dnadb($dna_dba);
-    $repeat_dba->dnadb($dna_dba);
-    $output_dba->dnadb($dna_dba);
-  }
+  my $input_dba = $self->get_database_by_name('input_gene_db');
+  my $repeat_dba = $self->get_database_by_name('repeat_db');
+  my $output_dba = $self->get_database_by_name('output_db');
 
   $self->hrdb_set_con($input_dba,'input_gene_db');
   $self->hrdb_set_con($repeat_dba,'repeat_db');
@@ -456,9 +462,6 @@ Arg [1]    : Bio::EnsEMBL::Gene
 
 sub retro_genes {
   my ($self, $retro_gene) = @_;
-  unless(defined($self->param('_retro_gene'))) {
-   $self->param('_retro_gene',[]);
-  }
   if ($retro_gene) {
     unless ($retro_gene->isa("Bio::EnsEMBL::Gene")){
       $self->throw("retro gene is not a Bio::EnsEMBL::Gene, it is a $retro_gene");
@@ -470,9 +473,6 @@ sub retro_genes {
 
 sub real_genes {
   my ($self, $real_gene) = @_;
-  unless(defined($self->param('_real_gene'))) {
-   $self->param('_real_gene',[]);
-  }
 
   if ($real_gene) {
     unless ($real_gene->isa("Bio::EnsEMBL::Gene")){

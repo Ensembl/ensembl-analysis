@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -116,12 +116,15 @@ sub fetch_input {
     $self->input_job->autoflow(0);
     $self->complete_early('No selenoprotein to use');
   }
+ if ($self->param('disconnect_jobs')) {
+     $db->dbc->disconnect_when_inactive(1);
+  }
 }
 
 
 sub run {
   my ($self) = @_;
-
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   my $minimum_identity = $self->param('minimum_identity');
   my $coverage_threshold = $self->param('coverage_threshold')/100;
@@ -135,13 +138,12 @@ sub run {
       my $tsf = $transcript->get_all_supporting_features->[0];
       next if ($tsf->hcoverage < $self->param('coverage_threshold'));
       if (exists $alignments{$tsf->seqname}) {
-        my $accession = $tsf->seqname;
-        if ($tsf->score > ($alignments{$accession}->{score}+$tsf->{score}*$score_threshold)
+        if ($tsf->score > ($alignments{$tsf->seqname}->{score}+$tsf->{score}*$score_threshold)
             or ($tsf->percent_id > $minimum_identity and
-              $tsf->percent_id > $alignments{$accession}->get_all_supporting_features->[0]->percent_id and
-              (($tsf->q_end-$tsf->q_start) > $tsf->{query_length}*$coverage_threshold)) ) {
-          $transcript->slice($alignments{$tsf->seqname}->slice);
-          $alignments{$tsf->seqname} = $transcript;
+              $tsf->percent_id > $alignments{$tsf->seqname}->get_all_supporting_features->[0]->{percent_id} and
+		(($tsf->hend-$tsf->hstart) > $transcript->{query_length}*$coverage_threshold)) ) {
+	    $transcript->slice($alignments{$tsf->seqname}->slice);
+	    $alignments{$tsf->seqname} = $transcript;
         }
       }
       else {
@@ -224,6 +226,7 @@ sub run {
     }
     $self->output(\@selenocysteine_transcripts);
   }
+  $self->dbc->disconnect_when_inactive(0);
 }
 
 
@@ -309,6 +312,7 @@ sub write_output {
   my ($self) = @_;
 
   my $gene_adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
+  $gene_adaptor->dbc->disconnect_when_inactive(0);
   my $analysis = $self->analysis;
   my $biotype = $self->param('biotype');
   foreach my $transcript (@{$self->output}) {

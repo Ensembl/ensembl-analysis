@@ -12,7 +12,7 @@
 =head1 LICENSE
 
     Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2019] EMBL-European Bioinformatics Institute
+#Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
@@ -57,7 +57,7 @@ sub default_options {
         %{ $self->SUPER::default_options() },
 
         pipeline_name     => $ENV{pipeline_name},
-        base_uniprot_ftp  => $ENV{'BASE_UNIPROT_FTP'} || 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase',
+        base_uniprot_ftp  => $ENV{'BASE_UNIPROT_FTP'} || 'https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase',
         base_uniprot_url  => $ENV{'BASE_UNIPROT_URL'} || 'http://www.uniprot.org/uniprot/?query=',
         uniprot_vert_file => $ENV{'UNIPROT_VERT_FILE'} || 'uniprot_vertebrata',
         uniprot_file      => $ENV{'UNIPROT_FILE'} || 'uniprot',

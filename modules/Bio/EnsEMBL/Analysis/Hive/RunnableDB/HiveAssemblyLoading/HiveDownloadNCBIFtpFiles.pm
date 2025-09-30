@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,8 +57,8 @@ sub download_ftp_dir {
   my $wget_verbose = "-nv";
 
   # Test
-  #$ftp_path = 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/151/905/GCA_000151905.3_gorGor4/';
-  #$ftp_path = 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/900/006/655/GCA_900006655.1_GSMRT3/';
+  #$ftp_path = 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/151/905/GCA_000151905.3_gorGor4/';
+  #$ftp_path = 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/900/006/655/GCA_900006655.1_GSMRT3/';
 
   my @ftp_path_array = split('/',$ftp_path);
   my $top_dir = pop(@ftp_path_array);

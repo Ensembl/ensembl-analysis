@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ use warnings;
 use File::Basename;
 use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
+use Bio::EnsEMBL::Hive::Version qw(get_code_version);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -68,7 +69,9 @@ sub fetch_input {
   if (-e $self->param('beekeeper_script')) {
     $base_cmd = $self->param('perl_path').' '.$base_cmd;
   }
-  execute_with_wait($base_cmd.' -sync');
+  if (get_code_version() < 2.5) {
+    execute_with_wait($base_cmd.' -sync');
+  }
   $self->param('base_cmd', $base_cmd);
 }
 
@@ -79,7 +82,9 @@ sub run {
   $cmd .= ' '.$self->param('commandline_params')
     if ($self->param_is_defined('commandline_params') and $self->param('commandline_params'));
   execute_with_wait($cmd);
-  execute_with_wait($self->param('base_cmd').' -sync');
+  if (get_code_version() < 2.5) {
+    execute_with_wait($self->param('base_cmd').' -sync');
+  }
   execute_with_wait($cmd);
 }
 

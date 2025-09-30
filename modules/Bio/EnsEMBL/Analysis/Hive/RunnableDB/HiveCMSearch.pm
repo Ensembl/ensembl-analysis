@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2019] EMBL-European Bioinformatics Institute
+#Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -88,6 +88,7 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input{
   my ($self)=@_;
 
+  $self->setup_fasta_db;
   my $analysis = new Bio::EnsEMBL::Analysis(
                                              -logic_name => $self->param('logic_name'),
                                              -module => $self->param('module'),
@@ -98,15 +99,8 @@ sub fetch_input{
   $self->analysis($analysis);
 
   # The output db should be the one that the dafs to check have been written to
-  my $repeat_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-
-
-  if($dna_dba) {
-    $repeat_dba->dnadb($dna_dba);
-    $output_dba->dnadb($dna_dba);
-  }
+  my $repeat_dba = $self->get_database_by_name('output_db');
+  my $output_dba = $self->get_database_by_name('output_db');
   $self->hrdb_set_con($repeat_dba,'repeat_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
@@ -135,8 +129,9 @@ sub fetch_input{
   }
 
   # Make  the runnable
-
-  say "Fetch input finished";
+   if ($self->param('disconnect_jobs')) {
+     $repeat_dba->dbc->disconnect_when_inactive(1);
+  }
   return 1;
 }
 
@@ -151,13 +146,13 @@ sub fetch_input{
 
 sub run{
   my ($self) = @_;
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   foreach my $runnable (@{$self->runnable}) {
     $self->throw("Runnable module not set") unless ($runnable->isa("Bio::EnsEMBL::Analysis::Runnable"));
     $runnable->run();
     $self->output($runnable->output);
   }
-
-  say "Run finished";
+  $self->dbc->disconnect_when_inactive(0);
   return 1;
 }
 
@@ -176,6 +171,7 @@ sub write_output{
   my ($self) = @_;
 
   my $adaptor = $self->hrdb_get_con('output_db');
+  $adaptor->dbc->disconnect_when_inactive(0);
   my $aa = $adaptor->get_AttributeAdaptor;
   my $dbea = $adaptor->get_DBEntryAdaptor;
   my $gene_adaptor = $adaptor->get_GeneAdaptor;

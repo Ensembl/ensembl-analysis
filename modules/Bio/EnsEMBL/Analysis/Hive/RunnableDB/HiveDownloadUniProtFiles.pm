@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    base_url => 'http://www.uniprot.org/uniprot/?query=',
+    base_url => 'https://rest.uniprot.org/uniprotkb/stream?query=',
     format => 'fasta',
   }
 }
@@ -100,11 +100,18 @@ sub run {
     }
 
     if ($response->is_success()) {
-      if (open(my $fh,'>',$filename)) {
-        print $fh $response->content();
-        close $fh;
-      } else {
-        $self->throw("Could not open file $filename\n");
+      if (index($response->content(), '>') == 0) {
+        if (open(my $fh,'>',$filename)) {
+          print $fh $response->content();
+          close($fh) || $self->throw("Could not close the file '$filename'");
+        } else {
+          $self->throw("Could not open file $filename\n");
+        }
+      }
+      elsif ($response->content() eq ""){
+        $self->warning("File '$filename' contains no sequence");
+      }
+      else{
       }
       
       if ($filename =~ s/\.gz$//) {
@@ -147,7 +154,7 @@ sub build_query {
   my $taxonomy_string = "";
   my $exclude_string = "";
   my $compress = "yes";
-  my $fragment_string = "+AND+fragment:no";
+  my $fragment_string = "+AND+fragment%3Afalse";
   my $mito = "+NOT+organelle%3Amitochondrion";
   my $format = $self->param('format');
 
@@ -165,7 +172,7 @@ sub build_query {
 
   if(exists($query_params->{'fragment'})) {
     if($query_params->{'fragment'}) {
-      $fragment_string = "+AND+fragment:yes";
+      $fragment_string = "+AND+fragment%3Atrue";
     }
   }
 
@@ -173,16 +180,7 @@ sub build_query {
     $format = $query_params->{'format'};
   }
 
-  # http://www.uniprot.org/uniprot/?query=existence%3A%22evidence+at+protein+level%22+OR+existence%3A%22evidence+at+transcript+level%22+AND+taxonomy%3A%22Mammalia+%5B40674%5D%22+NOT+taxonomy%3A%22Primates+%5B9443%5D%22&sort=score
-
   my $full_query = $self->param('base_url');
-  my %pe_code = (
-                  '1' => 'evidence+at+protein+level',
-                  '2' => 'evidence+at+transcript+level',
-                  '3' => 'inferred+from+homology',
-                  '4' => 'predicted',
-                  '5' => 'uncertain',
-                );
 
   # Must have file_name, pe_level, dest_dir and either taxon_id or taxonomy
   unless($file_name && $dest_dir && ($taxon_id || $taxon_group) && $pe_level) {
@@ -203,23 +201,23 @@ sub build_query {
     unless($parsed_pe_level >= 1 && $parsed_pe_level <= 5) {
      $self->throw("Parsed PE level is outside the normal range of 1-5: ".$parsed_pe_level);
    }
-   $pe_string .= 'existence%3A%22'.$pe_code{$pe_level}.'%22+OR+';
+   $pe_string .= 'existence%3A'.$pe_level.'+OR+';
   }
 
   $pe_string =~ s/\+OR\+$/\)/;
 
   # NOTE this bit of the code with taxonomy and exclude is shit and needs to be upgraded
   if($taxon_id) {
-    $taxonomy_string = '+AND+taxonomy%3A+'.$taxon_id;
+    $taxonomy_string = '+AND+taxonomy_id%3A+'.$taxon_id;
   } elsif($taxon_group) {
-    $taxonomy_string = '+AND+taxonomy%3A'.$taxon_group;
+    $taxonomy_string = '+AND+taxonomy_id%3A'.$taxon_group;
   }
 
 #+NOT+taxonomy%3A%22
   if($exclude_id) {
     my @exclusion_array = @{$exclude_id};
     foreach my $id_to_exclude (@exclusion_array) {
-      $exclude_string .= '+NOT+taxonomy%3A+'.$id_to_exclude;
+      $exclude_string .= '+NOT+taxonomy_id%3A+'.$id_to_exclude;
     }
   }
 

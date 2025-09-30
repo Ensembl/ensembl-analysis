@@ -2,7 +2,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,7 +70,6 @@ use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -137,6 +136,7 @@ sub fetch_input {
   # do all the normal stuff
   # then get all the transcripts and exons
   $self->throw('Your bam file "'.$self->param('bam_file').'" does not exist!') unless (-e $self->param('bam_file'));
+  $self->setup_fasta_db;
   my $dna_db;
   my $gene_db = $self->get_database_by_name('source_db');
   my $gene_adaptor = $gene_db->get_GeneAdaptor;
@@ -149,22 +149,6 @@ sub fetch_input {
     $self->warning("Found no stable id in the input id. Completing early");
     $self->input_job->autoflow(0);
     $self->complete_early('No genes to process');
-  }
-
-  if($self->param('use_genome_flatfile')) {
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-
-    setup_fasta(
-                 -FASTA => $self->param('genome_file'),
-               );
-  } elsif($self->param('dna_db')) {
-    $dna_db = $self->get_database_by_name('dna_db');
-    $self->hrdb_set_con($dna_db,'dna_db');
-    $gene_db->dnadb($dna_db);
-  } else {
-    $self->throw("You must provide either a flatfile or a dna db to read from");
   }
 
   my $slice_adaptor = $gene_db->get_SliceAdaptor;

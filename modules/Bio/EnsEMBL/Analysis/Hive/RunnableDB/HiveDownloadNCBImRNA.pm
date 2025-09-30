@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -93,7 +93,6 @@ sub fetch_input {
   my $url = $self->param('base_url').'/'.$self->param('search_url').'?db='.$self->param('ncbidb').'&term='.$self->input_id.'&usehistory=y';
 
   if (!-d dirname($self->param('output_file')) ) {
-    print  "DEBUG:: to check" . $self->param('output_file') . "\n"; 
     make_path(dirname($self->param('output_file')));
   }
 
@@ -172,6 +171,7 @@ sub write_output {
   }
   close(WH) || $self->throw('Could not close '.$self->param('output_file'));
 
+  sleep(45);
   # check the number of sequences that you have saved: 
   my $count = 0;
   my $format = $self->param('filetype');

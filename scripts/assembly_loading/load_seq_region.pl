@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -104,6 +104,7 @@ my $sequence_level = 0;
 my $agp;
 my $fasta;
 my $rank;
+my $species_id;
 my $verbose = 0;
 my $regex;
 my $name_file;
@@ -119,6 +120,7 @@ GetOptions(
             'coord_system_name|cs_name:s' => \$cs_name,
             'coord_system_version:s' => \$cs_version,
             'rank:i' => \$rank,
+	    'species_id:i' => \$species_id,
             'sequence_level!' => \$sequence_level,
             'default_version!' => \$default,
             'agp_file:s' => \$agp,
@@ -153,6 +155,8 @@ if(!$rank) {
     $help = 1;
 }
 
+$species_id ||= 1; #default to species id 1 if not defined
+
 if ($help) {
     exec('perldoc', $0);
 }
@@ -164,7 +168,8 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
     -host   => $host,
     -user   => $dbuser,
     -port   => $port,
-    -pass   => $dbpass
+    -pass   => $dbpass,
+    -species_id => $species_id,
 );
 
 
@@ -229,7 +234,7 @@ sub parse_fasta{
 
   my $seqio = new Bio::SeqIO(
                              -format=>'Fasta',
-                             -file=>$filename
+                             -file=> $filename =~ /\.gz$/? "gunzip -c $filename | " : $filename
                             );
 
   while ( my $seq = $seqio->next_seq )
@@ -256,8 +261,8 @@ sub parse_fasta{
     print( "Loading ".$name."\n" ) if($verbose) ;
     if( $name !~ /^\w+\.\d/ || length($name)>40 )
     {
-        warning( "Name ".$name." does not look like a valid accession - are you sure ".
-            "this is what you want?" )
+	  warning( "Name ".$name." does not look like a valid accession - are you sure ".
+	    "this is what you want?" )
     }
 
     my $slice = &make_slice($name, 1, $seq->length, $seq->length, 1, $cs);

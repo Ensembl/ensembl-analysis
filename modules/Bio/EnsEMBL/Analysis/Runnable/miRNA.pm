@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,20 +62,15 @@ package Bio::EnsEMBL::Analysis::Runnable::miRNA;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Gene;
-use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Analysis::Runnable::RNAFold;
 
-use vars qw(@ISA);
+use parent qw(Bio::EnsEMBL::Analysis::Runnable);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
-
-my $verbose = "yes";
 
 =head2 new
 
@@ -95,10 +90,6 @@ my $verbose = "yes";
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-#  my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
-#  $self->queries($queries); 
-#  $self->throw("miRNA: dying because cannot find database".$self->analysis->db_file."\n")
-#    unless (-e $self->analysis->db_file);
   
   my ($outdir, $queries,$thresholds) = rearrange(['OUTPUT_DIR', 'QUERIES'], @args);
   $self->queries($queries); 
@@ -122,17 +113,18 @@ sub new {
 
 sub run{
   my ($self) = @_;
-  print STDERR "get miRNAs\n"  if $verbose;
+
+  my $queries = $self->queries;
+  throw("Cannot find query sequences $@\n") unless (%$queries);
   # fetch the coordinates of the mature miRNAs
   $self->get_miRNAs;
-  my %queries = %{$self->queries};
-  $self->throw("Cannot find query sequences $@\n") unless %queries;
-  print STDERR "Run analysis\n" if $verbose;
- FAM:  foreach my $family (keys %queries){
-  DAF:foreach my $daf (@{$queries{$family}}){    
+  my $fn = $self->resultsfile;
+  open(FH, '>', $fn) or throw("Could not write to $fn");
+  foreach my $family (keys %$queries){
+    foreach my $daf (@{$queries->{$family}}) {
       # Does the alignment contain the mature sequence?
       my ($align,$status) = $self->run_analysis($daf);
-      next DAF unless ($align && scalar @$align > 0);
+      next unless ($align && scalar @$align > 0);
       # does the sequence fold into a hairpin ?
       my $seq = Bio::PrimarySeq->new
 	(
@@ -146,15 +138,20 @@ sub run{
 	);
       $RNAfold->run;
       # get the final structure encoded by run length
-      my $structure = $RNAfold->encoded_str;
-      # next DAF unless ($RNAfold->score < -20); # uncommented to report all MFEs from RNAFold, hard threshold no longer needed - osagie 10/2017
-      next DAF unless ($RNAfold->structure);
-      $self->display_stuff($daf,$RNAfold->structure,$align,$RNAfold->score) if $verbose;
+      next unless ($RNAfold->structure);
+      $self->display_stuff($daf,$RNAfold->structure,$align,$RNAfold->score) if ($self->verbosity);
+      print FH $daf->seq_region_name,
+        "\t", $daf->seq_region_start,
+        "\t", $daf->seq_region_end,
+        "\t", $daf->seq_region_name, ":", $daf->seq_region_start, "-", $daf->seq_region_end,
+        "\t", $RNAfold->score,
+        "\t", ($daf->strand > 0 ? "+" : "-"),
+        "\t", $daf->dbID, "\n";
       # create the gene
-      $self->make_gene($daf,$structure,$align);
+      $self->make_gene($daf,$RNAfold->encoded_str,$align);
     }
   }
-  print STDERR "delete temp files\n"  if $verbose;
+  close(FH) or throw("Could not close $fn");
   $self->delete_files;
 }
 
@@ -306,7 +303,7 @@ sub get_mature{
   Title      : make_gene
   Usage      : my $gene = $runnable->make_gene($dna_align_feature,$structure,$simple_alignment)
   Function   : Creates the non coding gene object from the parsed result file.
-  Returns    : Hashref of Bio::EnsEMBL::Gene, Bio::EnsEMBL::Attribute and Bio::EnsEMBL::DBEntry
+  Returns    : Hashref of Bio::EnsEMBL::Gene, Bio::EnsEMBL::Attribute
   Exceptions : None
   Args       : dna_align_feature (Bio::EnsEMBL::DnaDnaAlignFeature)
              : structure (String)
@@ -412,11 +409,6 @@ sub display_stuff{
     print STDERR "\nMirna position = ".$align->start." ". $align->end."\n";
   }
 
-  my $fn = $self->outdir . "/rna_fold_results.txt";
-  open(FH, '>>', $fn) or die "Could not write to $fn ; please check basedir exists";
-  print FH $daf->seq_region_name . "\t" . $daf->seq_region_start . "\t" . $daf->seq_region_end . "\t" .
-    $daf->seq_region_name . ":" . $daf->seq_region_start . "-" . $daf->seq_region_end . "\t" . $score . "\t" .
-    ($daf->strand > 0 ? "+" : "-") . "\t" . $daf->dbID . "\n";
 }
 
 ##################################################################################

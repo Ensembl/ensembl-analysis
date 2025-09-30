@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -160,10 +160,10 @@ sub _master_config {
                # mimimum number of exons for the spliced gene to have
                PS_MIN_EXONS           => 4,
                # path of blast db of multi exon genes
-               PS_MULTI_EXON_DIR       => "/path/to/my/blast/directory/" ,
+               PS_MULTI_EXON_DIR       => '#output_path#' ,
                # Chunk size
                PS_CHUNK => '50',
-               DEBUG => '1',
+               DEBUG => '0',
               },
 
               pseudogenes => {

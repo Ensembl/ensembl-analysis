@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2019] EMBL-European Bioinformatics Institute
+#Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -100,6 +100,21 @@ sub _master_config {
                          },
       },
 
+      BlastGenscanPep_non_vert => {
+        PARSER_PARAMS => {
+                           -regex => '^\s*([^\s]+)',
+                           -query_type => 'pep',
+                           -database_type => 'pep',
+                           -threshold_type => 'PVALUE',
+                           -threshold => 0.01,
+                         },
+        BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+        FILTER_PARAMS => {
+                           -min_score => 200,
+                           -prune => 1,
+                         },
+      },
+
       BlastGenscanVertRNA => {
         BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
         PARSER_PARAMS => {
@@ -150,15 +165,17 @@ sub _master_config {
       BlastUniProtToGenome => {
         BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBlastGenome',
         PARSER_PARAMS => {
-                           -regex => '^\s*(\w+\W\d+)',
-                           -query_type => 'dna',
-                           -database_type => 'pep',
+                           -regex => '^(\S+:\S+:\S+:\d+:\d+:1)',
+                           -query_type => 'pep',
+                           -database_type => 'dna',
                            -threshold_type => 'PVALUE',
                            -threshold => 0.00001,
+                           -filter => 0,
                          },
-        BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+        BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilterOnGenome',
         FILTER_PARAMS => {
                            -prune => 1,
+                           -coverage => 3,
                          },
       },
 

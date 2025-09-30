@@ -1,6 +1,6 @@
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,14 +37,19 @@ open(FH, '>', $fn) or die "Could not write to $fn";
 my $sa = $db->get_SliceAdaptor();
 my $slice_name;
 
+my $logic_names = $db->get_MetaContainer->list_value_by_key('repeat.analysis');
+if (!@$logic_names) {
+  push(@$logic_names, '');
+}
 foreach my $slice (@{ $sa->fetch_all( 'toplevel') }){
   $slice_name = $slice->seq_region_name();
-  foreach my $repeat (@{ $rfa->fetch_all_by_Slice($slice) }){
-    my $strand = $repeat->strand() > 0 ? "+" : "-";
-    print FH $slice_name, "\t",
-      $repeat->seq_region_start(), "\t",
-      $repeat->seq_region_end(), "\t",
-      $strand, "\n";
+  foreach my $logic_name (@$logic_names) {
+    foreach my $repeat (@{ $rfa->fetch_all_by_Slice($slice, $logic_name) }){
+      print FH $slice_name, "\t",
+        $repeat->seq_region_start(), "\t",
+        $repeat->seq_region_end(), "\t",
+        ($repeat->strand() == 1 ? '+' : '-'), "\n";
+    }
   }
 }
 

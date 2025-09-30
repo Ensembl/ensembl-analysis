@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [2017-2019] EMBL-European Bioinformatics Institute
+# Copyright [2017-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License,Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -573,15 +573,15 @@ sub download_data {
  
   # get the HGNC accessions
   say "Downloading HGNC accessions";
-  system ("wget ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt -P $outdir");
+  system ("wget https://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt -P $outdir");
 
   # get RefSeq canonicals
   say "Downloading RefSeq canonicals";
-  system ("wget ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/*rna.fna* -P $outdir");
+  system ("wget https://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/*rna.fna* -P $outdir");
 
   # get the UniProt canonicals
   say "Downloading UniProt canonicals";
-  system ("wget ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping.dat.gz -P $outdir");
+  system ("wget https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping.dat.gz -P $outdir");
 
   # unzip all the gz files
   say "Unzipping downloaded files";

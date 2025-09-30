@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -3284,7 +3284,7 @@ sub set_alignment_supporting_features {
     }
     
     if (scalar(@{$exon_feature_pairs})) {
-      my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs);
+      my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs, -align_type => 'ensembl');
       $exon->add_supporting_features($final_exon_supporting_features);
     } else {
       warning("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
@@ -3292,7 +3292,7 @@ sub set_alignment_supporting_features {
   }
 
   if (scalar(@$all_exon_supporting_features) > 0) {
-    my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features);
+    my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features, -align_type => 'ensembl');
 
     if ($transcript_supporting_features) {
       $transcript->add_supporting_features($transcript_supporting_features);

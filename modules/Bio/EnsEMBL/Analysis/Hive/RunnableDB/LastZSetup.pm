@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-Copyright [2019] EMBL-European Bioinformatics Institute
+Copyright [2019-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -75,14 +75,11 @@ sub run {
   my $target_assembly_name = $target_dba->get_MetaContainer->single_value_by_key('assembly.default');
   my $source_production_name = $projection_source_dba->get_MetaContainer->get_production_name();
   my $target_production_name = $target_dba->get_MetaContainer->get_production_name();
+  my $databases_conf_path = $self->param_required('registry_file');
 
-  say "Creating Databases.pm";
-  my $databases_conf_path = $self->create_compara_databases_conf($source_production_name,$target_production_name,$compara_dba,$target_dba,$projection_source_dba);
   unless($databases_conf_path) {
-    $self->throw("Could not create a Databases.pm registry");
+    $self->throw($databases_conf_path." does not exist");
   }
-  say "...finished creating Databases.pm";
-
   $self->param('reg_conf',$databases_conf_path);
 
   my $update_genome_db_cmd = 'perl '.$self->param_required('compara_genome_db_update_path').
@@ -180,78 +177,6 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
-}
-
-
-sub create_compara_databases_conf {
-  my ($self,$source_production_name,$target_production_name,$compara_dba,$target_dba,$source_dba) = @_;
-
-  my $target_dbname = $target_dba->dbc->dbname;
-  my $target_host = $target_dba->dbc->host;
-  my $target_port = $target_dba->dbc->port;
-  my $target_user = $target_dba->dbc->user;
-  my $target_pass = $target_dba->dbc->pass;
-
-  my $source_dbname = $source_dba->dbc->dbname;
-  my $source_host = $source_dba->dbc->host;
-  my $source_port = $source_dba->dbc->port;
-  my $source_user = $source_dba->dbc->user;
-  my $source_pass = $source_dba->dbc->pass;
-
-  my $compara_dbname = $compara_dba->dbc->dbname;
-  my $compara_host = $compara_dba->dbc->host;
-  my $compara_port = $compara_dba->dbc->port;
-  my $compara_user = $compara_dba->dbc->user;
-  my $compara_pass = $compara_dba->dbc->pass;
-
-
-  my $conf_path = $self->param_required('output_path')."/Databases.pm";
-  open(OUT,">".$conf_path);
-  say OUT <<DATABASES
-  use warnings;
-  use strict;
-
-  use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
-  use Bio::EnsEMBL::DBSQL::DBAdaptor;
-
-  # Target species
-  Bio::EnsEMBL::DBSQL::DBAdaptor->new(
-    -host    => '$target_host',
-    -user    => '$target_user',
-    -port    => $target_port,
-    -species => '$target_production_name',
-    -group   => 'core',
-    -dbname  => '$target_dbname',
-    -pass    => '$target_pass',
-  );
-
-  # Reference species
-  Bio::EnsEMBL::DBSQL::DBAdaptor->new(
-    -host    => '$source_host',
-    -user    => '$source_user',
-    -port    => $source_port,
-    -species => '$source_production_name',
-    -group   => 'core',
-    -dbname  => '$source_dbname',
-    -pass    => '$source_pass',
-  );
-
-  # Compara master database:
-  Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
-    -host    => '$compara_host',
-    -user    => '$compara_user',
-    -port    => $compara_port,
-    -species => 'compara_master',
-    -dbname  => '$compara_dbname',
-    -pass    => '$compara_pass',
-  );
-
-  1;
-DATABASES
-;
-
-  close OUT;
-  return($conf_path);
 }
 
 

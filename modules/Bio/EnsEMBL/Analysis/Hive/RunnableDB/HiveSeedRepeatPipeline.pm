@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,12 +55,12 @@ sub fetch_input {
 
 sub run {
   my $self = shift;
-
   my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
   my $min_contig_n50        = $self->param('min_contig_n50');
   my $min_scaffold_n50      = $self->param('min_scaffold_n50');
   my $min_total_length      = $self->param('min_total_length');
   my $max_version_only      = $self->param('max_version_only');
+  my $assembly_group        = $self->param('assembly_group');
   say "Fetching GCAs by constraints...";
   my $inital_gca_list       = $assembly_registry_dba->fetch_gca_by_constraints($min_contig_n50,$min_scaffold_n50,$min_total_length,undef,$max_version_only);
   say "Processing GCAs to determine what to process...";
@@ -140,9 +140,43 @@ sub find_gcas_to_process {
 
     $table_adaptor->store($insert_row);
     push(@{$gcas_to_process},$gca);
+
+    #Update the registry with the library status
+    my $assembly_id = $assembly_registry_dba->fetch_assembly_id_by_gca($gca);
+    my ($chain,$version) = $self->split_gca($gca);
+    my $sql = "insert into repeat_library_status (library_id,assembly_accession,date_started,library_status) values(?,?,?,?)";
+    my $sth = $assembly_registry_dba->dbc->prepare($sql);
+    my $dt = DateTime->now();
+    my $date = $dt->ymd;
+    $sth->bind_param(1,$assembly_id);
+    $sth->bind_param(2,$gca);
+    $sth->bind_param(2,$date);
+    $sth->bind_param(4,'in progress');
+    unless($sth->execute()){
+      throw("Could not update repeatmodeler status for assembly with accession ".$gca);
+    }
   } # end foreach my $gca
 
   return($gcas_to_process);
+}
+
+=pod
+
+=head1 Description of method
+
+This method takes an accession and returns the chain and versionn of the assembly.
+
+=cut
+
+sub split_gca {
+  my ($self,$chain_version) = @_;
+  unless($chain_version =~ /^(GCA\_\d{9})\.(\d+)$/) {
+    $self->throw("Could not parse versioned GCA. GCA used: ".$chain_version);
+  }
+  my $chain = $1;
+  my $version = $2;
+
+  return($chain,$version);
 }
 
 

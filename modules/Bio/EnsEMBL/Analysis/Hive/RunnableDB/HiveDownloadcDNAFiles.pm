@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2019] EMBL-European Bioinformatics Institute
+#Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ sub download_embl_seqs {
 
   # check if the output dir for contigs exists; otherwise, create it
   my @ftp_dirs = ("new/", "release/std/");
-  my $ftp = "ftp://ftp.ebi.ac.uk/pub/databases/embl/";
+  my $ftp = "https://ftp.ebi.ac.uk/pub/databases/embl/";
   my @prefix = ("rel_htc_", "rel_std_", "cum_htc_", "cum_std_");
 
   my $abv;

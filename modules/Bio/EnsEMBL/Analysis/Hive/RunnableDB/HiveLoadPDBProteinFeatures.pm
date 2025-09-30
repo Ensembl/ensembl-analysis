@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,9 +41,11 @@ It also populates the "pdb_ens" table in the GIFTS database with similar data.
 
 -cs_version     Coordinate system version.
 
+-rest_server    GIFTS rest server to fetch the perfect matches data from. 
+
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPDBProteinFeatures -ftp_path ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_chain_uniprot.tsv.gz -output_path OUTPUT_PATH -core_dbhost genebuild3 -core_dbport 4500 -core_dbname carlos_homo_sapiens_core_89_test -core_dbuser *** -core_dbpass *** -cs_version GRCh38 
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPDBProteinFeatures -ftp_path https://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_chain_uniprot.tsv.gz -output_path OUTPUT_PATH -core_dbhost genebuild3 -core_dbport 4500 -core_dbname carlos_homo_sapiens_core_89_test -core_dbuser *** -core_dbpass *** -cs_version GRCh38 -rest_server https://www.ebi.ac.uk/gifts/api/
 
 =cut
 
@@ -81,6 +83,7 @@ sub param_defaults {
       core_dbpass => undef,
       cs_version => undef,
       species => undef,
+      rest_server => undef,
     }
 }
 
@@ -96,6 +99,7 @@ sub fetch_input {
   $self->param_required('core_dbpass');
   $self->param_required('cs_version');
   $self->param_required('species');
+  $self->param_required('rest_server');
 
   #add / at the end of the paths if it cannot be found to avoid possible errors
   if (!($self->param('output_path') =~ /\/$/)) {
@@ -134,7 +138,8 @@ sub fetch_input {
     -core_dba => $self->hrdb_get_con("core"),
     -pdb_filepath => $pdb_filepath,
     -species => $self->param('species'),
-    -cs_version => $self->param('cs_version')
+    -cs_version => $self->param('cs_version'),
+    -rest_server => $self->param('rest_server')
     );
   $self->runnable($runnable);
 

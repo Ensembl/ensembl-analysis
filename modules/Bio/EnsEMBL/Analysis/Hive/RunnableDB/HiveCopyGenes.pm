@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,9 +58,8 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Analysis_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -104,6 +103,7 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
+  $self->create_analysis;
   return 1;
 }
 
@@ -111,22 +111,10 @@ sub run {
 
   my $self = shift;
 
+  $self->setup_fasta_db;
   if($self->param('copy_genes_directly')) {
-    my $input_dba = $self->hrdb_get_dba($self->param('source_db'));
-    my $output_dba = $self->hrdb_get_dba($self->param('target_db'));
-
-    if($self->param('use_genome_flatfile')) {
-      unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-        $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-      }
-      setup_fasta(
-                   -FASTA => $self->param_required('genome_file'),
-                 );
-    } else {
-      my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
-      $input_dba->dnadb($dna_dba);
-      $output_dba->dnadb($dna_dba);
-    }
+    my $input_dba = $self->get_database_by_name('source_db');
+    my $output_dba = $self->get_database_by_name('target_db');
 
     $self->hrdb_set_con($input_dba,'source_db');
     $self->hrdb_set_con($output_dba,'target_db');
@@ -204,9 +192,20 @@ sub write_output {
     }
 
     my $copy_biotypes_to_ignore = $self->param('copy_biotypes_to_ignore');
+    my $add_analysis = $self->param_is_defined('logic_name') ? $self->param('logic_name') : undef;
+    my $add_biotype = $self->param_is_defined('biotype') ? $self->param('biotype') : undef;
     foreach my $gene (@{$output_genes}) {
       if($copy_biotypes_to_ignore && $copy_biotypes_to_ignore->{$gene->biotype}) {
         next;
+      }
+      if ($add_analysis) {
+        attach_Analysis_to_Gene($gene, $self->analysis);
+      }
+      if ($add_biotype) {
+        $gene->biotype($add_biotype);
+        foreach my $transcript (@{$gene->get_all_Transcripts}) {
+          $transcript->biotype($add_biotype);
+        }
       }
       empty_Gene($gene);
       $output_ga->store($gene);

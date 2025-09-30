@@ -30,7 +30,7 @@ sub default_options {
 'user_w'                      => '',
 'password'                    => '',
 
-'pipe_db_server'              => '',
+'pipe_db_host'                => '',
 'port'                        => '',
 
 # Mostly constant stuff

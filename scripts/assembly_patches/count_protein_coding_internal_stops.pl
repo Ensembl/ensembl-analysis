@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ my $dbpass = '';
 my $biotype = '';
 my $dnadbname = 'sf7_patch_core_62';
 my $dnadbhost = 'genebuild5';
+my $dnadbport = 4527;
 my $gene_outfile = '';
 
 my $internal_stop = 0;
@@ -48,6 +49,7 @@ my $processed = 0;
             'dbpass:s'   => \$dbpass,
             'dnadbname:s'=> \$dnadbname,
             'dnadbhost:s'=> \$dnadbhost,
+            'dnadbport:n'=> \$dnadbport,
 	    'biotype:s'   => \$biotype,
 	    'gene_outfile:s' => \$gene_outfile,
             );
@@ -72,7 +74,7 @@ my $dnadb =
                                        -host   => $dnadbhost,
                                        -user   => $dbuser,
                                        -pass   => $dbpass,
-                                       -port   => $port );
+                                       -port   => $dnadbport );
 
 #print "Connected to ".$db->dbc->dbname." on ".$db->dbc->host."\n";
 $db->dnadb($dnadb);

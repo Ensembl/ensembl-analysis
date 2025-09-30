@@ -1,5 +1,7 @@
 #!/bin/bash
-export PERL5LIB=$PWD/ensembl-orm/modules:$PWD/ensembl-production/modules:$PWD/bioperl-live:$PWD/ensembl-taxonomy/modules:$PWD/ensembl/modules:$PWD/ensembl-variation/modules:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules:$PWD/GIFTS/modules:$PWD/ensembl-test/modules
+
+export PERL5LIB=$PWD/bioperl-live:$PWD/ensembl-taxonomy/modules:$PWD/ensembl/modules:$PWD/ensembl-variation/modules:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-run/lib:$PWD/GIFTS/modules:$PWD/ensembl-test/modules:$PWD/ensembl-production/modules:$PWD/ensembl-56/modules
+
 
 export WORK_DIR=$PWD
 
@@ -68,18 +70,6 @@ else
       printf " - \e[33m%s\n\e[0m" "${M[$S]}"
       RES=${RES}" ! -name `basename ${M[$S]}`"
   done
-  if [ "$OLDPERL" = 'true' ];then
-    M=( "Bio/EnsEMBL/Analysis/Hive/Config/TSLsAppris_conf.pm" \
-    "Bio/EnsEMBL/Analysis/Hive/Config/UniProtDB_conf.pm" \
-    "Bio/EnsEMBL/Analysis/Hive/RunnableDB/JiraTicket.pm" \
-    "Bio/EnsEMBL/Analysis/Hive/RunnableDB/HiveLoadPDBProteinFeatures.pm" \
-    "Bio/EnsEMBL/Analysis/Runnable/MakePDBProteinFeatures.pm" \
-    "Bio/EnsEMBL/Analysis/Hive/Config/HiveRelCoDuties_conf.pm" )
-    for S in `seq 0 $((${#M[@]}-1))`; do
-        printf " - \e[33m%s\n\e[0m" "${M[$S]}"
-        RES=${RES}" ! -name `basename ${M[$S]}`"
-    done
-  fi
   find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `echo "$RES"` | xargs -i perl -c {}
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then

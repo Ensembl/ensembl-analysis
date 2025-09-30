@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -269,7 +269,7 @@ sub write_output {
     my $tsfa = $self->get_dbadaptor($self->OUTGENEDB)->get_TranscriptSupportingFeatureAdaptor;
     my $t_id = $transcript->dbID;
     my $gf = $output[$out_count];
-    $tsfa->store($t_id, [$gf]);
+    $tsfa->store($t_id, [$gf]) if ($gf);
     $out_count++;
   }
   print "out_count is: ".$out_count."\n";
@@ -283,7 +283,9 @@ sub write_output {
   Arg [1]   : array ref of Bio::EnsEMBL::DnaDnaAlignFeature
   Function  : Uses cdna2genomic to convert the ungapped align 
               features into genomic coords
-  Returntype: 1
+              The strand shold be 1, if it is not, it does not
+              create a Bio::EnsEMBL::DnaDnaAlignFeature object
+  Returntype: Arrayref of Bio::EnsEMBL::DnaDnaAlignFeature
 
 =cut
 
@@ -313,7 +315,8 @@ sub process_features {
           # with both strands = 1
           # This means the hit is always forward and the target gets updated to the strand of the projected transcript.
           if(!($f->hstrand == 1) or !($f->strand == 1)){
-            throw("Feature strands are not as expected\n");
+            warning("Feature strands are not as expected\n");
+            next FEATURE;
           }
 	        my $strand = $trans->strand;
 	        my $hstrand = $f->hstrand;

@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
   -user    => 'ensro',
   -dbname  => 'gb_assembly_registry');
 
-my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+ my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -dbname => $dbname,
   -host   => $host,
   -port   => $port,
@@ -91,11 +91,11 @@ my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 
 my $registry_assembly_name = $assembly_registry->fetch_assembly_name_by_gca($assembly_accession);
 
-#say "registry name is $registry_assembly_name and core name is $assembly_name";
 if ($registry_assembly_name eq $assembly_name){
    say "nothing to update";
 }
 else{
+  $registry_assembly_name =~ s/ /_/g;
   my $sth = $dba->dbc->prepare("UPDATE coord_system set version =?");
   $sth->bind_param(1,$registry_assembly_name);
   if ($sth->execute){
@@ -117,8 +117,11 @@ else{
   else{
     $self->throw("Could not update meta_key assembly name in meta table");
   }
-  &rename_bam_files($working_directory,$assembly_name,$registry_assembly_name);
+  if ($dbname =~ m/rnaseq/){
+    &rename_bam_files($working_directory,$assembly_name,$registry_assembly_name);
+  }
 }
+
 
 sub rename_bam_files{
   my($dir, $prev_name, $new_name) = @_;

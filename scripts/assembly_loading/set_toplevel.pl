@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -116,6 +116,11 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
   $sth->execute($attrib_type_id);
   $sth->finish();
 
+  # get all of the regions that are components of other seq regions (assembly.cmp_seq_region_id)
+  print STDERR "Getting cmp_seq_region_id(s) from assembly table (and cs versions)\n";
+  my $all_cmp_ids = all_component_ids($db);
+
+  # prepare insert 'top_level' attributes
   $sth = $db->dbc->prepare('INSERT INTO seq_region_attrib ' .
                       'SET seq_region_id = ?,' .
                       '    attrib_type_id = ?,' .
@@ -136,6 +141,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
   my $total_number = @$slices;
   my $total_processed = 0;
+  my $cs_added = {};
   my $five_percent = int($total_number/20);
 
   print STDERR "Adding new toplevel attributes to ".$total_number." slices.\n";
@@ -149,12 +155,17 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
       if(!$already_seen{$seq_region_id}) {
         next if(keys(%coord_systems_to_ignore) &&
                 $coord_systems_to_ignore{$proj_slice->coord_system->name});
+        next if(exists $all_cmp_ids->{$proj_slice->get_seq_region_id});
+
         my $string = $proj_slice->coord_system->name();
         $string .= " " . $proj_slice->seq_region_name();
         print STDERR "Adding $string to toplevel\n";
 
         $sth->execute($seq_region_id,$attrib_type_id, 1);
         $already_seen{$seq_region_id} = 1;
+
+        $cs_added->{$proj_slice->coord_system->name}++;
+        $cs_added->{TOTAL}++;
       }
     }
 
@@ -165,6 +176,10 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 	print STDERR ceil($total_processed/$total_number*100)."% complete\n";
       }
     }
+  }
+
+  if (%$cs_added) {
+    print STDERR "toplevel regions ", join("\n\t", map {"$_:\t". $cs_added->{$_}} sort keys %$cs_added), "\n";
   }
 
   $sth->finish();
@@ -198,4 +213,33 @@ sub add_attrib_code {
   $sth->finish();
 
   return $attrib_type_id;
+}
+
+sub all_component_ids {
+  # get all of the regions that are components of other seq regions (assembly.cmp_seq_region_id)
+  #   and both cmp and asm are from the default cs
+  my $db = shift;
+  my $sth = $db->dbc->prepare('SELECT distinct a.cmp_seq_region_id ' .
+                        'FROM assembly a, ' .
+                          'seq_region sr_a, seq_region sr_c, ' .
+                          'coord_system cs_a, coord_system cs_c ' .
+                        'WHERE a.cmp_seq_region_id = sr_c.seq_region_id ' .
+                          'AND a.asm_seq_region_id = sr_a.seq_region_id ' .
+                          'AND sr_a.coord_system_id = cs_a.coord_system_id ' .
+                          'AND sr_c.coord_system_id = cs_c.coord_system_id ' .
+                          'AND  cs_a.attrib LIKE "%default_version%" ' .
+                          'AND  cs_c.attrib LIKE "%default_version%" ');
+
+  $sth->execute();
+
+  my $result = {};
+  if($sth->rows()) {
+    while( my ($seq_region_id) = $sth->fetchrow_array) {
+      $result->{$seq_region_id} = 0;
+    }
+  }
+
+  $sth->finish();
+
+  return $result;
 }

@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -237,7 +237,7 @@ END_BODY
                             ." -p".$self->param('dbpass')
                             ." -D".$self->param('dbname')
                             ." -P".$self->param('dbport')
-                            ." -e".'"'."insert into gene (biotype,analysis_id,seq_region_id,seq_region_start,seq_region_end,seq_region_strand,display_xref_id,source,status,description,is_current,canonical_transcript_id,stable_id,version,created_date,modified_date) (select biotype,analysis_id,seq_region_id,seq_region_start,seq_region_end,seq_region_strand,display_xref_id,source,status,description,is_current,canonical_transcript_id,stable_id,version,created_date,modified_date from gene where gene_id=$current_gene_id);".'"',
+                            ." -e".'"'."insert into gene (biotype,analysis_id,seq_region_id,seq_region_start,seq_region_end,seq_region_strand,display_xref_id,source,description,is_current,canonical_transcript_id,stable_id,version,created_date,modified_date) (select biotype,analysis_id,seq_region_id,seq_region_start,seq_region_end,seq_region_strand,display_xref_id,source,description,is_current,canonical_transcript_id,stable_id,version,created_date,modified_date from gene where gene_id=$current_gene_id);".'"',
                             "Inserting copy of gene row with gene id $current_gene_id");
       } elsif ($line =~ /(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)\)/) {
         if ($4 eq '(id') {

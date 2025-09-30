@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2020] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -888,6 +888,7 @@ sub clean_utrs {
                       $translation = $transcript->translation;
                     }
                     $transcript->flush_Exons;
+                    $transcript->flush_IntronSupportingEvidence;
                     my $start_index = 0;
                     my $end_index = $#exons;
                     for (my $index = $cds_start_index; $index >= 0; $index--) {
@@ -992,33 +993,23 @@ sub clean_utrs {
   }
   my @extra_genes;
   foreach my $gene (@$genes) {
-# First I am sorting the transcripts of a gene by genomic size.
-# Then I will check how many of the transcripts overlap the first one.
-# If they all overlap the smallest transcripts then we don't have readthrough
     my @transcripts = sort {$a->end-$a->start <=> $b->end-$b->start } @{$gene->get_all_Transcripts};
-    my $has_possible_readthrough = 0;
+    my $tcount = 0;
     foreach my $transcript (@transcripts) {
-      if (!($transcripts[0]->coding_region_start <= $transcript->coding_region_end and $transcripts[0]->coding_region_end >= $transcript->coding_region_start)) {
-        $has_possible_readthrough = 1;
-        last;
-      }
+      ++$tcount if ($transcripts[0]->coding_region_start <= $transcript->coding_region_end and $transcripts[0]->coding_region_end >= $transcript->coding_region_start);
     }
-    if ($has_possible_readthrough) {
-      my $data = {};
-# For each transcript we will get the CDS lengh and the CDS "content".
-# It is similar to the molecular weight, we count the number of occurence
-# of each amino acids.
-# Finally we check if the UTRs are expanding our transcripts too much.
-# If they do, we remove all full UTR exons
+    if ($tcount != scalar(@transcripts)) {
+      my %data;
       foreach my $transcript (@transcripts) {
         my $stable_id = $transcript->display_id;
-        $data->{$stable_id}->{cds_length} = $transcript->translation->length;
-        $data->{$stable_id}->{cds_content} = calculate_sequence_content($transcript->translation);
-        if (($transcript->coding_region_end-$transcript->coding_region_start)*$ratio_utrs < ($transcript->end-$transcript->start)) {
+        $data{$stable_id}->{cds_length} = $transcript->translation->length;
+        $data{$stable_id}->{cds_content} = calculate_sequence_content($transcript->translation);
+        if (($transcript->coding_region_end-$transcript->coding_region_end)*$ratio_utrs < ($transcript->end-$transcript->start)) {
           my $exons = $transcript->get_all_Exons;
           my $coding_start = $transcript->coding_region_start;
           my $coding_end = $transcript->coding_region_end;
           $transcript->flush_Exons;
+          $transcript->flush_IntronSupportingEvidence;
           foreach my $exon (@$exons) {
             if ($exon->start <= $coding_end and $exon->end >= $coding_start) {
               $transcript->add_Exon($exon);
@@ -1026,32 +1017,25 @@ sub clean_utrs {
           }
         }
       }
-# We cluster the transcripts inside a gene to try to remove any possible readthrough
-# The clustering happens on coding regions and the possible readthrough are not stored
-# in a cluster but in a hash
-      my $genes_cluster = ();
+      my @genes;
       my %bridging_transcripts;
       foreach my $transcript (@transcripts) {
         my $current_gene;
-        my @cluster_list;
-        foreach my $cluster_gene (@$genes_cluster) {
+        foreach my $cluster_gene (reverse @genes) {
           if ($transcript->coding_region_start <= $cluster_gene->{_gb_coding_end} and $transcript->coding_region_end >= $cluster_gene->{_gb_coding_start}) {
-            push(@cluster_list, $cluster_gene);
             if ($current_gene) {
               $bridging_transcripts{$transcript->display_id} = $transcript;
               last;
             }
             else {
               $current_gene = $cluster_gene;
+              if ($transcript->coding_region_start < $cluster_gene->{_gb_coding_start}) {
+                $cluster_gene->{_gb_coding_start} = $transcript->coding_region_start;
+              }
+              if ($transcript->coding_region_end > $cluster_gene->{_gb_coding_end}) {
+                $cluster_gene->{_gb_coding_end} = $transcript->coding_region_end;
+              }
             }
-          }
-        }
-        if (@cluster_list == 1) {
-          if ($transcript->coding_region_start < $cluster_list[0]->{_gb_coding_start}) {
-            $cluster_list[0]->{_gb_coding_start} = $transcript->coding_region_start;
-          }
-          if ($transcript->coding_region_end > $cluster_list[0]->{_gb_coding_end}) {
-            $cluster_list[0]->{_gb_coding_end} = $transcript->coding_region_end;
           }
         }
         if (!exists $bridging_transcripts{$transcript->display_id}) {
@@ -1065,25 +1049,68 @@ sub clean_utrs {
             $current_gene->biotype('protein_coding');
             $current_gene->{_gb_coding_start} = $transcript->coding_region_start;
             $current_gene->{_gb_coding_end} = $transcript->coding_region_end;
-            $current_gene->{__num_fragments} = 0;
-            push(@$genes_cluster, $current_gene);
-          }
-          if (uc(substr($transcript->translateable_seq, 0, 3)) ne 'ATG' or length($transcript->translateable_seq) != ($transcript->translation->length+1)*3) {
-            ++$current_gene->{__num_fragments};
-            $transcript->{__fragment} = 1;
+            push(@genes, $current_gene);
           }
         }
       }
-# If we only have 1 transcript which join two gene clusters, we run the check_readthrough_transcript
       if (scalar(keys %bridging_transcripts) == 1) {
         my ($bridging_transcript) = values %bridging_transcripts;
-        if (check_readthrough_transcript($bridging_transcript, $genes_cluster, $data, $ratio_max_allowed_difference, $ratio_same_transcript)) {
+        my $max_allowed_difference = int($bridging_transcript->translation->length*$ratio_max_allowed_difference);
+        my $bridging_stable_id = $bridging_transcript->display_id;
+        my $remove_transcript = 0;
+        my %bridging_exon_seen;
+        my $bridging_exons = $bridging_transcript->get_all_Exons;
+        foreach my $new_gene (@genes) {
+          foreach my $new_transcript (@{$new_gene->get_all_Transcripts}) {
+            my $new_stable_id = $new_transcript->display_id;
+            if ($data{$bridging_stable_id}->{cds_length}/$data{$new_stable_id}->{cds_length} > 1-$ratio_same_transcript
+                  and $data{$bridging_stable_id}->{cds_length}/$data{$new_stable_id}->{cds_length} < 1+$ratio_same_transcript) {
+              my $bridge_value = 0;
+              my $new_value = 0;
+              my $diff = 0;
+              $remove_transcript = 1;
+              foreach my $key (keys %{$data{$new_stable_id}->{cds_content}}) {
+                $bridge_value += $data{$bridging_stable_id}->{cds_content}->{$key} || 0;
+                $new_value += $data{$new_stable_id}->{cds_content}->{$key};
+                $diff = abs($bridge_value-$new_value) if (abs($bridge_value-$new_value) > $diff);
+                if ($diff > $max_allowed_difference) {
+                  $remove_transcript = 0;
+                }
+              }
+            }
+            else {
+              my $index = -1;
+              foreach my $bridging_exon (@$bridging_exons) {
+                ++$index;
+                next if (exists $bridging_exon_seen{$bridging_exon});
+                if ($bridging_exon->start <= $new_transcript->coding_region_end and $bridging_exon->end >= $new_transcript->coding_region_start) {
+                  $bridging_exon_seen{$bridging_exon} = [$bridging_exon, $new_gene, $index];
+                }
+              }
+            }
+          }
+        }
+        if (keys %bridging_exon_seen) {
+          my $previous_gene;
+          my $previous_rank;
+          foreach my $item (sort {$a->[2] <=> $b->[2]} values %bridging_exon_seen) {
+            if (defined $previous_gene and $previous_gene != $item->[1]) {
+              if ($previous_rank+1 == $item->[2]) {
+                $remove_transcript = 1;
+                last;
+              }
+            }
+            $previous_gene = $item->[1];
+            $previous_rank = $item->[2];
+          }
+        }
+        if ($remove_transcript) {
           $gene->flush_Transcripts;
-          my $first_gene = shift(@$genes_cluster);
+          my $first_gene = shift(@genes);
           foreach my $t (@{$first_gene->get_all_Transcripts}) {
             $gene->add_Transcript($t);
           }
-          foreach my $new_gene (@$genes_cluster) {
+          foreach my $new_gene (@genes) {
             push(@extra_genes, $new_gene);
           }
           if ($store_rejected) {
@@ -1099,24 +1126,17 @@ sub clean_utrs {
       elsif (scalar(keys %bridging_transcripts) > 1) {
         my @no_fragments;
         $gene->flush_Transcripts;
-        # When we have more than 1 joining transcript, it is more likely
-        # that we have fragments and we would want to keep the transcripts
-        # So we check which transcript does not start with ATG and temporary
-        # removes the transcripts. We assume we only have two clusters. If there
-        # is only one cluster left, we remove the fragments and keep the joining
-        # transcript
-        foreach my $small_cluster (@$genes_cluster) {
+        foreach my $small_cluster (@genes) {
           my $nof_gene = Bio::EnsEMBL::Gene->new();
           foreach my $small_transcript (@{$small_cluster->get_all_Transcripts}) {
-#            $nof_gene->add_Transcript($small_transcript) if (uc(substr($small_transcript->translateable_seq, 0, 3)) eq 'ATG' and length($small_transcript->translateable_seq) == ($small_transcript->translation->length+1)*3);
-            if (! exists $small_transcript->{__fragment}) {
-              $nof_gene->add_Transcript($small_transcript);
-            }
+            $nof_gene->add_Transcript($small_transcript) if (uc(substr($small_transcript->translateable_seq, 0, 3)) eq 'ATG');
           }
           if ($nof_gene->get_all_Transcripts and @{$nof_gene->get_all_Transcripts}) {
             $nof_gene->analysis($small_cluster->analysis);
             $nof_gene->biotype($small_cluster->biotype);
             push(@no_fragments, $nof_gene);
+          }
+          else {
           }
         }
         if (@no_fragments) {
@@ -1126,77 +1146,46 @@ sub clean_utrs {
             }
           }
           else {
-            my $tcheck;
-            my $max_allowed_difference;
-            my $similar_transcripts = 0;
-            BRIDGING_TRANSCRIPT: foreach my $bridging_transcript (sort {$a->end-$a->start <=> $b->end-$b->start} values %bridging_transcripts) {
-              if ($tcheck) {
-                my $bridge_value = 0;
-                my $new_value = 0;
-                my $diff = 0;
-                my $new_stable_id = $tcheck->display_id;
-                my $bridging_stable_id = $bridging_transcript->display_id;
-                foreach my $key (keys %{$data->{$new_stable_id}->{cds_content}}) {
-                  $bridge_value += $data->{$bridging_stable_id}->{cds_content}->{$key} || 0;
-                  $new_value += $data->{$new_stable_id}->{cds_content}->{$key};
-                  $diff = abs($bridge_value-$new_value) if (abs($bridge_value-$new_value) > $diff);
-                  if ($diff > $max_allowed_difference) {
-                    next BRIDGING_TRANSCRIPT;
+
+            foreach my $bridging_transcript (sort {$a->end-$a->start <=> $b->end-$b->start} values %bridging_transcripts) {
+              my $current_nof_gene;
+              my $bridging = 0;
+              foreach my $nof_gene (@no_fragments) {
+                if ($bridging_transcript->coding_region_start <= $nof_gene->end and $bridging_transcript->coding_region_end >= $nof_gene->start) {
+                  if ($current_nof_gene) {
+                    $bridging = 1;
                   }
+                  else {
+                    $current_nof_gene = $nof_gene;
+                  }
+                }
+              }
+              if ($bridging) {
+                if ($store_rejected) {
+                  $bridging_transcript->biotype('readthrough');
+                  my $readthrough = Bio::EnsEMBL::Gene->new();
+                  $readthrough->add_Transcript($bridging_transcript);
+                  $readthrough->analysis($bridging_transcript->analysis);
+                  $readthrough->biotype($bridging_transcript->biotype);
+                  push(@rejected, $readthrough);
                 }
               }
               else {
-                $tcheck = $bridging_transcript;
-                $max_allowed_difference = int($bridging_transcript->translation->length*$ratio_max_allowed_difference);
+                if (!$current_nof_gene) {
+                  $current_nof_gene = Bio::EnsEMBL::Gene->new();
+                  $current_nof_gene->analysis($bridging_transcript->analysis);
+                  $current_nof_gene->biotype($bridging_transcript->biotype);
+                  push(@no_fragments, $current_nof_gene);
+                }
+                $current_nof_gene->add_Transcript($bridging_transcript);
               }
-              $similar_transcripts++;
             }
-            if ($similar_transcripts == scalar(keys %bridging_transcripts)) {
-              foreach my $transcript (@transcripts) {
-                $gene->add_Transcript($transcript);
-              }
+            my $first_gene = shift(@no_fragments);
+            foreach my $t (@{$first_gene->get_all_Transcripts}) {
+              $gene->add_Transcript($t);
             }
-            else {
-              foreach my $bridging_transcript (sort {$a->end-$a->start <=> $b->end-$b->start} values %bridging_transcripts) {
-                my $current_nof_gene;
-                my $bridging = 0;
-                foreach my $nof_gene (@no_fragments) {
-                  if ($bridging_transcript->coding_region_start <= $nof_gene->end and $bridging_transcript->coding_region_end >= $nof_gene->start) {
-                    if ($current_nof_gene) {
-                      $bridging = check_readthrough_transcript($bridging_transcript, $genes_cluster, $data, $ratio_max_allowed_difference, $ratio_same_transcript);
-                    }
-                    else {
-                      $current_nof_gene = $nof_gene;
-                    }
-                  }
-                }
-                if ($bridging) {
-                  if ($store_rejected) {
-                    $bridging_transcript->biotype('readthrough');
-                    my $readthrough = Bio::EnsEMBL::Gene->new();
-                    $readthrough->add_Transcript($bridging_transcript);
-                    $readthrough->analysis($bridging_transcript->analysis);
-                    $readthrough->biotype($bridging_transcript->biotype);
-                    push(@rejected, $readthrough);
-                  }
-                }
-                else {
-                  if (!$current_nof_gene) {
-                    $current_nof_gene = Bio::EnsEMBL::Gene->new();
-                    $current_nof_gene->analysis($bridging_transcript->analysis);
-                    $current_nof_gene->biotype($bridging_transcript->biotype);
-                    push(@no_fragments, $current_nof_gene);
-                  }
-                  $current_nof_gene->add_Transcript($bridging_transcript);
-                }
-              }
-              my $first_gene = shift(@no_fragments);
-              foreach my $t (@{$first_gene->get_all_Transcripts}) {
-                $gene->add_Transcript($t);
-              }
-              foreach my $new_gene (@no_fragments) {
-                push(@extra_genes, $new_gene);
-              }
+            foreach my $new_gene (@no_fragments) {
+              push(@extra_genes, $new_gene);
             }
           }
         }
@@ -1208,9 +1197,7 @@ sub clean_utrs {
       }
     }
   }
-  # Now I am looking at all the genes and trying to reduce the ones which are longer than
-  # expected as it means the UTRs would be extra long because of big introns for example
-  # This might be removed as we are doing a check on UTR size at the end.
+
   foreach my $gene (@$genes, @extra_genes) {
     my @transcripts = sort {$a->end-$a->start <=> $b->end-$b->start } @{$gene->get_all_Transcripts};
     my @genes;
@@ -1223,7 +1210,7 @@ sub clean_utrs {
         $gene->add_Transcript($transcript);
       }
       else {
-        $expanding_transcripts{$transcript->display_id} = $transcript;
+        $expanding_transcripts{$transcript->display_id} = $transcript
       }
     }
     if (@{$gene->get_all_Transcripts} == 1 and scalar(keys %expanding_transcripts) > $minimum_expanding_number_for_single_transcript) {
@@ -1243,12 +1230,14 @@ sub clean_utrs {
         if ($gene->length*$ratio_expansion >= ($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1)) {
           my $expanding_exons = $expanding_transcript->get_all_Exons;
           $expanding_transcript->flush_Exons;
+          $expanding_transcript->flush_IntronSupportingEvidence;
           my %utr_5p = map {$_->start.':'.$_->end => $_ } @{$expanding_transcript->get_all_five_prime_UTRs};
           foreach my $expanding_exon (@$expanding_exons) {
             $expanding_transcript->add_Exon($expanding_exon) unless (exists $utr_5p{$expanding_exon->start.':'.$expanding_exon->end});
           }
           $expanding_exons = $expanding_transcript->get_all_Exons;
           $expanding_transcript->flush_Exons;
+          $expanding_transcript->flush_IntronSupportingEvidence;
           my %utr_3p = map {$_->start.':'.$_->end => $_ } @{$expanding_transcript->get_all_three_prime_UTRs};
           foreach my $expanding_exon (@$expanding_exons) {
             $expanding_transcript->add_Exon($expanding_exon) unless (exists $utr_3p{$expanding_exon->start.':'.$expanding_exon->end});
@@ -1304,6 +1293,7 @@ sub clean_utrs {
         my $genomic_end = $expanding_transcript->coding_region_end;
         my $expanding_exons = $expanding_transcript->get_all_Exons;
         $expanding_transcript->flush_Exons;
+        $expanding_transcript->flush_IntronSupportingEvidence;
         foreach my $expanding_exon (@$expanding_exons) {
           if ($expanding_exon->start <= $genomic_end and $expanding_exon->end >= $genomic_start
              or $expanding_exon->overlaps_local($gene)) {
@@ -1356,174 +1346,8 @@ sub clean_utrs {
       }
     }
   }
-  my $min_5prime_utr = 30;
-  foreach my $gene (@$genes, @extra_genes) {
-    my $transcripts = $gene->get_all_Transcripts;
-    $gene->flush_Transcripts;
-    foreach my $transcript (@$transcripts) {
-      $transcript->{__key} = '';
-      my @exons = reverse @{$transcript->get_all_Exons};
-      if (@exons > 1) {
-        my $strand = $transcript->strand;
-        my $genomic_start = $transcript->coding_region_start;
-        my $genomic_end = $transcript->coding_region_end;
-        $transcript->flush_Exons;
-        my $max_5prime_utr = 200;
-        foreach my $exon (@exons) {
-          if ($exon->start <= $genomic_end and $exon->end >= $genomic_start) {
-            $transcript->add_Exon($exon);
-            $transcript->{__key} .= join(':', $exon->start, $exon->end, $exon->phase, $exon->end_phase, '');
-            if ($strand == 1 and $exon->start < $genomic_start) {
-              $max_5prime_utr -= ($genomic_start-$exon->start);
-              last if ($max_5prime_utr < $min_5prime_utr);
-            }
-            elsif ($strand == -1 and $exon->end > $genomic_end) {
-              $max_5prime_utr -= ($exon->end-$genomic_end);
-              last if ($max_5prime_utr < $min_5prime_utr);
-            }
-          }
-          elsif ($strand == 1 and $max_5prime_utr > 0 and $exon->end < $genomic_start) {
-            $transcript->add_Exon($exon);
-            $transcript->{__key} .= join(':', $exon->start, $exon->end, $exon->phase, $exon->end_phase, '');
-            $max_5prime_utr -= $exon->length;
-            last if ($max_5prime_utr < $min_5prime_utr);
-          }
-          elsif ($strand == -1 and $max_5prime_utr > 0 and $exon->start > $genomic_end) {
-            $transcript->add_Exon($exon);
-            $transcript->{__key} .= join(':', $exon->start, $exon->end, $exon->phase, $exon->end_phase, '');
-            $max_5prime_utr -= $exon->length;
-            last if ($max_5prime_utr < $min_5prime_utr);
-          }
-        }
-      }
-      else {
-        $transcript->{__key} .= join(':', $exons[0]->start, $exons[0]->end, $exons[0]->phase, $exons[0]->end_phase, '');
-      }
-    }
-    my %seen;
-    foreach my $transcript (@$transcripts) {
-      if (!exists $seen{$transcript->{__key}}) {
-        my $genomic_start = $transcript->start;
-        my $genomic_end = $transcript->end;
-        my $ise = $transcript->get_all_IntronSupportingEvidence;
-        $transcript->flush_IntronSupportingEvidence;
-        foreach my $intron (@$ise) {
-          if ($ise->start <= $genomic_end and $intron->end >= $genomic_start) {
-            $transcript->add_IntronSupportingEvidence($intron);
-          }
-        }
-        $gene->add_Transcript($transcript);
-        $seen{$transcript->{__key}} = 1;
-      }
-    }
-  }
+
   return \@extra_genes, \@rejected;
-}
-
-=head2 check_readthrough_transcript
-
- Arg [1]    : Bio::EnsEMBL::Transcript, the candidate readthrough transcript
- Arg [2]    : Arrayref of Bio::EnsEMBL::Gene, each possible gene if no readthrough
- Arg [3]    : Hashref of Hashref, the main key is a transcript stable id with two
-              sub keys: cds_length and cds_content.
-                cds_length returns the length of the translation.
-                cds_content return a hash where key is an amino acid letter and value
-                  is the occurence of the amino acid in the translation
- Arg [4]    : Int $ratio_max_allowed_difference, the ratio to use to calculate the maximum
-              difference allowed when checking the cds content
- Arg [5]    : Int $ratio_same_transcript, the difference in length between two transcripts
-              to be considered for checking the cds content
- Description: We are trying to decide if Arg[1] is really a readthrough. First, if there are more
-              than 2 gene cluters to check, we recount the number of cluster, removing the ones
-              where all transcripts are fragments. If the count is still above 2, we can assume it
-              is probably not a readthrough.
-              Then we compare all the transcripts with Arg[1] and if they have a similar length
-              and a similar content, it is probably a misalignment so Arg[1] can be removed.
-              If it's not the case we look at all the exons to see which one are common. If there
-              is no exon in Arg[1] between the clusters then Arg[1] is probably a readthrough.
-              Unless we have a long "joining" exon, i.e., the two clusters overlap the same exon
- Returntype : Boolean 1 if the transcript is a readthrough, 0 otherwise
- Exceptions : None
-
-=cut
-
-sub check_readthrough_transcript {
-  my ($bridging_transcript, $genes_cluster, $data, $ratio_max_allowed_difference, $ratio_same_transcript) = @_;
-
-  if (@$genes_cluster > 2) {
-    my @no_fragment_genes;
-    foreach my $gene (@$genes_cluster) {
-      push(@no_fragment_genes, $gene) if ($gene->{__num_fragments} != scalar(@{$gene->get_all_Transcripts}));
-    }
-    if (@no_fragment_genes > 2) {
-      return 1;
-    }
-    else {
-      $genes_cluster = \@no_fragment_genes;
-    }
-  }
-  my $max_allowed_difference = int($bridging_transcript->translation->length*$ratio_max_allowed_difference);
-  my $bridging_stable_id = $bridging_transcript->display_id;
-  my $remove_transcript = 0;
-  my %bridging_exon_seen;
-  my %between_clusters_exons;
-  my $bridging_exons = $bridging_transcript->get_all_Exons;
-  foreach my $new_gene (@$genes_cluster) {
-    foreach my $new_transcript (@{$new_gene->get_all_Transcripts}) {
-      my $new_stable_id = $new_transcript->display_id;
-      if ($data->{$bridging_stable_id}->{cds_length}/$data->{$new_stable_id}->{cds_length} > 1-$ratio_same_transcript
-            and $data->{$bridging_stable_id}->{cds_length}/$data->{$new_stable_id}->{cds_length} < 1+$ratio_same_transcript) {
-        my $bridge_value = 0;
-        my $new_value = 0;
-        my $diff = 0;
-        $remove_transcript = 1;
-        foreach my $key (keys %{$data->{$new_stable_id}->{cds_content}}) {
-          $bridge_value += $data->{$bridging_stable_id}->{cds_content}->{$key} || 0;
-          $new_value += $data->{$new_stable_id}->{cds_content}->{$key};
-          $diff = abs($bridge_value-$new_value) if (abs($bridge_value-$new_value) > $diff);
-          if ($diff > $max_allowed_difference) {
-            $remove_transcript = 0;
-          }
-        }
-      }
-      else {
-        my $index = -1;
-        foreach my $bridging_exon (@$bridging_exons) {
-          ++$index;
-          if (exists $bridging_exon_seen{$bridging_exon}) {
-            if ($bridging_exon_seen{$bridging_exon}->[1] != $new_gene and ($bridging_exon->start <= $new_transcript->coding_region_end and $bridging_exon->end >= $new_transcript->coding_region_start)) {
-              $bridging_exon_seen{$bridging_exon}->[3] = 1;
-              $bridging_exon_seen{$bridging_exon}->[2] = $new_gene;
-            }
-            next;
-          }
-          if ($bridging_exon->start <= $new_transcript->coding_region_end and $bridging_exon->end >= $new_transcript->coding_region_start) {
-            $bridging_exon_seen{$bridging_exon} = [$bridging_exon, $new_gene, $index, 0];
-          }
-        }
-      }
-    }
-  }
-  if (keys %bridging_exon_seen) {
-    my $previous_gene;
-    my $previous_rank;
-    foreach my $item (sort {$a->[2] <=> $b->[2]} values %bridging_exon_seen) {
-      if (defined $previous_gene and $previous_gene != $item->[1]) {
-        if ($previous_rank+1 == $item->[2]) {
-          if ($item->[3]) {
-            $remove_transcript = 0;
-            last;
-          }
-          else {
-            $remove_transcript = 1;
-          }
-        }
-      }
-      $previous_gene = $item->[1];
-      $previous_rank = $item->[2];
-    }
-  }
-  return $remove_transcript;
 }
 
 1;

@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,7 +86,6 @@ sub run {
   $self->param_required('host_secondary');
   $self->param_required('port_secondary');
   $self->param_required('user_secondary');
-  $self->param_required('password_secondary');
   $self->param_required('database_secondary');
 
   #add / at the end of the paths if it cannot be found to avoid possible errors

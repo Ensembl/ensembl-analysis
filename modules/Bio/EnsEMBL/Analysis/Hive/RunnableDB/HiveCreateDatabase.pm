@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -278,6 +278,7 @@ sub dump_database {
   }
   else {
     # Check the max_allowed_packet before dumping tables
+    # I commented the check for max_allowed_packet but I don't remember the problem
     my $max_allowed_packet;
     my $checkcmd = $command;
     $checkcmd =~ s/dump/admin/;

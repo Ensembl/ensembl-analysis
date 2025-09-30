@@ -1,14 +1,14 @@
 =head1 LICENSE
 
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2019] EMBL-European Bioinformatics Institute
-# 
+#Copyright [2016-2024] EMBL-European Bioinformatics Institute
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,11 +27,11 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA - 
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastPepToGenome
 
 =head1 SYNOPSIS
 
-  my $blast = Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA->new
+  my $blast = Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastPepToGenome->new
      (
       -analysis => $analysis,
       -db       => $db,
@@ -43,10 +43,8 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA -
 
 =head1 DESCRIPTION
 
-Modified blast runnable for specific use with miRNA
-Use for running BLASTN of genomic sequence vs miRNAs prior to 
-miRNA anaysis
-Slice size seems best around 200k
+  Blast protein sequences against a genome one seqeunce at a time and
+  store the alignment in a database
 
 =head1 METHODS
 
@@ -56,12 +54,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastPepToGenome;
 
 use strict;
 use warnings;
-use feature 'say';
-use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
-use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;
-use Bio::EnsEMBL::DnaPepAlignFeature;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
 
@@ -70,11 +64,11 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveB
 =head2 fetch_input
 
   Arg [1]   : None
-  Function  : fetch sequence out of database, instantiate the filter,
-            : parser and finally the blast runnable
+  Function  : Fetch multiple protein sequence from a database using 'iid', add tr or sp
+              to the logic_name to provide information about the status of the protein
+              and create the Runnable
   Returntype: None
-  Exceptions: none
-  Example   : $blast->fetch_input;
+  Exceptions: None
 
 =cut
 
@@ -89,10 +83,11 @@ sub fetch_input{
   $self->analysis->db($self->param('blast_db_name')) if ($self->param_is_defined('blast_db_name'));
 
   my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-
-  if($dna_dba) {
-    $output_dba->dnadb($dna_dba);
+  if ($self->param_is_defined('dna_db')) {
+    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+    if($dna_dba) {
+      $output_dba->dnadb($dna_dba);
+    }
   }
 
   $self->hrdb_set_con($output_dba,'output_db');
@@ -121,78 +116,88 @@ sub fetch_input{
   my %options = %{$parser_params};
 
   my $query_seqs = $self->get_query_seqs($self->input_id);
+  my %analysis_hash;
+  my $analysis = $self->analysis;
+  foreach my $db ('sp', 'tr') {
+    my %new_analysis = %$analysis;
+    $analysis_hash{$db} = ref($analysis)->new_fast(\%new_analysis);
+    $analysis_hash{$db}->logic_name($analysis_hash{$db}->logic_name."_$db");
+  }
 
   foreach my $seq (@{$query_seqs}) {
+    if ($seq->namespace =~ /_tr/) {
+      $analysis = $analysis_hash{tr};
+    }
+    else {
+      $analysis = $analysis_hash{sp};
+    }
+    $parser->analysis($analysis);
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new(
                      -query => $seq,
                      -program => $self->param('blast_exe_path'),
                      -database => $self->param('blast_db_path'),
                      -parser => $parser,
                      -filter => $filter,
-                     -analysis => $self->analysis,
+                     -analysis => $analysis,
                      -options => $self->param('commandline_params'),
                      %blast,
                    );
+    if ($self->param_is_defined('timer')) {
+      $runnable->timer($self->param('timer'));
+    }
     $self->runnable($runnable);
   }
-
-  return 1;
 }
 
 
-sub run {
-  my ($self) = @_;
-  foreach my $runnable(@{$self->runnable}){
-    eval {
-      $runnable->run;
-    }; if ($@) {
-      my $error  = $@;
-      if($error =~ /VOID/) {
-        say "\nError from short sequence, this is okay";
-      } else {
-       $self->throw("Error running BLAST: ".$error);
-      }
-    }
-    $self->output($runnable->output());
-    # This code was added in to deal with File::Temp having issues with having too many files open at once. The files are
-    # only deleted when the object is removed. As this module is currently batched on 5MB of 200KB slices, it means occasionally
-    # you might get a batch of lots if tiny slices. If the number of tiny slices >= 8185 then the job will die because of File::Temp
-    undef($runnable);
-  }
-  return 1;
-}
+=head2 write_output
 
+ Arg [1]    : None
+ Description: Write the alignment information into the protein_align_feature table
+              unless on of the protein blast lasted more than 'timer'. In this case,
+              dataflow to the RUNLIMIT (-2) branch
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
   my ($self) = @_;
 
-  # write genes out to a different database from the one we read genes from.
-  my $out_dba = $self->hrdb_get_con('output_db');
-  my $paf_adaptor = $out_dba->get_ProteinAlignFeatureAdaptor;
-  my $slice_adaptor = $out_dba->get_SliceAdaptor;
-  foreach my $hit ( @{$self->output} ) {
-    my $slice_name = $hit->{'SLICE_NAME'};
-    my $slice = $slice_adaptor->fetch_by_name($slice_name);
-    $hit->analysis($self->analysis);
-    $hit->slice($slice);
-    say "FM2 storing hitname: ".$hit->hseqname;
-    say "FM2 storing slicename orig: ".$slice_name;
-    say "FM2 storing slicename: ".$slice->name;
-    $paf_adaptor->store($hit);
+  if ($self->batch_failed) {
+    $self->dataflow_output_id({iid => $self->input_id}, $self->param('_branch_to_flow_to_on_fail'));
   }
+  else {
+    my $out_dba = $self->hrdb_get_con('output_db');
+    my $paf_adaptor = $out_dba->get_ProteinAlignFeatureAdaptor;
+    my $slice_adaptor = $out_dba->get_SliceAdaptor;
+    foreach my $hit ( @{$self->output} ) {
+      my $slice = $slice_adaptor->fetch_by_name($hit->seqname);
+      $hit->slice($slice);
+      $paf_adaptor->store($hit);
+    }
+  }
+}
 
-  return 1;
-} ## end sub write_output
 
+
+=head2 get_query_seqs
+
+ Arg [1]    : Arrayref of String, accessions to be fetched
+ Description: Fetch the protein sequences provided in Arg[1] from the
+              Hive pipeline database and add the biotype as namespace
+              to the Bio::Seq object
+ Returntype : Arrayref of Bio::Seq
+ Exceptions : None
+
+=cut
 
 sub get_query_seqs {
   my ($self,$accession_array) = @_;
 
-
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name($self->param_required('sequence_table_name'));
 
-  my $biotypes_hash = {};
   my @seqs;
 
   foreach my $accession (@{$accession_array}) {
@@ -201,22 +206,9 @@ sub get_query_seqs {
       $self->throw("Did not find an entry in the uniprot_sequences table matching the accession. Accession:\n".$accession);
     }
 
-    push(@seqs, Bio::Seq->new(-id => $accession, -seq => $db_row->{seq}));
-    $biotypes_hash->{$accession} = $db_row->{'biotype'};
+    push(@seqs, Bio::Seq->new(-id => $accession, -seq => $db_row->{seq}, -namespace => $db_row->{'biotype'}));
   }
-
-  $self->get_biotype($biotypes_hash);
-
   return \@seqs;
-}
-
-
-sub get_biotype {
-  my ($self,$biotype_hash) = @_;
-  if($biotype_hash) {
-    $self->param('_biotype_hash',$biotype_hash);
-  }
-  return($self->param('_biotype_hash'));
 }
 
 1;

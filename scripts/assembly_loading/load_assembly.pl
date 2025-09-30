@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ my $skip = 0; # skip 0 steps by default
 my $only = 0;
 my $help = 0;
 my $verbose = 0;
-my $ftp_server = "ftp://ftp.ncbi.nlm.nih.gov";
+my $ftp_server = "https://ftp.ncbi.nlm.nih.gov";
 my $primary_assembly_dir_name = "Primary_Assembly"; # primary assembly dir name both the remote and the local one
 my $contigs_dir_name = "contigs"; # contigs local dir name (it will be created in the local_path)
 my $contigs_accessions_filename = "contig_accs.txt";

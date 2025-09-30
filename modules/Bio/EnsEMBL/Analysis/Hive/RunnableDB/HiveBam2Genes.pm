@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,6 @@ use Bio::DB::HTS;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Genes;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -82,18 +81,10 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  $self->setup_fasta_db;
   my $reference_db = $self->get_database_by_name('dna_db');
   my $slice_adaptor = $reference_db->get_SliceAdaptor;
   $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
-
-  if($self->param('use_genome_flatfile')) {
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param('genome_file'),
-               );
-  }
 
   my $slice = $self->fetch_sequence($self->input_id, $reference_db);
   if ($self->param('disconnect_jobs')) {

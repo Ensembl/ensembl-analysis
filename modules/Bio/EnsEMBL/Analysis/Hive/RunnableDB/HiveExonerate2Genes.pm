@@ -3,7 +3,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,6 +69,7 @@ use warnings ;
 use strict;
 use feature 'say';
 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
@@ -92,12 +93,8 @@ sub param_defaults {
 sub fetch_input {
   my($self) = @_;
 
-
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $dba->dnadb($dna_dba);
-  }
+  $self->setup_fasta_db;
+  my $dba = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($dba,'target_db');
 
 
@@ -139,10 +136,7 @@ sub fetch_input {
     my $feature_type = $self->param('feature_type');
     if($feature_type eq 'transcript') {
       my $transcript_id = $self->param('iid');
-      my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
-      if($dna_dba) {
-        $transcript_dba->dnadb($dna_dba);
-      }
+      my $transcript_dba = $self->get_database_by_name('transcript_db');
       $self->hrdb_set_con($transcript_dba,'transcript_db');
 
       my ($slice,$accession_array) = $self->get_transcript_region($transcript_id);
@@ -158,7 +152,7 @@ sub fetch_input {
     }
   } elsif($iid_type eq 'projection_transcript_id') {
        my ($projection_transcript_id, $projection_protein_accession) = @{$self->param('iid')};
-       my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'), $dna_dba);
+       my $transcript_dba = $self->get_database_by_name('transcript_db');
        my $padding = $self->param("projection_padding");
 
        $self->hrdb_set_con($transcript_dba,'transcript_db');
@@ -983,8 +977,8 @@ sub realign_translation {
   my $query_seq = $self->peptide_seq;
   my $translation = $transcript->translate->seq();
 
-  my $align_input_file = "/tmp/exonerate_align_".$$.".fa";
-  my $align_output_file = "/tmp/exonerate_align_".$$.".aln";
+  my $align_input_file = create_file_name('exonerate_align_', 'fa');
+  my $align_output_file = create_file_name('exonerate_align_', 'aln');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";

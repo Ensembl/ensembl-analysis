@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,6 +49,17 @@ use File::Path qw(make_path);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    evidence_high_count => 50,
+    tiny_gene_size => 500,
+  }
+}
+
+
 sub fetch_input {
   my $self = shift;
 
@@ -72,6 +83,23 @@ sub fetch_input {
 
   my $blessed_biotypes = $self->param('blessed_biotypes');
   $self->blessed_biotypes($blessed_biotypes);
+  my $high_count_evidence_name_sth = $input_dba->dbc->prepare(
+    "SELECT paf.hit_name FROM transcript_supporting_feature tsf, protein_align_feature paf"
+    ." WHERE tsf.feature_id = paf.protein_align_feature_id AND tsf.feature_type = 'protein_align_feature'"
+    ." GROUP BY paf.hit_name HAVING COUNT(paf.hit_name) > ?"
+  );
+  $high_count_evidence_name_sth->execute($self->param('evidence_high_count'));
+  my $gene_id_high_evidence_sth = $input_dba->dbc->prepare("SELECT g.gene_id FROM gene g, transcript t, transcript_supporting_feature tsf, protein_align_feature paf WHERE g.gene_id = t.gene_id AND t.transcript_id = tsf.transcript_id AND tsf.feature_id = paf.protein_align_feature_id AND tsf.feature_type = 'protein_align_feature' AND paf.hit_name = ?");
+  my %genes_to_check;
+  while(my $row = $high_count_evidence_name_sth->fetch) {
+    $gene_id_high_evidence_sth->execute($row->[0]);
+    $self->say_with_header($row->[0]);
+    while (my $row_gene_id = $gene_id_high_evidence_sth->fetch) {
+      $genes_to_check{$row_gene_id->[0]} = $row_gene_id->[0];
+      $self->say_with_header($row_gene_id->[0]);
+    }
+  }
+  $self->param('genes_to_check', \%genes_to_check);
 
   return 1;
 }
@@ -133,7 +161,8 @@ sub blessed_biotypes {
 sub clean_genes {
   my ($self,$genes) = @_;
   my $transcript_ids_to_remove = [];
-  my $tiny_gene_size = 500; # Note that this should be made a param. Usually there are very few such genes in a geneset
+  my $tiny_gene_size = $self->param('tiny_gene_size'); # Note that this should be made a param. Usually there are very few such genes in a geneset
+  my $genes_to_check = $self->param('genes_to_check');
   say "Have ".scalar(@{$genes})." genes to process";
 
   my $gene_strings;
@@ -196,7 +225,14 @@ sub clean_genes {
       my $logic_name = $transcript->analysis->logic_name();
       if($logic_name =~ /^genblast/ && scalar(@{$transcript->get_all_Exons()}) <= 3) {
         if($self->check_protein_models($transcript)) {
-          say "Found protein model with weak supporting evidence: ".$transcript->dbID.", ".$transcript->biotype;
+          $self->warning("Found protein model with weak supporting evidence: ".$transcript->dbID.", ".$transcript->biotype);
+          push(@{$transcript_ids_to_remove},$transcript->dbID);
+          next;
+        }
+      }
+      if (exists $genes_to_check->{$gene->dbID}) {
+        if (exists $transcript->{_non_start_stop_complete}) {
+          $self->say_with_header('Removing high evidence count '.$transcript->dbID);
           push(@{$transcript_ids_to_remove},$transcript->dbID);
         }
       }
@@ -291,7 +327,7 @@ sub assess_flagged_transcripts {
     if($flagged_transcript->{'_is_frameshift'}) {
       my $redundant_ignoring_frameshifts = $self->check_frameshift_redundancy($flagged_transcript,$normal_transcripts);
       if($redundant_ignoring_frameshifts) {
-        say "Found a flagged transcript whose CDS is redundant if you ignore the frameshift introns, dbID: ".$flagged_transcript->dbID;
+        $self->warning("Found a flagged transcript whose CDS is redundant if you ignore the frameshift introns, dbID: ".$flagged_transcript->dbID);
         $flagged_transcript->{'_marked_for_removal'} = 1;
         push(@{$db_ids_to_remove},$flagged_transcript->dbID);
         next;
@@ -310,7 +346,7 @@ sub assess_flagged_transcripts {
     foreach my $normal_transcript (@sorted_normal_transcripts) {
       my $coverage =  $self->calculate_coverage($normal_transcript,$flagged_transcript);
       if($coverage >= $redundancy_cutoff) {
-        say "Found a flagged transcript (".$flagged_transcript->dbID.") that is covered by a normal transcript (".$normal_transcript->dbID.")";
+        $self->warning("Found a flagged transcript (".$flagged_transcript->dbID.") that is covered by a normal transcript (".$normal_transcript->dbID.")");
         say "Coverage: ".$coverage." (coverage threshold: ".$redundancy_cutoff.")";
         $flagged_transcript->{'_marked_for_removal'} = 1;
         push(@{$db_ids_to_remove},$flagged_transcript->dbID);
@@ -446,7 +482,7 @@ sub single_exon_within_intron {
     }
   }
 
-  say "FM2 overlap_on_same_strand_count: ".$overlap_on_same_strand_count;
+  $self->warning("overlap_on_same_strand_count: ".$overlap_on_same_strand_count);
 
   # If there is more than just the parent gene then this single exon model must lie in an intron of another gene
   # Otherwise it would have been part of the overlapping gene
@@ -589,10 +625,8 @@ sub generate_exon_string {
     my $start = $exon->start();
     my $end = $exon->end();
     $exon_string .= $start."..".$end.":";
-    print "(".$start."..".$end.")";
   }
 
-  print "\n";
 
   return($exon_string);
 }
@@ -627,7 +661,7 @@ sub check_protein_models {
     # If an exon supporting feature is found, base decision on that
     if($coverage) {
       if($coverage < 75 && $translation !~ /^M/) {
-       say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+       $self->warning("Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage);
        say "Translation:\n".$translation;
        return(1);
       } else {
@@ -641,17 +675,23 @@ sub check_protein_models {
     if($classification <= 4) {
       return(0);
     } else {
-      say "Removing based on classification: ".$biotype;
+      $self->warning("Removing based on classification: ".$biotype);
       return(1);
     }
   }
 
   my $supporting_feature = shift(@$supporting_features);
   my $coverage = $supporting_feature->hcoverage;
+  
+  if (!($transcript->translation())) {
+    $self->warning("Removing transcript because it does not have any translation ".$transcript->seq_region_name().":".$transcript->seq_region_start().":".$transcript->seq_region_end());
+    return(1);
+  }
+  
   my $translation = $transcript->translation->seq;
   my $hit_name = $supporting_feature->hseqname;
   if($coverage < 75 && $translation !~ /^M/) {
-    say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+    $self->warning("Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage);
     say "Translation:\n".$translation;
     return(1);
   }

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,7 +80,6 @@ my $coord_system_version;
 my $write; # boolean
 my $verbose; # boolean
 my $code = 'gencode_basic';
-my $MAX_TRANSCRIPT_LENGTH = '100000'; # the longest transcript in human was less than 10000 base pair long in e79
 
 # use most recent
 my $production_dbname = 'ensembl_production';
@@ -167,6 +166,7 @@ my $biotype2group = get_biotype_groups($production_db);
 my $known_biotypes = {
                      'protein_coding'                     => 'coding',
                      'polymorphic_pseudogene'             => 'coding',
+                     'protein_coding_LoF'                 => 'coding',
                      'IG_D_gene'                          => 'coding',
                      'IG_J_gene'                          => 'coding',
                      'IG_C_gene'                          => 'coding',
@@ -195,8 +195,9 @@ my $known_biotypes = {
                      'scaRNA'                             => 'noncoding_second_choice',
                      'scRNA'                              => 'noncoding_second_choice',
                      'sRNA'                               => 'noncoding_second_choice',
-                     'vaultRNA'                           => 'noncoding_second_choice',
+                     'vault_RNA'                          => 'noncoding_second_choice',
                      'processed_transcript'               => 'noncoding_second_choice',
+                     'protein_coding_CDS_not_defined'     => 'noncoding_second_choice',
                      'misc_RNA'                           => 'noncoding_second_choice',
                      '3prime_overlapping_ncRNA'           => 'noncoding_second_choice',
                      'non_coding'                         => 'noncoding_second_choice',
@@ -230,6 +231,7 @@ my $known_biotypes = {
                      'TEC'                                => 'problem',
                      'ambiguous_orf'                      => 'problem',
                      'disrupted_domain'                   => 'problem',
+                     'artifact'                           => 'problem',
                      'LRG_gene'                           => 'do_not_use',
                      };
 
@@ -763,7 +765,7 @@ sub getScoreExonsCoverAndLength {
     }
   }
 
-  my $length_score_percentage = min(($MAX_TRANSCRIPT_LENGTH-1)/$MAX_TRANSCRIPT_LENGTH,$transcript->length()/$MAX_TRANSCRIPT_LENGTH);
+  my $length_score_percentage = 1-(1/$transcript->length());
   my $score = $numExonsCovered+$length_score_percentage;
 
   return $score;

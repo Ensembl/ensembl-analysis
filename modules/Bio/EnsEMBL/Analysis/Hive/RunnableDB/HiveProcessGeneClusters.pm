@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,17 +42,16 @@ sub fetch_input {
   # Once fetch input is done there should be a geneset associated with some of the major
   # groupings
 
+  $self->setup_fasta_db;
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => $self->param('logic_name'),
                                               -module => $self->param('module'),
                                             );
   $self->analysis($analysis);
 
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  $self->hrdb_set_con($dna_dba,'dna_db');
-  my $out_dba = $self->hrdb_get_dba($self->param('cluster_output_db'));
-  $out_dba->dnadb($dna_dba);
+  my $out_dba = $self->get_database_by_name('cluster_output_db');
   $self->hrdb_set_con($out_dba,'cluster_output_db');
+  $self->hrdb_set_con($out_dba->dnadb,'dna_db');
 
   my $input_id = $self->param('iid');
   my $unprocessed_genes = [];
@@ -62,10 +61,9 @@ sub fetch_input {
   # If the the input is a slice, then fetch everything on the slice, but remove any gene that crosses
   # the 3' boundary, as this will be picked up on another slice
   if($input_id_type eq 'slice') {
-    my $in_dba = $self->hrdb_get_dba($self->param('cluster_db'));
-    $in_dba->dnadb($dna_dba);
+    my $in_dba = $self->get_database_by_name('cluster_db');
     $self->hrdb_set_con($in_dba,'cluster_db');
-    my $slice = $self->fetch_sequence($input_id,$dna_dba);
+    my $slice = $self->fetch_sequence($input_id,$in_dba->dnadb);
     $self->query($slice);
     my $gene_adaptor = $in_dba->get_GeneAdaptor();
     my $unfiltered_genes = $gene_adaptor->fetch_all_by_Slice($slice);
@@ -74,8 +72,7 @@ sub fetch_input {
 
   # If the input is an array of gene ids then loop through them and fetch them from the input db
   elsif($input_id_type eq 'gene_id') {
-    my $in_dba = $self->hrdb_get_dba($self->param('cluster_db'));
-    $in_dba->dnadb($dna_dba);
+    my $in_dba = $self->get_database_by_name('cluster_db');
     $self->hrdb_set_con($in_dba,'cluster_db');
     my $gene_adaptor = $in_dba->get_GeneAdaptor();
 

@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,6 +65,26 @@ use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+
+=head2 new
+
+ Arg [REDUNDANT_IDS]: Hashref of arrays, the keys for the hashes are accessions
+                       and the arrays contains accessions of sequences which are
+                       the same as the sequence of the key
+ Description        : Constructor
+ Returntype         : Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature
+ Exceptions         : None
+
+=cut
+
+sub new {
+  my ( $class, @args ) = @_;
+
+  my $self = $class->SUPER::new(@args);
+  my ($redundant_ids) = rearrange( [qw(REDUNDANT_IDS)],@args );
+  $self->redundant_ids($redundant_ids);
+  return $self;
+}
 
 #
 # Implementation of method in abstract superclass
@@ -160,22 +180,23 @@ sub parse_results {
       warn "Clone end feature from probe :$q_id doesnt match well enough\n";
     }
 
-    say "FERGAL DEBUG QID: ".$q_id;
-    my @redundant_ids = @{$redundant_ids->{$q_id}};
-    if(scalar(@redundant_ids)) {
-      foreach my $id (@redundant_ids) {
-        my $feature = $self->make_feature(
-          $id, $q_length, $q_start, $q_end, $q_strand,
-          $t_id, $t_length, $t_start, $t_end, $t_strand,
-          $score, $perc_id, $cigar_string, $hcoverage , $gene_orientation);
+    if ($redundant_ids) {
+      my $redundant_ids = $redundant_ids->{$q_id};
+      if(scalar(@$redundant_ids)) {
+        foreach my $id (@$redundant_ids) {
+          my $feature = $self->make_feature(
+            $id, $q_length, $q_start, $q_end, $q_strand,
+            $t_id, $t_length, $t_start, $t_end, $t_strand,
+            $score, $perc_id, $cigar_string, $hcoverage , $gene_orientation);
 
-        if($feature){
-          push @features, $feature;
-        } else{
-          warn "Clone end feature from probe :$q_id doesnt match well enough\n";
-        }
-      } # end foreach my $id
-    } # end if(scalar(@redundant_ids
+          if($feature){
+            push @features, $feature;
+          } else{
+            warn "Clone end feature from probe :$q_id doesnt match well enough\n";
+          }
+        } # end foreach my $id
+      } # end if(scalar(@$redundant_ids
+    }
   }
 
   if($write_results) {
@@ -285,6 +306,28 @@ sub make_feature{
 
   $feature->{"_intron"} = 1 unless $gene_orientation eq '.';
   return $feature;
+}
+
+
+=head2 redundant_ids
+
+ Arg [1]    : Hashref of arrays, the keys for the hashes are accessions
+               and the arrays contains accessions of sequences which are
+               the same as the sequence of the key
+ Description: Getter/Setter
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub redundant_ids {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_redundant_ids'} = $value;
+  }
+
+  return($self->{'_redundant_ids'});
 }
 
 1;

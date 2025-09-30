@@ -1,6 +1,6 @@
 #!/bin/sh
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-BASE_ENA_FTP="ftp://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std"
+BASE_ENA_FTP="https://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std"
 VERTRNADIR="$BLASTDB_DIR/vertrna"
 VERTRNA_FILE="embl_vertrna-1"
 BLAST_TYPE="ncbi"

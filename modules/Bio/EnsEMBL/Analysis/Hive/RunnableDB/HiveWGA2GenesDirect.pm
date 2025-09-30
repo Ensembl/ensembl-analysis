@@ -3,7 +3,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene attach_Slice_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_timer);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_timer create_file_name);
 
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
@@ -66,8 +66,19 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_st
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    canonical => 0,
+  }
+}
+
+
 sub fetch_input {
   my($self) = @_;
+
   $self->create_analysis;
   my $input_ids = $self->param('iid');
 
@@ -79,15 +90,14 @@ sub fetch_input {
   $self->max_internal_stops($max_internal_stops);
 
   # Define the dna dbs
-  my $source_dna_dba = $self->hrdb_get_dba($self->param('source_dna_db'));
-  my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
+  my $source_dna_dba = $self->get_database_by_name('source_dna_db');
+  my $target_dna_dba = $self->get_database_by_name('target_dna_db');
   $self->hrdb_set_con($source_dna_dba,'source_dna_db');
   $self->hrdb_set_con($target_dna_dba,'target_dna_db');
 
   # Define the source transcript and target transcript dbs
-  my $source_transcript_dba = $self->hrdb_get_dba($self->param('source_transcript_db'));
-  my $target_transcript_dba = $self->hrdb_get_dba($self->param('target_transcript_db'));
-  $target_transcript_dba->dnadb($target_dna_dba);
+  my $source_transcript_dba = $self->get_database_by_name('source_transcript_db', $source_dna_dba);
+  my $target_transcript_dba = $self->get_database_by_name('target_transcript_db', $target_dna_dba);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
 
@@ -195,10 +205,11 @@ sub run {
      my $successfully_projected = 0;
      my $preliminary_transcripts = [];
      eval {
-      local $SIG{ALRM} = sub { die "alarm clock restart" };
+      local $SIG{ALRM} = sub { die "alarm clock restart\n" };
       alarm $timer; #schedule alarm in '$timer' seconds
 
       foreach my $chain (@{$source_transcript->{_genomic_align_block_chains}}) {
+        sleep 3;
         my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->new(
                                                                                      -genomic_align_blocks => $chain,
                                                                                      -from_slice    => $source_transcript->slice,
@@ -239,7 +250,7 @@ sub run {
       alarm 0; #reset alarm
     }; # end eval
 
-    if($@ && $@ !~ /alarm clock restart/) {
+    if($@ && $@ eq "alarm clock restart\n") {
       say "Projection failed for transcript ".$source_transcript->dbID." because of time limit on timer param";
     }
 
@@ -337,8 +348,8 @@ sub realign_translation {
   my $query_seq = $source_transcript->translate->seq();
   my $projected_seq = $projected_transcript->translate->seq();
 
-  my $align_input_file = "/tmp/projected_align_".$$.".fa";
-  my $align_output_file = "/tmp/projected_align_".$$.".aln";
+  my $align_input_file = create_file_name('projected_align_', 'fa');
+  my $align_output_file = create_file_name('projected_align_', 'aln');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";

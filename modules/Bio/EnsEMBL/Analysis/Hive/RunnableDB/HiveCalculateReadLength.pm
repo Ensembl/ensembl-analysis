@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,43 +39,60 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCalculateReadLength;
 
 use warnings;
 use strict;
-use feature 'say';
+
+use File::Basename;
+use File::Spec::Functions qw(catfile file_name_is_absolute);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+sub fetch_input {
+  my ($self) = @_;
+
+  $self->param_required('read_length_table');
+  my $filename = $self->input_id;
+  if (!file_name_is_absolute($self->input_id)) {
+    $filename = catfile($self->param('input_dir'), $self->input_id);
+  }
+
+  $self->throw("$filename does not exist")
+    unless(-e $filename);
+  $self->param('absolute_filepath', $filename);
+}
+
+sub run {
+  my ($self) = @_;
+
+  my $read_length = 0;
+  my $count = 0;
+
+  open(PH, 'zcat '.$self->param('absolute_filepath').' |')
+    or $self->throw('Could not open '.$self->param('absolute_filepath'));
+  while (my $line = <PH>) {
+    if ($count%4 == 1){
+      $read_length = length($line) if (length($line) > $read_length);
+    }
+    ++$count;
+  }
+  close(PH) or $self->throw('Could not close '.$self->param('absolute_filepath'));
+
+  $self->say_with_header($self->param('absolute_filepath')."  READ LENGTH: $read_length");
+  $self->output([$read_length]);
+}
+
+
 sub write_output {
   my ($self) = @_;
-  my $fastq = $self->param('iid');
-  my $path = $self->param('input_dir');
-  my @output_ids;
-
-  if(!-e $path.'/'.$fastq) {
-    say $path.'/'.$fastq.' does not exist';
-  }
-
-  my $read_length_cmd="zcat $path/$fastq| awk \'{if(NR%4==2) print length(\$1)}\' | sort -n | uniq -c";
-  my @read_lengths=`$read_length_cmd`;
-
-  my $max = 0;
-  my $read_length=0;
-
-  foreach my $length_line (@read_lengths){
-    $length_line =~ s/^\s+//;
-    my @line_array = split(/ /, $length_line);
-    if ($line_array[0] > $max){
-      $max = $line_array[0];
-      $read_length = $line_array[1];
-    }
-  }
-
-  say $fastq."  READ LENGTH: ".$read_length;
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor;
   $table_adaptor->table_name($self->param('read_length_table'));
 
-  my $insert_row = [{'fastq'         => $fastq,
-                      'read_length'  => $read_length}];
+  my $filename = $self->input_id;
+  if (file_name_is_absolute($filename)) {
+    $filename = basename($self->input_id);
+  }
 
-  $table_adaptor->store($insert_row);
+  $table_adaptor->store([{'fastq'       => $filename,
+                          'read_length' => $self->output->[0]}]);
 }
+
 1;

@@ -1,4 +1,4 @@
-# Copyright [2018-2020] EMBL-European Bioinformatics Institute
+# Copyright [2018-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,11 @@ use feature 'say';
 use parent ('Bio::EnsEMBL::DBSQL::DBAdaptor');
 
 =pod
+
 =head1 Description of method
+
 This method fetches all assembly accessions from the registry It can further limit what is returned if max version is set to true.
+
 =cut
 
 sub fetch_all_gca {
@@ -66,8 +69,11 @@ sub fetch_all_gca {
 }
 
 =pod
+
 =head1 Description of method
+
 This method fetches the clade via its assembly accessions from the registry.
+
 =cut
 
 sub fetch_clade_by_gca {
@@ -90,8 +96,11 @@ sub fetch_clade_by_gca {
 }
 
 =pod
+
 =head1 Description of method
+
 This method returns the contig_N50 of an assembly from the registry.
+
 =cut
 
 sub fetch_n50_by_gca {
@@ -134,8 +143,11 @@ sub fetch_n50_by_gca {
 }
 
 =pod
+
 =head1 Description of method
+
 This method fetches  assembly accessions from the registry based on set criteria.
+
 =cut
 
 sub fetch_gca_by_constraints_assembly_group_no_haplotype {
@@ -325,8 +337,11 @@ sub fetch_gca_by_constraints {
 }
 
 =pod
+
 =head1 Description of method
+
 This method returns the name of a species via its assembly accession from the registry.
+
 =cut
 
 sub fetch_species_name_by_gca {
@@ -334,7 +349,7 @@ sub fetch_species_name_by_gca {
 
   my ($chain,$version) = $self->split_gca($chain_version);
 
-  my $sql = "SELECT species_id FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT taxonomy FROM assembly WHERE chain=? and version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
@@ -356,8 +371,11 @@ sub fetch_species_name_by_gca {
 }
 
 =pod
+
 =head1 Description of method
+
 This method fetches the assembly name via its accession from the registry.
+
 =cut
 
 sub fetch_assembly_name_by_gca {
@@ -387,8 +405,11 @@ sub fetch_assembly_name_by_gca {
 }
 
 =pod
+
 =head1 Description of method
+
 This method returns the stable id prefix for an assembly.
+
 =cut
 
 sub fetch_stable_id_prefix_by_gca {
@@ -410,8 +431,11 @@ sub fetch_stable_id_prefix_by_gca {
 }
 
 =pod
+
 =head1 Description of method
+
 This method returns the start of the stable id prefix for an assembly.
+
 =cut
 
 sub fetch_stable_id_start_by_gca {
@@ -440,8 +464,11 @@ sub fetch_stable_id_start_by_gca {
 }
 
 =pod
+
 =head1 Description of method
+
 This method returns the assembly id of an assembly.
+
 =cut
 
 sub fetch_assembly_id_by_gca {
@@ -464,8 +491,11 @@ sub fetch_assembly_id_by_gca {
 }
 
 =pod
+
 =head1 Description of method
+
 This method returns the clade of an assembly via its taxon id.
+
 =cut
 
 sub fetch_clade_by_taxon_id {
@@ -485,8 +515,11 @@ sub fetch_clade_by_taxon_id {
 }
 
 =pod
+
 =head1 Description of method
+
 This method returns the status of an annotation via its assembly_accession.
+
 =cut
 
 sub fetch_genebuild_status_by_gca {
@@ -504,8 +537,11 @@ sub fetch_genebuild_status_by_gca {
 
 
 =pod
+
 =head1 Description of method
+
 This method takes an accession and returns the chain and versionn of the assembly.
+
 =cut
 
 sub split_gca {

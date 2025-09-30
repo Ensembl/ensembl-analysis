@@ -1,5 +1,5 @@
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2019] EMBL-European Bioinformatics Institute
+#Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ Checks
 
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPatches -ftp_path ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_000001405.23_GRCh38.p8/GCA_000001405.23_GRCh38.p8_assembly_structure/PATCHES/alt_scaffolds -output_path $SCR9/ -dbhost genebuildX -dbname core_97 -dbuser *** -dbpass *** -dbport DBPORT -cs_version GRCh38
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPatches -ftp_path https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_000001405.23_GRCh38.p8/GCA_000001405.23_GRCh38.p8_assembly_structure/PATCHES/alt_scaffolds -output_path $SCR9/ -dbhost genebuildX -dbname core_97 -dbuser *** -dbpass *** -dbport DBPORT -cs_version GRCh38
 
 =cut
 
@@ -161,7 +161,7 @@ sub run {
 }
 
 sub download_patches() {
-# download the 5 patches files from the ftp_path (ie 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_.../GCA_...assembly_structure/PATCHES/alt_scaffolds'):
+# download the 5 patches files from the ftp_path (ie 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_.../GCA_...assembly_structure/PATCHES/alt_scaffolds'):
 # alt.scaf.agp.gz, alt.scaf.fna.gz, alt_scaffold_placement.txt, patch_type and assembly_report.txt
 # to the local directory 'local_dir'
  my ($self) = @_;
@@ -188,10 +188,10 @@ sub download_patches() {
   $ass_report_dir = pop(@ftp_path_array);
 
   # my $link  = $ftp_path."/../../../".$ass_report_dir."_assembly_report.txt";
-  # ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt
-  my $link = 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt';
+  # https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt
+  my $link = 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt';
 
-  if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
+  if (system("wget ".$wget_verbose." -nH -P ".$local_dir." https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
        $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
   }
   else {

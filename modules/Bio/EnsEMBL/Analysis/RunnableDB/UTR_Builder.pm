@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1294,7 +1294,7 @@ sub get_cdna_id_from_protein_id {
   Arg [1]    : none
   Description: Read GenBank sequence file linking NP proteins to a specific NM cDNA
                to use as "known" UTR evidence 
-               Source : ftp://ftp.ncbi.nlm.nih.gov/refseq/<SPECIES>/mRNA_Prot/<species>.protein.gpff.gz
+               Source : https://ftp.ncbi.nlm.nih.gov/refseq/<SPECIES>/mRNA_Prot/<species>.protein.gpff.gz
   Returns    : nothing
 
 =cut

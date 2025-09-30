@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ if($clone_state_file) {
 } else {
   warning("You have not provided a clone state file, so no states will be added for the clones.\n".
           "This file is usually available on the ftp site. For examples the mouse combined file is:\n".
-          "ftp://ftp.ncbi.nih.gov/repository/clone/reports/Mus_musculus/clone_acstate_10090.out");
+          "https://ftp.ncbi.nih.gov/repository/clone/reports/Mus_musculus/clone_acstate_10090.out");
 }
 
 # This is a hash that will hold the parent inserts for the ends based on the parent id

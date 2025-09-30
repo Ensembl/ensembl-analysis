@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,7 +61,6 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable::CPG;
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -80,25 +79,10 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input{
   my ($self) = @_;
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  $self->setup_fasta_db;
+  my $dba = $self->get_database_by_name('target_db');
   my $sfa = $dba->get_SimpleFeatureAdaptor();
   $self->get_adaptor($sfa);
-
-  if($self->param('use_genome_flatfile')) {
-    say "Ingoring dna table and using fasta file for sequence fetching";
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param_required('genome_file'),
-               );
-  } elsif($self->param('dna_db')) {
-    say "Attaching dna db to target";
-    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-    $dba->dnadb($dna_dba);
-  } else {
-    say "Assuming the target db has dna";
-  }
 
   $self->hrdb_set_con($dba,'target_db');
 

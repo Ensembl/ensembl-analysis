@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,11 +87,7 @@ sub fetch_input {
   my $genome_file;
   my $query;
 
-  my $dba = $self->hrdb_get_dba($self->param_required('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $dba->dnadb($dna_dba);
-  }
+  my $dba = $self->get_database_by_name('target_db');
 
   $self->hrdb_set_con($dba,'target_db');
 
@@ -117,10 +113,7 @@ sub fetch_input {
     }
   } elsif($iid_type eq 'projection_transcript_id') {
     my @iid = @{$self->input_id};
-    my $projection_dba = $self->hrdb_get_dba($self->param('projection_db'));
-    if($dna_dba) {
-      $projection_dba->dnadb($dna_dba);
-    }
+    my $projection_dba = $self->get_database_by_name('projection_db');
     my $projection_transcript_id = $iid[0];
     my $projection_protein_accession = $iid[1];
 
@@ -130,6 +123,10 @@ sub fetch_input {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
 
+  my %seq_region_cache;
+  foreach my $slice (@{$dba->get_SliceAdaptor->fetch_all('toplevel')}) {
+    $seq_region_cache{$slice->name} = $slice;
+  }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
      -program => $self->analysis->program_file,
@@ -138,7 +135,7 @@ sub fetch_input {
      -max_rank => $self->param('max_rank'),
      -genblast_pid => $self->param('genblast_pid'),
      -workdir => File::Temp->newdir(),
-     -database_adaptor => $dba,
+     -slice_cache => \%seq_region_cache,
      %parameters,
     );
   if (ref($query) eq 'ARRAY') {
@@ -150,13 +147,16 @@ sub fetch_input {
   $runnable->genblast_program($self->param('genblast_program')) if ($self->param_is_defined('genblast_program'));
   $runnable->timer($self->param('timer'));
   $self->runnable($runnable);
-
+  if ($self->param('disconnect_jobs')) {
+     $dba->dbc->disconnect_when_inactive(1);
+  }
   return 1;
 }
 
 
 sub run {
   my ($self) = @_;
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   my $runnable = shift(@{$self->runnable});
   $self->runnable_failed(0);
   eval {
@@ -176,7 +176,7 @@ sub run {
   } else {
     $self->output($runnable->output);
   }
-
+  $self->dbc->disconnect_when_inactive(0);
   return 1;
 }
 
@@ -198,7 +198,7 @@ sub write_output{
 
   my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
-
+  $adaptor->dbc->disconnect_when_inactive(0);
   if($self->runnable_failed == 1) {
     # Flow out on -2 or -3 based on how the failure happened
     my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');

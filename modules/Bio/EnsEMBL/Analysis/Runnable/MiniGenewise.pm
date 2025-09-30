@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -710,8 +710,8 @@ sub realign_translation {
 #  my $transcript = ${$transcripts}[0];
   my $translation = $transcript->translate->seq();
 
-  my $align_input_file = "/tmp/genewise_align_".$$.".fa";
-  my $align_output_file = "/tmp/genewise_align_".$$.".aln";
+  my $align_input_file = create_file_name('genewise_align', 'fa');
+  my $align_output_file = create_file_name('genewise_align', 'aln');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";

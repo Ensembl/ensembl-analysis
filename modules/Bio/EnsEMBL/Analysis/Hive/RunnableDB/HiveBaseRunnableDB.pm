@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2020] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ use warnings;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name parse_uri);
 
 use parent ('Bio::EnsEMBL::Hive::Process');
 
@@ -58,6 +58,7 @@ sub param_defaults {
         _output => [],
         skip_analysis => 0,
         _skip_cache_clearing => 0,
+        use_genome_flatfile => 0,
     }
 }
 
@@ -576,22 +577,41 @@ sub create_analysis {
 
 =head2 hrdb_get_dba
 
- Arg [1]    : String $name, name of a database as it stored in parameters
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor or String $name, URI to a database, it can be a path
  Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna (optional)
  Arg [3]    : String $alternative_class (optional), Allowed class are Variation, Compara, Funcgen
  Example    : $self->hrdb_get_dba($self->param('target_db'));
  Description: It's a wrapper for hrdb_get_dba from Bio::EnsEMBL::Analysis::Tools::Utilities
  Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
  Exceptions : Throws if it cannot connect to the database.
-              Throws if $connection_info is not a hashref
+              Throws if $connection_info is not a hashref or URI
+              Throws if 
               Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
 
 =cut
 
 sub  hrdb_get_dba {
-    my ($self, $connection_info, $dna_db, $alternative_class) = @_;
+    my ($self, $connection_info, $dna_db, $alternative_class, $fasta_file) = @_;
 
-    $self->throw($connection_info.' is not a HASHREF') unless (ref($connection_info) eq 'HASH');
+    if (!ref($connection_info)) {
+      my($scheme, $user, $password, $host, $port, $path) = parse_uri($connection_info);
+      if ($scheme eq 'file' or !$scheme) {
+        $self->throw("Cannot use flatfile as databases yet");
+      }
+      else {
+        $connection_info = {
+          -host => $host,
+          -port => $port,
+          -user => $user,
+          -pass => $password,
+          -dbname => $path,
+          -driver => $scheme,
+        };
+      }
+    }
+    elsif (ref($connection_info) ne 'HASH') {
+      $self->throw("$connection_info is not a recognised object");
+    }
     my $uniq_id = join(':', $connection_info->{-host},
                             $connection_info->{-dbname},
                             $connection_info->{-port},
@@ -607,7 +627,7 @@ sub  hrdb_get_dba {
       delete $self->{_gb_cache};
     }
     if (!exists $self->{_gb_cache}->{'_cache_dba_'.$uniq_id}) {
-      $self->{_gb_cache}->{'_cache_dba_'.$uniq_id} = Bio::EnsEMBL::Analysis::Tools::Utilities::hrdb_get_dba($connection_info, $dna_db, $alternative_class);
+      $self->{_gb_cache}->{'_cache_dba_'.$uniq_id} = Bio::EnsEMBL::Analysis::Tools::Utilities::hrdb_get_dba($connection_info, $dna_db, $alternative_class, $fasta_file);
       $self->{_gb_cache}->{'_cache_lastlogicname'} = $self->input_job->analysis->logic_name;
     }
     return $self->{_gb_cache}->{'_cache_dba_'.$uniq_id};
@@ -631,9 +651,28 @@ sub  hrdb_get_dba {
 =cut
 
 sub get_database_by_name {
-    my ($self, $name, $dna_db, $alternative_class) = @_;
+    my ($self, $name, $dna_db, $alternative_class, $fasta_file) = @_;
 
-    return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db, $alternative_class);
+    if (!$dna_db) {
+      if ($self->param_is_defined('dna_db') and $self->param('dna_db') and $name ne 'dna_db') {
+        $dna_db = $self->get_database_by_name('dna_db');
+        $self->say_with_header('Attaching dna db '.$dna_db->dbc->dbname);
+      } else {
+        $self->say_with_header("Assuming the target db has dna for $name");
+      }
+    }
+    if (!$fasta_file) {
+      if ($self->param('use_genome_flatfile') and $self->param_is_defined('genome_file') and Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors->{Sequence} eq 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor') {
+        $self->say_with_header("Ignoring dna table and using fasta file for sequence fetching");
+        if (-e $self->param_required('genome_file')) {
+          $fasta_file = $self->param('genome_file');
+        }
+        else {
+          $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+        }
+      }
+    }
+    return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db, $alternative_class, $fasta_file);
 }
 
 
@@ -757,6 +796,67 @@ sub post_cleanup {
     sleep(5);
   }
 
+}
+
+=head2 setup_fasta_db
+
+ Arg [1]    : None
+ Description: Replace Bio::EnsEMBL::DBSQL::SliceAdaptor with Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor
+              to retrieve the genomic sequence from a fasta file which is preferably indexed with samtools faidx.
+              The method should be called, preferably before any call to a DBAdaptor. The fasta file can be set
+              with: $dba->get_SequenceAdaptor->fasta($path_to_fasta_file);
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub setup_fasta_db {
+  my ($self) = @_;
+
+  if ($self->param('use_genome_flatfile')) {
+    Bio::EnsEMBL::Analysis::Tools::Utilities::setup_fasta_db();
+  }
+}
+
+
+=head2 add_dna_db
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor, as many as needed
+ Description: Add a dna database if dna_db is present and use a flat file for fetching
+              the sequence if use_genome_flatfile and genome_file are set.
+ Returntype : None
+ Exceptions : Throws if genome_file does not exist
+
+=cut
+
+sub add_dna_db {
+  my ($self, @dbs) = @_;
+
+  if ($self->param_is_defined('dna_db')) {
+    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+    $self->say_with_header('Attaching dna db '.$dna_dba->dbc->dbname);
+    foreach my $db (@dbs) {
+      $db->dnadb($dna_dba);
+    }
+  } else {
+    $self->say_with_header('Assuming the target db has dna');
+  }
+  if ($self->param('use_genome_flatfile')) {
+    $self->say_with_header("Ignoring dna table and using fasta file for sequence fetching");
+    if (-e $self->param_required('genome_file')) {
+      foreach my $db (@dbs) {
+        if ($db->dnadb) {
+          $db->dnadb->get_SequenceAdaptor->fastadb($self->param('genome_file'));
+        }
+        else {
+          $db->get_SequenceAdaptor->fastadb($self->param('genome_file'));
+        }
+      }
+    }
+    else {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+  }
 }
 
 1;

@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,12 +45,12 @@
               Not recommended...
 =head1 EXAMPLES
 
-  perl delete_genes.pl -dbhost my_host -dbuser ensadmin -dbpass **** \
+  perl delete_genes.pl -dbhost my_host -dbport my_port -dbuser ensadmin -dbpass **** \
     -dbname rat_Jun03_mk2 -idfile genes_to_delete.dbIDs
 
   or
 
-  perl delete_genes.pl -dbhost my_host -dbuser ensadmin -dbpass **** \
+  perl delete_genes.pl -dbhost my_host -dbport my_port -dbuser ensadmin -dbpass **** \
     -dbname some_database -idfile my_ENSG_IDs.txt -stable_id
 
   or

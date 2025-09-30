@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -69,14 +69,12 @@ sub create_bmg_runnables{
   my %params_hash = %{$self->parameters_hash};
   if($self->LIMIT_TO_FEATURE_RANGE == 0){
     my $genomic_file = write_seqfile($self->query,
-                                     create_file_name("genomic", "fa",
-                                                      "/tmp/"));
+                                     create_file_name("genomic", "fa"));
     $self->genomic_file($genomic_file);
     my @ids = sort keys(%$hits_hash);
     my $seqs = $self->get_protein_sequences(\@ids);
     my $peptide_file = write_seqfile($seqs,
-                                     create_file_name("peptide", "fa",
-                                                      "/tmp/"));
+                                     create_file_name("peptide", "fa"));
     $self->peptide_file($peptide_file);
     my $r = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new
       (
@@ -109,13 +107,11 @@ sub create_bmg_runnables{
 #        logger_info("Creating ExonerateTranscript Runnable over a limited range with "
 #                    .$id." and ".$seqfetcher." to run on ".$query->name);
         my $genomic_file = write_seqfile($query,
-                                            create_file_name("genomic", "fa",
-                                                             "/tmp/"));
+                                            create_file_name("genomic", "fa"));
         $self->genomic_file($genomic_file);
         my $seqs = $self->get_protein_sequences([$id]);
         my $peptide_file = write_seqfile($seqs,
-                                            create_file_name("peptide", "fa",
-                                                             "/tmp/"));
+                                            create_file_name("peptide", "fa"));
         $self->peptide_file($peptide_file);
         my $r = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new
           (

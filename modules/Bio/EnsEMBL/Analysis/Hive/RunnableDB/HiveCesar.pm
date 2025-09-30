@@ -2,7 +2,7 @@
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the
 EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,7 +49,6 @@ into NNN triplets to make the best possible aligment.
 
 -iid                  gene_id or array of gene_id from the source_db corresponding to the
 gene to be projected from the source_dna_db to the target_dna_db.
--output_path          Path where the output files will be stored.
 -source_dna_db        Ensembl database containing the DNA sequences that
 correspond to the input gene_id from the source_db.
 -target_dna_db        Ensembl database containing the DNA sequences
@@ -70,6 +69,7 @@ binary to be run (excluding the binary filename).
 -common_slice         If set to 1, all the transcripts projected from the same gene will be put on the same slice (and gene) based on the most common seq region name and min and max coordinates covering them. The projected transcripts on the other slices will be discarded. If set to 0 (default), the projected transcripts will be used to make single-transcript genes.
 -stops2introns        Number of stops within a translation which will be replaces with introns. Default 0.
 -max_stops            Only the transcripts whose translations contain a number of stops equal to or less than max_stops will be stored.  Default 0 (translations with stops are not allowed by default).
+-logic_name           logic_name for the stored projected genes and transcripts analysis in the target database 
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
 ExonerateTranscriptFilter pid,cov 50,50 although note that the actual
@@ -84,9 +84,9 @@ use strict;
 use feature 'say';
 use Scalar::Util 'reftype';
 use List::Util qw[min max];
+use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
-use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
@@ -97,14 +97,24 @@ qw(replace_stops_with_introns
    set_alignment_supporting_features                                                                  
    features_overlap);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns features_overlap);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+=head2 param_defaults
+
+  Arg [1]    : None
+  Description: It sets the default values to the parameters.
+  Returntype : Hash
+  Exceptions : None
+
+=cut
+
 sub param_defaults {
+    my ($self) = @_;
+
     return {
+      %{$self->SUPER::param_defaults},
       iid => '',
-      output_path => '',
       source_dna_db => '',
       target_dna_db => '',
       source_db => '',
@@ -118,6 +128,11 @@ sub param_defaults {
       common_slice => 0,
       stops2introns => 0,
       max_stops => 0,
+      logic_name => 'cesar',
+      fail_data_flows => [
+        15,
+        30,
+      ],
       #TRANSCRIPT_FILTER => {
       #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
       #                       PARAMETERS => {
@@ -128,12 +143,64 @@ sub param_defaults {
    }
 }
 
+=head2 pre_cleanup
+
+  Arg [1]    : None
+  Description: It removes the genes from the target database having the specified logic_name associated with this analysis
+               whose transcripts match the transcript stable ID of the gene IDs in the input IDs from the source database.
+  Returntype : None
+  Exceptions : None
+
+=cut
+
+sub pre_cleanup {
+  my ($self) = @_;
+
+  my @input_id = ();
+  if (reftype($self->param('iid')) eq "ARRAY") {
+    @input_id = @{$self->param('iid')};
+  } else {
+    # make single-element array
+    @input_id = ($self->param('iid'));
+  }
+
+  my $source_dba = $self->hrdb_get_dba($self->param('source_db'));
+  my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
+
+  my $source_gene_adaptor = $source_dba->get_GeneAdaptor();
+  my $target_gene_adaptor = $target_dba->get_GeneAdaptor();
+
+  foreach my $gene_id (@input_id) {
+    my $source_gene = $source_gene_adaptor->fetch_by_dbID($gene_id);
+    foreach my $source_transcript (@{$source_gene->get_all_Transcripts()}) {
+      my $target_gene = $target_gene_adaptor->fetch_by_transcript_stable_id($source_transcript->stable_id());
+      if ($target_gene) {
+        if ($target_gene->analysis()->logic_name() eq $self->param('logic_name')) {
+          print "pre_cleanup: target gene ".$target_gene->dbID()." will be removed from the target database.\n";
+          $target_gene_adaptor->remove($target_gene);
+        }
+      }
+    }
+  }
+}
+
+=head2 fetch_input
+
+  Arg [1]    : None
+  Description: It makes an array out of the gene IDs in the input IDs 'iid' parameter.
+               It fetches the relevant data from the compara database to make the target slices from the target database where
+               the translateable transcripts from the source database will be projected onto and it sets the corresponding arrays
+               in preparation for the projection.
+  Returntype : None
+  Exceptions : It throws if the coordinate systems cannot be fetched from the source or target databases.
+               It throws if the method link species data cannot be fetched from the compara database.
+               It throws if the number of elements in parent_genes, unique_translateable_transcripts and transcript_align_slices arrays
+               is different.
+
+=cut
+
 sub fetch_input {
   my($self) = @_;
-
-  unless(-e $self->param('output_path')) {
-    system("mkdir -p ".$self->param('output_path'));
-  }
 
   my @input_id = ();
   if (reftype($self->param('iid')) eq "ARRAY") {
@@ -198,12 +265,14 @@ sub fetch_input {
     $self->throw("No MethodLinkSpeciesSet for :\n".$self->param('method_link_type')."\n".$source_species."\n".$target_species);
   }
 
+  my $sa = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
+  my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor();
   foreach my $ii (@input_id) {
 
     my $gene = $source_transcript_dba->get_GeneAdaptor->fetch_by_dbID($ii);
+    my $full_slice = $gene->slice->seq_region_Slice;
     my @unique_translateable_transcripts = $self->get_unique_translateable_transcripts($gene,$self->param('canonical'));
     my $transcript_align_slices;
-    my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor();
     my $transcript_region_padding = $self->param('transcript_region_padding');
 
     foreach my $transcript (@unique_translateable_transcripts) {
@@ -215,8 +284,8 @@ sub fetch_input {
       my $transcript_group_id_seq_region_strands = {};
    
       my $transcript_padded_start = $transcript->start()-$transcript_region_padding;
-      if ($transcript_padded_start < 0) {
-        $transcript_padded_start = 0;
+      if ($transcript_padded_start < 1) {
+        $transcript_padded_start = 1;
       }
 
       my $transcript_padded_end = $transcript->end()+$transcript_region_padding;
@@ -224,10 +293,9 @@ sub fetch_input {
         $transcript_padded_end = $gene->slice()->length();
       }
 
-      my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
-      my $transcript_slice = $slice_adaptor->fetch_by_region($transcript->slice()->coord_system_name(),$transcript->slice()->seq_region_name(),$transcript_padded_start,$transcript_padded_end,$transcript->seq_region_strand());
+      my $transcript_slice = $full_slice->sub_Slice($transcript_padded_start, $transcript_padded_end, $transcript->seq_region_strand);
 
-      say "---transcript slice: ".$transcript_slice->coord_system_name()." ".$transcript_slice->name()."\n"."length of transcript slice seq: ".length($transcript_slice->seq());
+      say "---transcript slice: ".$transcript_slice->coord_system_name()." ".$transcript_slice->name()."\n"."length of transcript slice seq: ".$transcript_slice->length;
 
       my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss,$transcript_slice);
       my $transcript_slices = [];
@@ -238,7 +306,7 @@ sub fetch_input {
           my $gab_group_id = $gab->group_id();
           foreach my $genomic_align (@{$gab->get_all_non_reference_genomic_aligns()}) {
             my $genomic_align_slice = $genomic_align->get_Slice();
-            $transcript_group_id_lengths->{$gab_group_id} += length($genomic_align_slice->seq());
+            $transcript_group_id_lengths->{$gab_group_id} += $genomic_align_slice->length;
             
             if (!($transcript_group_id_min_starts->{$gab_group_id})) {
               $transcript_group_id_min_starts->{$gab_group_id} = $genomic_align_slice->start();
@@ -246,7 +314,7 @@ sub fetch_input {
               $transcript_group_id_min_starts->{$gab_group_id} = min($transcript_group_id_min_starts->{$gab_group_id},
                                                                      $genomic_align_slice->start());
             }
-            $transcript_group_id_max_ends->{$gab_group_id} = max($transcript_group_id_max_ends->{$gab_group_id},
+            $transcript_group_id_max_ends->{$gab_group_id} = max($transcript_group_id_max_ends->{$gab_group_id} || 0,
                                                                  $genomic_align_slice->end());
             $transcript_group_id_seq_region_names->{$gab_group_id} = $genomic_align_slice->seq_region_name();
             $transcript_group_id_seq_region_strands->{$gab_group_id} = $genomic_align_slice->strand();
@@ -254,7 +322,7 @@ sub fetch_input {
             say "GAS NAME: ".$genomic_align_slice->name();
             say "GAS START: ".$genomic_align_slice->start();
             say "GAS END: ".$genomic_align_slice->end();
-            say "GAS SEQ length: ".length($genomic_align_slice->seq());         
+            say "GAS SEQ length: ".$genomic_align_slice->length;
           } 
         }
       }
@@ -267,7 +335,6 @@ sub fetch_input {
         print "longest group is: ".$longest_group_id."\n";
         print "length: ".$transcript_group_id_lengths->{$longest_group_id}."\n";
       
-        my $sa = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();       
         my $target_transcript_slice = $sa->fetch_by_region(undef,
                                                   $transcript_group_id_seq_region_names->{$longest_group_id},
                                                   $transcript_group_id_min_starts->{$longest_group_id},
@@ -297,12 +364,30 @@ sub fetch_input {
       scalar(@{$self->parent_genes()}) != scalar(@{$self->transcript_align_slices()})) {
     $self->throw("Different number of elements in parent_genes, unique_translateable_transcripts and transcript_align_slices arrays.");
   }
+  if ($self->param('disconnect_jobs')) {
+    $source_transcript_dba->dbc->disconnect_when_inactive(1);
+    $target_transcript_dba->dbc->disconnect_when_inactive(1);
+  }
 }
+
+=head2 run
+
+  Arg [1]    : None
+  Description: It tries to project the transcripts in the unique_translateable_transcripts arrays.
+               If the projection is successful, it builds the projected gene into the projected_transcripts array.
+  Returntype : None
+  Exceptions : It throws if the coordinate systems cannot be fetched from the source or target databases.
+               It throws if the method link species data cannot be fetched from the compara database.
+               It throws if the number of elements in parent_genes, unique_translateable_transcripts and transcript_align_slices arrays
+               is different.
+
+=cut
 
 sub run {
   my ($self) = @_;
 
   my $gene_index = 0;
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   foreach my $gene (@{$self->parent_genes()}) {
 
     my $transcripts = @{$self->unique_translateable_transcripts()}[$gene_index];
@@ -330,41 +415,58 @@ sub run {
     }
 
     if (!$himem_required) {
-      $self->build_gene(\@projected_transcripts,$gene_index,$self->param('canonical'),$self->param('canonical_or_longest'));
+      $self->build_gene(\@projected_transcripts,$gene_index,$self->param('logic_name'),$self->param('canonical'),$self->param('canonical_or_longest'));
     }
     
     say "Had a total of ".$fail_count."/".scalar(@{$transcripts})." failed transcript projections for gene ".$gene->dbID();
     $gene_index++;
   }
+  $self->dbc->disconnect_when_inactive(0);
 }
 
+=head2 write_output
+
+  Arg [1]    : None
+  Description: It stores the sucessfully projected genes from output_genes() into the target database.
+  Returntype : None
+  Exceptions : None
+
+=cut
 
 sub write_output {
   my ($self) = @_;
 
   my $gene_adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
-  my $slice_adaptor = $self->hrdb_get_con('target_transcript_db')->get_SliceAdaptor;
-
+  $gene_adaptor->dbc->disconnect_when_inactive(0);
   my $genes = $self->output_genes();
   foreach my $gene (@{$genes}) {
-    my $transcript = @{$gene->get_all_Transcripts}[0]; # any transcript
-    if (!($gene_adaptor->fetch_by_transcript_stable_id($transcript->stable_id()))) {
-      say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand." (g.start:g.end:g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
-      empty_Gene($gene);
-      $gene->biotype('projection');
-      $gene_adaptor->store($gene);
-    } else {
-      say "NOT storing gene because it has already been stored: ".$gene->start.":".$gene->end.":".$gene->strand."(g.start,g.end,g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
-    }
+    say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand." (g.start:g.end:g.strand).";
+    empty_Gene($gene);
+    $gene->biotype('projection');
+    $gene_adaptor->store($gene);
   }
 }
 
+=head2 build_gene
+
+  Arg [1]    : Array ref pointing to the projected transcripts array.
+  Arg [2]    : Int containing the index of the parent gene in the parent genes array.
+  Arg [3]    : String containing the logic name for the analysis for the built gene.
+  Arg [4]    : Boolean. If 1, only the projected canonical transcript will be part of the built gene.
+  Arg [5]    : Boolean. If 1, only the projected canonical transcript or
+               the projected longest transcript will be part of the built gene.
+  Description: It builds the genes from the projected transcripts.
+  Returntype : None
+  Exceptions : None
+
+=cut
+
 sub build_gene {
-  my ($self,$projected_transcripts,$gene_index,$canonical,$canonical_or_longest) = @_;
+  my ($self,$projected_transcripts,$gene_index,$logic_name,$canonical,$canonical_or_longest) = @_;
 
   if (scalar(@$projected_transcripts) > 0) {
     my $analysis = Bio::EnsEMBL::Analysis->new(
-                                                -logic_name => 'cesar',
+                                                -logic_name => $logic_name,
                                                 -module => 'HiveCesar',
                                               );
 
@@ -474,8 +576,16 @@ TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
   }
 }
 
+=head2 largest_value_mem
+
+  Arg [1]    : None
+  Description: It returns the key containing the largest value in a given hash.
+  Returntype : None
+  Exceptions : None
+
+=cut
+
 sub largest_value_mem {
-# it returns the key containing the largest value in a given hash
   my $hash = shift;
   my ($key,@keys) = keys %$hash;
   my ($big,@vals) = values %$hash;
@@ -489,13 +599,21 @@ sub largest_value_mem {
   $key
 }
 
+=head2 set_common_slice
+
+  Arg [1]    : Array ref pointing to the projected transcripts array.
+  Description: It sets the same slice for all transcripts on the same seq region
+               so they can be added to the same gene later
+               based on the most common seq region name
+               and minimum and maximum transcript coordinates for that seq region name.
+               It returns a new array containing the transcripts on the same slice only
+               after having discarded the transcripts on other seq regions.
+  Returntype : Array
+  Exceptions : None
+
+=cut
+
 sub set_common_slice {
-# it sets the same slice for all transcripts on the same seq region
-# so they can be added to the same gene later
-# based on the most common seq region name
-# and minimum and maximum transcript coordinates for that seq region name
-# It returns a new array containing the transcripts on the same slice only
-# after having discarded the transcripts on other seq regions
   my ($self,$projected_transcripts) = @_;
 
   my @projected_transcripts_on_common_slice = ();
@@ -527,6 +645,19 @@ sub set_common_slice {
   return \@projected_transcripts_on_common_slice;
 }
 
+=head2 project_transcript
+
+  Arg [1]    : Bio::EnsEMBL:Transcript containing the transcript to project.
+  Arg [2]    : Int containing the index of the parent gene in the parent genes array.
+  Description: It runs cesar to project the transcript into its corresponding transcript target slice.
+               It preprocesses the split codons, the TGA stops/selenocysteines and the ambiguous bases before running cesar
+               and it parses the cesar output to check for memory problems and other cesar command errors.
+  Returntype : Bio::EnsEMBL:Transcript or int (0).
+               It returns the projected transcripts if the projection is sucessful or 0 if it is not. 
+  Exceptions : None
+
+=cut
+
 sub project_transcript {
   my ($self,$transcript,$gene_index) = @_;
 
@@ -538,12 +669,10 @@ sub project_transcript {
   }
 
   # set output filename
-  my $rand = int(rand(10000));
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_path = $self->param('output_path')."/cesar_".$$."_".$transcript->stable_id()."_".$rand.".fasta";
-  $self->files_to_delete($outfile_path);
+  my $outfile_path = catfile($self->worker_temp_directory, join('_', 'cesar', $$, $transcript->stable_id(), int(rand(10000)).'.fasta'));
 
-  open(OUT,">".$outfile_path);
+  open(OUT, ">$outfile_path") or $self->throw("Could not open '$outfile_path' for writing");
   my $exon_index = 0;
 EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     my $seq = $exon->seq->seq();
@@ -597,13 +726,13 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
 
     # replace TGA stops/selenocysteines with NNN so CESAR2.0 makes it match with anything
     my $i_step = 1;
-    for (my $i = 0; $i < length($seq); $i += $i_step) {
+    for (my $i = 0; $i < length($seq)-2; $i += $i_step) {
       my $base_1 = substr($seq,$i,1);
       if ($base_1 !~ /[acgtn]/) {
         # we have reached the first (upper case or -) base of the exon sequence
         $i_step = 3;
       }
-      if ($i_step == 3) {
+      if ($i_step == 3 and $base_1 eq 'T') {
         my $base_2 = substr($seq,$i+1,1);
         my $base_3 = substr($seq,$i+2,1);
           if ($base_1 eq "T" and
@@ -645,7 +774,7 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
   $transcript_align_slice_seq =~ tr/ykwmsrdvhbxRYKWMSDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
   say OUT $transcript_align_slice_seq;
 
-  close OUT;
+  close OUT or $self->throw("Could not close '$outfile_path' for writing");
 
   chdir $self->param('cesar_path');
   my $cesar_command = $self->param('cesar_path')."/cesar ".$outfile_path." --clade human ";
@@ -655,30 +784,13 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
 
   say $cesar_command;
 
-  my $cesar_output;
-  $cesar_output = `$cesar_command 2>&1`;
-  my $fces_name_tmp = $outfile_path.".ces.tmp";
-  my $fces_name = $outfile_path.".ces";
+  my $cesar_output = `$cesar_command 2>&1`;
 
+  my @projection_array;
   if ($cesar_output =~ /Your attempt requires ([0-9]+)\./) {
     # Parse error message from CESAR2.0 to retry the job according to the memory required:
     # CRITICAL src/Cesar.c:117 main():  The memory consumption is limited to 20.0000 GB by default. Your attempt requires 73.6664 GB. You can change the limit via --max-memory.
-    my $output_hash = {};
-    push(@{$output_hash->{'iid'}},@{$self->parent_genes()}[$gene_index]->dbID());
-
-    say "CESAR required memory estimate is greater than ".$1." GB.";
-
-    if ($1 < 10) {
-      $self->dataflow_output_id($output_hash,10);
-    } elsif ($1 < 20) {
-      $self->dataflow_output_id($output_hash,20);
-    } elsif ($1 < 25) {
-      $self->dataflow_output_id($output_hash,25);
-    } elsif ($1 < 30) {
-      $self->dataflow_output_id($output_hash,30);
-    } else {
-      $self->dataflow_output_id($output_hash,-1);
-    }
+    $self->dataflow_output_id({iid => [$self->parent_genes()->[$gene_index]->dbID()]}, $self->select_dataflow_on_fail($1));
     
     $self->warning("cesar required memory estimate is greater than ".$1." GB. cesar command FAILED and it will be passed to either cesar_XXX or failed_cesar_himem: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
     say "project_transcript will return -1";
@@ -693,18 +805,21 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
   } elsif ($cesar_output =~ /CRITICAL/) {
     $self->throw("cesar command FAILED: ".$cesar_command."\n");
   } else {
-    open(FCES,'>',$fces_name_tmp) or die $!;
-    print FCES $cesar_output;
-    close(FCES);
-    system("grep -v WARNING $fces_name_tmp > $fces_name"); # remove CESAR2.0 warnings
+    foreach my $line (split("\n", $cesar_output)) {
+      next if ($line =~ /WARNING/);
+      chomp($line);
+      push(@projection_array, $line);
+    }
+    # remove last line if blank and not corresponding to the last sequence
+    if ($projection_array[-1] =~ /^\$/ and $projection_array[-3] =~ /^>/) {
+      pop(@projection_array);
+    }
+    if (scalar(@projection_array) > 4) {
+      $self->throw("Output file has more than one projection. The projection having fewer gaps will be chosen. Transcript: ".$transcript->stable_id());
+    }
   }
 
-  $self->files_to_delete($fces_name_tmp);
-  $self->files_to_delete($fces_name);
-  my $projected_transcript = $self->parse_transcript($transcript,$fces_name);
-#  while(my $file_to_delete = shift(@{$self->files_to_delete})) {
-#    system('rm '.$file_to_delete);
-#  }
+  my $projected_transcript = $self->parse_transcript($transcript, \@projection_array);
 
   if ($projected_transcript) {
     return ($projected_transcript);
@@ -713,22 +828,54 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
   }
 }
 
-sub parse_transcript {
-  my ($self,$source_transcript,$projected_outfile_path) = @_;
 
-  open(IN,$projected_outfile_path);
-  my @projection_array = <IN>;
-  close IN;
-  
-  # remove last line if blank and not corresponding to the last sequence
-  if ($projection_array[-1] =~ /^\$/ and $projection_array[-3] =~ /^>/) {
-    pop(@projection_array);
+sub select_dataflow_on_fail {
+  my ($self, $estimated_mem) = @_;
+
+  foreach my $mem (@{$self->param('fail_data_flows')}) {
+    if ($estimated_mem < $mem) {
+      return $mem;
+    }
   }
-  
-  my $reference_exon_header = shift(@projection_array);
-  my $source_seq =  shift(@projection_array);
-  my $slice_name = shift(@projection_array);
-  my $proj_seq = shift(@projection_array);
+  return -1;
+}
+
+
+=head2 parse_transcript
+
+  Arg [1]    : Bio::EnsEMBL:Transcript containing the source transcript.
+  Arg [2]    : String containing the projected output file path containing the cesar output for the relevant transcript.
+  Description: It parses the cesar output file for the relevant transcript to make the projected exons array and the projected transcript.
+  Returntype : Bio::EnsEMBL:Transcript or int (0).
+               It returns the projected transcript if the parsing is sucessful or 0 if it is not. 
+  Exceptions : None
+
+=cut
+
+sub parse_transcript {
+  my ($self,$source_transcript, $projection_array) = @_;
+
+  my $reference_exon_header = shift(@$projection_array);
+  my $source_seq =  shift(@$projection_array);
+  my $slice_name = shift(@$projection_array);
+  if ($slice_name !~ /^>(.+\:.+\:.+\:)(.+)\:(.+)\:(.+)$/) {
+    $self->throw("Couldn't parse the header to get the slice name. Header: ".$slice_name);
+  }
+  my $proj_transcript_slice_name = $1;
+  my $transcript_start_coord = $2;
+  my $transcript_end_coord = $3;
+  my $original_proj_transcript_strand = $4;
+
+  $proj_transcript_slice_name .= join(":",($transcript_start_coord,$transcript_end_coord,$original_proj_transcript_strand));
+  my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
+
+  my $proj_transcript_slice = $slice_adaptor->fetch_by_name($proj_transcript_slice_name);
+
+  if (!($proj_transcript_slice)) {
+    $self->throw("Couldn't retrieve a slice for transcript: ".$proj_transcript_slice_name);
+  }
+
+  my $proj_seq = shift(@$projection_array);
 
   # CESAR sometimes produces projected exon sequences with no actual exonic sequence like 
   # >reference
@@ -738,21 +885,6 @@ sub parse_transcript {
   # which we are going to discard.
   my $num_proj_seq_exonic_bases = $proj_seq =~ tr/ACGTNYKWMSRDVHBX//;
 
-  if (scalar(@projection_array) > 0) {
-    $self->throw("Output file has more than one projection. The projection having fewer gaps will be chosen. Transcript: ".$source_transcript->stable_id());
-  }
-
-  chomp($source_seq);
-  chomp($proj_seq);
-  
-  if ($slice_name !~ /^>(.+\:.+\:.+\:)(.+)\:(.+)\:(.+)$/) {
-    $self->throw("Couldn't parse the header to get the slice name. Header: ".$slice_name);
-  }
-
-  my $proj_transcript_slice_name = $1;
-  my $transcript_start_coord = $2;
-  my $transcript_end_coord = $3;
-  my $original_proj_transcript_strand = $4;
   my $strand = $original_proj_transcript_strand;
 
   $source_seq =~ /( *)([\-atgcnATGCN> ]+[-atgcnATGCN>]+)( *)/; # '>' means do not expect a splice site in the query because the intron has been deleted, annotate as one composite exon
@@ -763,15 +895,6 @@ sub parse_transcript {
   my $exon_offset_from_start = 0;
   
   $exon_offset_from_start = length($transcript_left_flank);
-
-  $proj_transcript_slice_name .= join(":",($transcript_start_coord,$transcript_end_coord,$original_proj_transcript_strand));
-  my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
-
-  my $proj_transcript_slice = $slice_adaptor->fetch_by_name($proj_transcript_slice_name);
-
-  if (!($proj_transcript_slice)) {
-    $self->throw("Couldn't retrieve a slice for transcript: ".$proj_transcript_slice_name);
-  }
 
   # I have to store the source sequence exons as they appear in the alignment file
   # so I can compare the split codons from the source and the projected sequence later on.
@@ -804,7 +927,7 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
 
     if ($proj_exon_sequence =~ /^\-+\-+$/) {
       # skip projected exon sequences which only contain '-'
-      say "Skipping projected exon sequence because it only contains '-'. File: ".$projected_outfile_path;
+      say "Skipping projected exon sequence because it only contains '-'.";
       $source_exon_index = 0;
       next PROJSEQ;
     } elsif ($proj_exon_sequence =~ /(^\-*)[ATGCNatgcn]+(\-*$)/) {
@@ -812,13 +935,13 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
       
       if (length($1) % 3 == 1) {
         # ignore 1 '-' at the beginning to keep the phase
-        say "Ignoring 1 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        say "Ignoring 1 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name";
         $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],1);
         $proj_exon_sequence = substr($proj_exon_sequence,1);
         $exon_start += 1;
       } elsif (length($1) % 3 == 2) {
         # ignore 2 '-' at the beginning to keep the phase
-        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name";
         $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],2);
         $proj_exon_sequence = substr($proj_exon_sequence,2);
         $exon_start += 2;
@@ -826,13 +949,13 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
 
       if (length($2) % 3 == 1) {
         # ignore 1 '-' at the end to keep the phase
-        say "Ignoring 1 '-' at the end of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        say "Ignoring 1 '-' at the end of the exon to keep the phase. $proj_transcript_slice_name";
         $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],0,-1);
         $proj_exon_sequence = substr($proj_exon_sequence,0,-1);
         $exon_end -= 1;
       } elsif (length($2) % 3 == 2) {
         # ignore 2 '-' at the end to keep the phase
-        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name";
         $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],0,-2);
         $proj_exon_sequence = substr($proj_exon_sequence,0,-2);
         $exon_end -= 2;
@@ -859,7 +982,7 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     my $source_exon_sequence = $source_exons[$source_exon_index];
     while (length($proj_exon_sequence) != length($source_exon_sequence) and
            $source_exon_index < @source_exons) {
-      say "Source exon sequence and projected exon sequence lengths IN THE ALIGNMENT (including '-') do not match. Source exon index: ".$source_exon_index.". Skipping source exon. File: ".$projected_outfile_path;
+      say "Source exon sequence and projected exon sequence lengths IN THE ALIGNMENT (including '-') do not match. Source exon index: ".$source_exon_index.". Skipping source exon.";
       $source_exon_index++;
       $source_exon_sequence = $source_exons[$source_exon_index];
     }
@@ -868,7 +991,7 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     #say "source exon sequence length: ".length($source_exon_sequence);
    
     if (length($proj_exon_sequence) != length($source_exon_sequence)) {
-      $self->warning("Source exon sequence not found for current projected sequence ".$proj_exon_sequence.". Projected exon not added to the projected transcript. File: ".$projected_outfile_path);
+      $self->warning("Source exon sequence not found for current projected sequence ".$proj_exon_sequence.". Projected exon not added to the projected transcript.");
       $source_exon_index = 0;
       next PROJSEQ;
     } else {
@@ -1197,12 +1320,21 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
   }
 }
 
+=head2 make_seq_edits
+
+  Arg [0]    : String containing the source transcript DNA sequence from the cesar output file.
+  Arg [1]    : String containing the target transcript DNA sequence from the cesar output file to make seq edits for.
+  Description: It returns an array of SeqEdit objects for the target sequence to make
+               the insertions for the alignment gaps between the source and target sequences
+               created for an alignment between two dna sequence in cesar output format ie string containing acgtACGT-.
+               A SeqEdit object is added to the array for each substring of any number of "-" not multiple of 3.
+               Inserted bases are taken from the source sequence.
+  Returntype : Array of Bio::EnsEMBL:SeqEdit
+  Exceptions : None
+
+=cut
+
 sub make_seq_edits {
-  # It returns an array of SeqEdit objects for the target sequence to make
-  # the insertions for the alignment gaps between the source and target sequences
-  # created for an alignment between two dna sequence in cesar output format ie string containing acgtACGT-.
-  # A SeqEdit object is added to the array for each substring of any number of "-" not multiple of 3.
-  # Inserted bases are taken from the source sequence.
 
   my ($source_seq,$target_seq) = @_;
 
@@ -1232,19 +1364,17 @@ sub make_seq_edits {
   return (@seq_edits);
 }
 
-sub target_slices {
-  my ($self, $val) = @_;
+=head2 get_unique_translateable_transcripts
 
-  if (defined $val) {
-    $self->param('_target_slices',$val);
-  }
+  Arg [1]    : Bio::EnsEMBL:Gene containing the gene to get the unique translateable transcripts from.
+  Arg [2]    : Boolean. If 1, it will only consider the canonical transcript for the relevant gene
+               when looking at which transcripts are translateable.
+  Description: It returns an array of transcript(s) representing the translateable one(s) which correspond(s)
+               to the relevant gene.
+  Returntype : Array of Bio::EnsEMBL:Transcript
+  Exceptions : None
 
-  unless($self->param_is_defined('_target_slices')) {
-    $self->param('_target_slices',{});
-  }
-
-  return $self->param('_target_slices');
-}
+=cut
 
 sub get_unique_translateable_transcripts {
   my ($self,$gene,$canonical) = @_;
@@ -1270,32 +1400,14 @@ sub get_unique_translateable_transcripts {
   return(values(%{$translateable_transcripts}));
 }
 
-sub make_alignment_mapper {
-  my ($self,$gen_al_blocks) = @_;
+=head2 parent_genes
 
-  my $FROM_CS_NAME = 'chromosome';
-  my $TO_CS_NAME   = 'scaffold';
+  Arg [1]    : Bio::EnsEMBL:Gene containing the gene to add to the array of parent genes.
+  Description: Getter/Setter to add genes to the parent genes array.
+  Returntype : Array of Bio::EnsEMBL:Gene
+  Exceptions : None
 
-  my $mapper = Bio::EnsEMBL::Mapper->new($FROM_CS_NAME,
-                                         $TO_CS_NAME);
-
-  foreach my $bl (@$gen_al_blocks) {
-    foreach my $ugbl (@{$bl->get_all_ungapped_GenomicAlignBlocks}) {
-      my ($from_bl) = $ugbl->reference_genomic_align;
-      my ($to_bl)   = @{$ugbl->get_all_non_reference_genomic_aligns};
-
-      $mapper->add_map_coordinates($from_bl->dnafrag->name,
-                                   $from_bl->dnafrag_start,
-                                   $from_bl->dnafrag_end,
-                                   $from_bl->dnafrag_strand*$to_bl->dnafrag_strand,
-                                   $to_bl->dnafrag->name,
-                                   $to_bl->dnafrag_start,
-                                   $to_bl->dnafrag_end);
-    }
-  }
-
-  return $mapper;
-}
+=cut
 
 sub parent_genes {
   my ($self,$val) = @_;
@@ -1310,6 +1422,15 @@ sub parent_genes {
   return $self->param('_parent_genes');
 }
 
+=head2 unique_translateable_transcripts
+
+  Arg [1]    : Bio::EnsEMBL:Transcript containing the transcript to add to the array of unique translateable transcripts.
+  Description: Getter/Setter to add transcripts to the array of unique translateable transcripts.
+  Returntype : Array of Bio::EnsEMBL:Transcript
+  Exceptions : None
+
+=cut
+
 sub unique_translateable_transcripts {
   my ($self,$val) = @_;
   if (!($self->param('_unique_translateable_transcripts'))) {
@@ -1322,6 +1443,15 @@ sub unique_translateable_transcripts {
 
   return($self->param('_unique_translateable_transcripts'));
 }
+
+=head2 transcript_align_slices
+
+  Arg [1]    : Bio::EnsEMBL:Slice containing the slice to add to the array of transcript align slices.
+  Description: Getter/Setter to add slices to the array of transcript align slices.
+  Returntype : Array of Bio::EnsEMBL:Slice
+  Exceptions : None
+
+=cut
 
 sub transcript_align_slices {
   my ($self,$val) = @_;
@@ -1336,6 +1466,15 @@ sub transcript_align_slices {
   return($self->param('_transcript_align_slices'));
 }
 
+=head2 output_genes
+
+  Arg [1]    : Bio::EnsEMBL:Gene containing the gene to add to the array of output genes.
+  Description: Getter/Setter to add genes to the output genes array.
+  Returntype : Array of Bio::EnsEMBL:Gene
+  Exceptions : None
+
+=cut
+
 sub output_genes {
   my ($self,$val) = @_;
   unless($self->param('_output_genes')) {
@@ -1348,6 +1487,15 @@ sub output_genes {
 
   return($self->param('_output_genes'));
 }
+
+=head2 files_to_delete
+
+  Arg [1]    : String containing the file path to add to the array of files to delete.
+  Description: Getter/Setter to add file paths to the array of files to delete.
+  Returntype : Array of Bio::EnsEMBL:Gene
+  Exceptions : None
+
+=cut
 
 sub files_to_delete {
   my ($self,$val) = @_;
@@ -1362,9 +1510,17 @@ sub files_to_delete {
   return($self->param('_files_to_delete'));
 }
 
+=head2 remove_overlapping_exons
+
+  Arg [0]    : Array ref of Bio::EnsEMBL::Exon pointing to the array of the exons to be processed.
+  Description: It removes any exon overlapped by another longer exon in the input array and
+               it returns the resulting array ref of the exons after the removal.
+  Returntype : Array ref of Bio::EnsEMBL::Exon
+  Exceptions : None
+
+=cut
+
 sub remove_overlapping_exons {
-# any exon overlapped by another longer exon is removed
-# and it will not be part of the returned array reference of exons
   my ($exons) = shift;
 
   print("Removing overlapping projected exons... Before: ".scalar(@$exons)." exons.\n");
@@ -1413,6 +1569,15 @@ EXON: foreach my $exon (@$exons) {
 # transcript editing and filtering
 #
 
+=head2 TRANSCRIPT_FILTER
+
+  Arg [1]    : Hash containing the parameters to apply for filtering out transcripts.
+  Description: Getter/Setter for the hash to filter out transcripts.
+  Returntype : Hash or undefined/empty list
+  Exceptions : None
+
+=cut
+
 sub TRANSCRIPT_FILTER {
    my ($self, $val) = @_;
 
@@ -1428,35 +1593,16 @@ sub TRANSCRIPT_FILTER {
   }
 }
 
-sub filter {
-  my ($self, $val) = @_;
-  if ($val) {
-    $self->param('_runnable_filter',$val);
-  }
+=head2 sub output_single_transcript_gene {
 
-  # filter does not have to be defined, but if it is, it should
-  # give details of an object and its parameters
-  if ($self->TRANSCRIPT_FILTER and !$self->param_is_defined('_runnable_filter')) {
-    if (not ref($self->TRANSCRIPT_FILTER) eq "HASH" or
-        not exists($self->TRANSCRIPT_FILTER->{OBJECT}) or
-        not exists($self->TRANSCRIPT_FILTER->{PARAMETERS})) {
+  Arg [1]    : Bio::EnsEMBL::Transcript containing the projected transcript to be added to the output genes array.
+  Arg [2]    : Bio::EnsEMBL::Analysis containing the analysis for the gene which will be added to the output genes array.
+  Description: It makes as single-transcript gene containing the transcript in Arg[1] having Arg[2] as analysis and it adds it to
+               the output genes array.
+  Returntype : None
+  Exceptions : None
 
-      $self->throw("FILTER in config for '".$self->analysis->logic_name."' must be a hash ref with elements:\n" .
-            "  OBJECT : qualified name of the filter module;\n" .
-            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
-    } else {
-      $self->require_module($self->TRANSCRIPT_FILTER->{OBJECT});
-     
-$self->filter($self->TRANSCRIPT_FILTER->{OBJECT}->new(%{$self->TRANSCRIPT_FILTER->{PARAMETERS}}));
-    }
-  }
-  if ($self->param_is_defined('_runnable_filter')) {
-    return $self->param('_runnable_filter');
-  }
-  else {
-    return;
-  }
-}
+=cut
 
 sub output_single_transcript_gene {
   my ($self,$projected_transcript,$analysis) = @_;

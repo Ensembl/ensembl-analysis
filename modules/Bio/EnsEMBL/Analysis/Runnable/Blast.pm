@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,7 +69,8 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_timer);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
@@ -307,8 +308,7 @@ sub run_analysis {
     }
     $command .= $self->options. ' 2>&1 > '.$results_file;
 
-    print "Running blast ".$command."\n";
-    info("Running blast ".$command); 
+    logger_info("Running blast ".$command);
 
 
     # I don't thing the vast majority of error parsing is needed, so I will not integrate it for the timer
@@ -328,7 +328,7 @@ sub run_analysis {
       while(<$fh>){
         if(/FATAL:(.+)/){
           my $match = $1;
-          print $match;
+          logger_info("FATAL $match");
           # clean up before dying
           $self->delete_files;
           if($match =~ /no valid contexts/){
@@ -396,9 +396,10 @@ sub parse_results{
   my $results = $self->results_files;
   my $output = $self->parser->parse_files($results);
   my $filtered_output;
-  #print "Have ".@$output." features to filter\n";
+  logger_info("Have ".@$output." features to filter");
   if($self->filter){
     $filtered_output = $self->filter->filter_results($output);
+    logger_info("Have ".@$filtered_output." features left");
   }else{
     $filtered_output = $output;
   }

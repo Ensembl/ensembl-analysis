@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  $self->setup_fasta_db;
   $self->create_analysis;
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($self->hrdb_get_dba($self->param_required('target_db'), $dna_db), 'target_db');
@@ -149,7 +150,9 @@ sub fetch_input {
     $genes = $self->filter_overlapping_genes($genes);
     say "Filtered gene count: ".scalar(@$genes);
   }
-
+  if ($self->param('disconnect_jobs')) {
+     $dna_db->dbc->disconnect_when_inactive(1);
+  }
   $self->param('genes', $genes);
 }
 
@@ -272,6 +275,7 @@ sub process_genes {
 sub run {
   my ($self) = @_;
 
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   if($self->param('copy_only')) {
     my $genes = $self->param('genes');
     foreach my $gene (@$genes) {
@@ -281,11 +285,6 @@ sub run {
     $self->warning("Copy only mode selected, no attempts will be made to add collapse");
     $self->output($self->param('genes'));
     return;
-  }
-
-  if ($self->param('disconnect_jobs')) {
-    $self->dbc->disconnect_if_idle;
-    $self->hrdb_get_con('target_db')->dnadb->dbc->disconnect_if_idle;
   }
   print STDERR 'Clustering genes';
   my ($clusters, $unclustered) = cluster_Genes($self->param('genes'), $self->get_hashtypes);
@@ -720,6 +719,7 @@ sub run {
     }
     $self->output(\@final_step);
   }
+  $self->dbc->disconnect_when_inactive(0);
   print_Gene_list($self->output);
 }
 
@@ -791,6 +791,7 @@ sub write_output {
 
   my $analysis = $self->analysis;
   my $ga = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
+  $ga->dbc->disconnect_when_inactive(0);
   foreach my $gene (@{$self->output}) {
     empty_Gene($gene);
     attach_Analysis_to_Gene($gene, $analysis);

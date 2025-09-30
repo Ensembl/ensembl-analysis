@@ -1,7 +1,7 @@
 #!/Usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
  Arg [1]    : None
  Description: Defaults parameters for the module
-               _sample_column_size => 50, #Trying to detect using DBI otherwise it should be set to the value of the 'sample_name' column to be effective
+               _sample_column_size => 138, #Trying to detect using DBI otherwise it should be set to the value of the 'sample_name' column to be effective
  Returntype : Hashref
  Exceptions : None
 
@@ -38,7 +38,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    _sample_column_size => 50,
+    _sample_column_size => 138,
   }
 }
 
@@ -102,10 +102,15 @@ sub write_output {
 	my $split_fastq = $input_id->{filename};
 	if ($split_fastq =~ m/_split/){
 	  my @split_parts = split /_/, $split_fastq;
-	  my $suffix = $split_parts[-2];
-	  my @prefix_parts = @split_parts[ 0..$#split_parts-3 ];
-	  my $prefix = join '_', @prefix_parts;
-	  $fastq = $prefix."_".$suffix;
+	  if ($split_fastq =~ m/_0\.fastq/){ #single end filename format
+	    $fastq = $split_parts[0].".fastq.gz";
+       	  }
+	  else{ #paired_end filename format
+	    my $suffix = $split_parts[-2];
+	    my @prefix_parts = @split_parts[ 0..$#split_parts-3 ];
+	    my $prefix = join '_', @prefix_parts;
+	    $fastq = $prefix."_".$suffix;
+	  }
 	}
 	else{
 	  $fastq = $split_fastq;
@@ -119,6 +124,9 @@ sub write_output {
         foreach my $key (keys %$input_id) {
           $input_id->{$key} =~ tr /:\t/ /;
         }
+
+        my ($project_id_cvs,$sample_id_csv,$rest_of_DS) = split(',', $input_id->{DS}, 3);
+        $input_id->{DS} = $project_id_cvs . ',' . $sample_id_csv;
 
         my $table_adaptor = $self->db->get_NakedTableAdaptor;
         $table_adaptor->table_name($self->param('csvfile_table'));

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [2017-2019] EMBL-European Bioinformatics Institute
+# Copyright [2017-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,9 +29,9 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
-  my $dba = $self->hrdb_get_dba($self->param_required('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
-  $dba->dnadb($dna_dba);
+
+  $self->setup_fasta_db;
+  my $dba = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($dba,'target_db');
 
 }

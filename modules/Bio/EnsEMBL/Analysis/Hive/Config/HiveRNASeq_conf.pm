@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ sub default_options {
         'refine_db_server' => $self->o('data_db_server'),
         'rough_db_server'  => $self->o('data_db_server'),
 
-        'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
+        'rnaseq_ftp_base' => 'https://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
         'use_ucsc_naming' => 0,
 

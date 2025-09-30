@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ sub default_options {
     return {
         %{ $self->SUPER::default_options() },
 
-        base_ena_ftp  => $ENV{'BASE_ENA_FTP'} || 'ftp://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std',
+        base_ena_ftp  => $ENV{'BASE_ENA_FTP'} || 'https://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std',
         vertrna_file  => $ENV{'VERTRNA_FILE'} || 'embl_vertrna-1',
         embl2fasta_script  => $ENV{'EMBL2FASTA_SCRIPT'} || catfile($ENV{ENSCODE}, 'ensembl-analysis', 'scripts', 'databases', 'EMBL2fasta.pl'),
         vertrna_version  => $ENV{'VERTRNA_VERSION'},

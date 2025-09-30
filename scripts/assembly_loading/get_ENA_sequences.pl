@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -181,7 +181,7 @@ else {
         foreach my $a_wgs_id (@wgs_ids) {
           my $base_file = 'wgs_'.$a_wgs_id.'*_'.$taxon;
           my $file = $base_file.'.dat';
-          my $base = 'wget -nv -N "ftp://ftp.ebi.ac.uk/pub/databases/embl';
+          my $base = 'wget -nv -N "https://ftp.ebi.ac.uk/pub/databases/embl';
           my $wget = "$base/wgs/$file$format\"";
           system("$wget -O $outdir/$file$format");
           if ($? != 0) {
@@ -206,7 +206,7 @@ else {
     }
     else {
         print STDOUT "Getting the contigs from the NCBI...\n" if $verbose;
-        my $base = 'wget -nv "ftp://ftp.ncbi.nlm.nih.gov/genbank/wgs';
+        my $base = 'wget -nv "https://ftp.ncbi.nlm.nih.gov/genbank/wgs';
         foreach my $a_wgs_id (@wgs_ids) {
           my $first_letter_uc = uc(substr($a_wgs_id,0,1));
           my $file = 'wgs.'.$a_wgs_id.'.*.fsa_nt'.$format;

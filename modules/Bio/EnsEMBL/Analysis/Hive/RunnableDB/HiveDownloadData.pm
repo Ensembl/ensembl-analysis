@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,13 +43,30 @@ use warnings;
 use Digest::MD5;
 use File::Spec::Functions qw(splitpath file_name_is_absolute catfile);
 use File::Path qw(make_path);
-
-use Bio::EnsEMBL::Analysis::Runnable::Aspera;
+use File::Basename qw(basename);
 use File::Fetch;
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 
+use Bio::EnsEMBL::Analysis::Runnable::Aspera;
+use Bio::EnsEMBL::Analysis::Runnable::Samtools;
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+               use_perl => 1,
+               aspera_user => 'era-fasp',
+               aspera_host => 'ftp.sra.ebi.ac.uk',
+               uncompress => 1,
+               create_faidx => 0,
+               samtools => 'samtools',
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my ($self) = @_;
@@ -60,13 +77,31 @@ sub param_defaults {
     aspera_user => 'era-fasp',
     aspera_host => 'ftp.sra.ebi.ac.uk',
     uncompress => 1,
+    create_faidx => 0,
+    samtools => 'samtools',
   }
 }
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Check the different parameters and check the url. It will select the client to use
+              based on the 'download_method' parameter.
+ Returntype : None
+ Exceptions : Throws if using Perl 5.24
+              Throws if 'download_method' is not set
+              Throws if 'output_dir' is not set
+              Throws if 'url' is not set
+
+=cut
+
 sub fetch_input {
   my ($self) = @_;
 
+  if ($] =~ '^5.024') {
+    $self->throw("Perl 5.24 doesn't work with this module. If you manage to make it work, please submit a pull-request");
+  }
   my $download_method = $self->param_required('download_method');
   my $output_dir = $self->param_required('output_dir');
   if (!-d $output_dir) {
@@ -89,22 +124,60 @@ sub fetch_input {
     $client->target($output_dir);
   }
   else {
+    $url = "$download_method://$url" unless ($url =~ '^\w+://');
     $client = File::Fetch->new(uri => $url) || $self->throw('Could not create a fetcher for '.$url);
     $self->param('options', [to => $output_dir]);
   }
   $self->param('client', $client);
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Retrieve the file passed in parameters, check the integrity of the file when a md5sum
+              has been provided. Decompress the file is 'uncompress' is set to 1.
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
   my ($self) = @_;
 
   my $client = $self->param('client');
-  my $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
-  $self->check_file($file);
-  $file = $self->uncompress($file) if ($self->param('uncompress'));
-  $self->output([$file]);
+  my $file;
+  if ($self->param_is_defined('md5sum') and -e catfile($self->param_required('output_dir'), basename($self->param_required('url')))) {
+    $file = catfile($self->param_required('output_dir'), basename($self->param_required('url')));
+  }
+  else {
+    $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
+  }
+  if ($file) {
+    $self->check_file($file);
+    $file = $self->uncompress($file) if ($self->param('uncompress'));
+    if ($self->param('create_faidx')) {
+      my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                     -program => $self->param('samtools'),
+                     );
+      $samtools->index_genome($file);
+    }
+    $self->output([$file]);
+  }
+  else {
+    $self->throw($client->error());
+  }
 }
 
+
+=head2 uncompress
+
+ Arg [1]    : String, path to file
+ Description: Decompress the file
+ Returntype : String, path to decompressed file
+ Exceptions : Throws if the decrompression failed
+
+=cut
 
 sub uncompress {
   my ($self, $file) = @_;
@@ -116,10 +189,21 @@ sub uncompress {
   return $output;
 }
 
+
+=head2 check_file
+
+ Arg [1]    : String, path to file
+ Description: If 'md5sum' is defined, check the md5 sum of the downloaded file
+ Returntype : None
+ Exceptions : Throws if the file doesn't exist
+              Throws if the md5 sum differs for the expected checksum
+
+=cut
+
 sub check_file {
   my ($self, $file) = @_;
 
-  $self->throw("The file $file does not exist") unless (-e $file);
+  $self->throw('The file "'.($file ||  '').'" does not exist') unless ($file and -e $file);
   if ($self->param_is_defined('md5sum')) {
     my $digest = Digest::MD5->new();
     open(my $fh, $file) || $self->throw('Could not open '.$file);
@@ -131,6 +215,16 @@ sub check_file {
   }
 }
 
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Provide the name of the file downloaded on branch '_branch_to_flow_to'
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub write_output {
   my ($self) = @_;
 
@@ -139,6 +233,25 @@ sub write_output {
     push(@output_ids, {filename => $file});
   }
   $self->dataflow_output_id(\@output_ids, $self->param('_branch_to_flow_to'));
+}
+
+
+=head2 pre_cleanup
+
+ Arg [1]    : None
+ Description: Remove the current file if it exists to avoid problems
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub pre_cleanup {
+  my ($self) = @_;
+
+  my $filepath = catfile($self->param_required('output_dir'), basename($self->param_required('url')));
+  if (-e $filepath) {
+    unlink $filepath;
+  }
 }
 
 1;

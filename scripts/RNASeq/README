@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -160,8 +160,8 @@ site in the analysis description - see tilapia for an example:
 eg. tilapia_bwa_blood
 http://admin.ensembl.org/common/AnalysisDesc/Display?id=500
 
-Paired-end 101 bp RNAseq reads from O. niloticus heart tissue. Data were obtained from the <a href="http://www.broadinstitute.org/scientific-community/science/projects/mammals-models/vertebrates-invertebrates/tilapia/tilapia-genom">Broad Institute</A> and aligned to the Orenil1.0 assembly using BWA. Download this BAM file from the <a href="ftp://ftp.ensembl.org/pub/data_files/oreochromis_niloticus/Orenil1.0/rnaseq/">Ensembl FTP</A> (file:<a
-href="ftp://ftp.ensembl.org/pub/current_bam/oreochromis_niloticus/genebuild/heart_merged_sorted.bam">heart_merged_sorted.bam</A>).
+Paired-end 101 bp RNAseq reads from O. niloticus heart tissue. Data were obtained from the <a href="http://www.broadinstitute.org/scientific-community/science/projects/mammals-models/vertebrates-invertebrates/tilapia/tilapia-genom">Broad Institute</A> and aligned to the Orenil1.0 assembly using BWA. Download this BAM file from the <a href="https://ftp.ensembl.org/pub/data_files/oreochromis_niloticus/Orenil1.0/rnaseq/">Ensembl FTP</A> (file:<a
+href="https://ftp.ensembl.org/pub/current_bam/oreochromis_niloticus/genebuild/heart_merged_sorted.bam">heart_merged_sorted.bam</A>).
 
 Data_file table:
 coord_system_id analysis_id     name    file_type
@@ -175,9 +175,9 @@ The 'name' column in data_file refers to the file name on disk.
 
 Files on disk, for FTP site: 
 /path/to/sus_scrofa/Sscrofa10.2/rnaseq/alveolar_macrophage_merged_sorted.bam
-/path/to/sus_scrofa/Sscrofa10.2/rnaseq/alveolar_macrophage_merged_sorted.bam.bai
+/path/to/sus_scrofa/Sscrofa10.2/rnaseq/alveolar_macrophage_merged_sorted.bam.csi
 /path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam
-/path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam.bai
+/path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam.csi
 
 Note that each BAM files needs an index file.
 

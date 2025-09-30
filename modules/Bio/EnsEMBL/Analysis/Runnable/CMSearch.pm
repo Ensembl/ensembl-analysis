@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -505,7 +505,7 @@ sub make_gene{
     -hcoverage    => $RNAfold->score,
     );
   
-  my $hit_name_id = $accession . "-" . $temp_id[2] . "/" . $daf->start . "-" . $daf->end;
+  my $hit_name_id = $accession;
 
   $daf = $new_daf;
   $daf->analysis($self->analysis);

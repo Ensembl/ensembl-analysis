@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-Copyright [2018-2019] EMBL-European Bioinformatics Institute
+Copyright [2018-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,23 +55,30 @@ sub fetch_input {
 
 sub run {
   my $self = shift;
-
   my $gca = $self->param_required('iid');
-  my ($chain,$version) = $self->split_gca($gca);
-  $chain =~ /^GCA\_(\d{3})(\d{3})(\d{3})/;
-  my $gca_p1 = $1;
-  my $gca_p2 = $2;
-  my $gca_p3 = $3;
+  my $ftp_command = "esearch -db assembly -query '".$gca."' | esummary | xtract -pattern DocumentSummary -element FtpPath_GenBank | grep '$gca'";
+  say "Command is $ftp_command";
+  my $full_ftp_path = qx($ftp_command);
+  chomp($full_ftp_path);
+  say "Full path is $full_ftp_path";
+  my @assembly_name = split(/\//,$full_ftp_path);
+  say "Assembly name array is ",@assembly_name;
+  $full_ftp_path = $full_ftp_path.'/'.$assembly_name[-1]."_genomic.fna.gz";
+  #my ($chain,$version) = $self->split_gca($gca);
+  #$chain =~ /^GCA\_(\d{3})(\d{3})(\d{3})/;
+  #my $gca_p1 = $1;
+  #my $gca_p2 = $2;
+  #my $gca_p3 = $3;
 
   my $ncbi_base_ftp = $self->param_required('ncbi_base_ftp');
 
-  my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
-  my $assembly_name = $assembly_registry_dba->fetch_assembly_name_by_gca($gca);
-  $assembly_name =~ s/[ \/\%\+]+/\_/g;
+  #my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
+  #my $assembly_name = $assembly_registry_dba->fetch_assembly_name_by_gca($gca);
+  #$assembly_name =~ s/[ \/\%\+]+/\_/g;
 
-  my $assembly_dir_name = $gca."_".$assembly_name;
-  my $fasta_file_name = $assembly_dir_name.'_genomic.fna.gz';
-  my $full_ftp_path = $ncbi_base_ftp."/".catfile('GCA',$gca_p1,$gca_p2,$gca_p3,$assembly_dir_name,$fasta_file_name);
+  #my $assembly_dir_name = $gca."_".$assembly_name;
+  #my $fasta_file_name = $assembly_dir_name.'_genomic.fna.gz';
+  #my $full_ftp_path = $ncbi_base_ftp."/".catfile('GCA',$gca_p1,$gca_p2,$gca_p3,$assembly_dir_name,$fasta_file_name);
   my $output_dir = catfile($self->param_required('base_output_path'),$gca);
   unless(-e $output_dir) {
     my $make_output_dir_result = system('mkdir -p '.$output_dir);
@@ -82,6 +89,7 @@ sub run {
   }
 
   my $command = "wget -O ".catfile($output_dir,'genomic.fna.gz')." ".$full_ftp_path;
+  say "FTP path for download is $command";
   my $wget_result = system($command);
   if($wget_result) {
     $self->throw("Failed to download genomic fna file. Commandline used:\n".$command);

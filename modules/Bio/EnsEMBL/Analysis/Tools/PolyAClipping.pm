@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -186,9 +186,9 @@ sub prepare_seq {
       $id = $1;
     } elsif ($tmp =~ m/^gi\|\d+\|emb\|(\w+\.\d)\|/) {  #EMBL entries
       $id = $1;
-    } elsif ($tmp =~ m/^[\w\d]+\s([\w\.\d]+)\s.+\n{1}?/) {
+    } elsif ($tmp =~ m/^[\w\d]+\s([\w\.\d]+)\s.+\n{1}/) {
       $id = $1;
-    } elsif ($tmp =~m/^[\w\.\d]+\s.+\n{1}?/) {
+    } elsif ($tmp =~m/^[\w\.\d]+\s.+\n{1}/) {
         #already in correct format - do nothing
       $id = $tmp;
     } elsif ($tmp =~ m/[\w\.\d]+/) {

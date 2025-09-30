@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -74,20 +74,24 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($database,$genblast_program,$max_rank,$genblast_pid,$database_adaptor) = rearrange([qw(DATABASE
+  my ($database,$genblast_program,$max_rank,$genblast_pid,$slice_cache) = rearrange([qw(DATABASE
                                                                                              GENBLAST_PROGRAM
                                                                                              MAX_RANK
                                                                                              GENBLAST_PID
-                                                                                             DATABASE_ADAPTOR
+                                                                                             SLICE_CACHE
                                                                                          )], @args);
   $self->database($database) if defined $database;
   # Allows the specification of exonerate or genewise instead of genblastg. Will default to genblastg if undef
   $self->genblast_program($genblast_program || 'genblastg');
   $self->max_rank($max_rank) if defined $max_rank;
   $self->genblast_pid($genblast_pid) if defined $genblast_pid;
-  $self->database_adaptor($database_adaptor) if defined $database_adaptor;
+  if ($slice_cache) {
+    $self->slice_cache($slice_cache);
+  }
+  else {
+    throw("You must supply a hash of Bio::EnsEMBL::Slice for supporting evidence");
+  }
   throw("You must supply a database") if not $self->database;
-  throw("You must supply a database adaptor to fetch the genomic sequence from for supporting features") if not $self->database_adaptor;
 
   # Default max rank
   unless($self->max_rank()) {
@@ -212,8 +216,7 @@ sub parse_results{
     $results = $self->resultsfile;
   }
 
-  my $dba = $self->database_adaptor();
-  my $slice_adaptor = $dba->get_SliceAdaptor();
+  my $slice_cache = $self->slice_cache;
 
   open(OUT, "<".$results) or throw("FAILED to open ".$results."\nGenBlast:parse_results");
   my (%transcripts, @transcripts);
@@ -240,7 +243,7 @@ sub parse_results{
               "GenBlast:parse_results");
       }
       my ($chromosome, $type, $start, $end, $score, $strand, $other) =  @elements[0, 2, 3, 4, 5, 6, 8];
-      my $slice = $slice_adaptor->fetch_by_name($chromosome);
+      my $slice = $slice_cache->{$chromosome};
 
       if ($type eq 'transcript') {
         #ID=Q502Q5.1-R1-1-A1;Name=Q502Q5.1;PID=67.05;Coverage=99.36;Note=PID:67.05-Cover:99.36
@@ -410,11 +413,6 @@ sub set_supporting_features {
   $query_seq .= '*';
   $target_seq .= '*';
 
-  say "";
-  say "------------------------------------------------";
-  say "NEW TRANSCRIPT";
-  say "------------------------------------------------";
-
   my $codon_index= 0;
   my $exons = $transcript->get_all_Exons();
   my $i=0;
@@ -426,16 +424,6 @@ sub set_supporting_features {
     my $phase = $exon->phase();
     my $end_phase = $exon->end_phase();
     my $start_index = 0;
-
-    say "";
-    say "------------------------------------------------";
-    say "NEW EXON";
-    say "------------------------------------------------";
-    say "FM2 ESTART: ".$exon->start;
-    say "FM2 EEND: ".$exon->end;
-    say "FM2 ESTRAND: ".$exon->strand;
-    say "FM2 EPHASE: ".$exon->phase;
-    say "FM2 EENDPHASE: ".$exon->end_phase;
 
     # If the phase is not 0 then the first codon is a split one. The phase is then number of bases missing from
     # the codon. so if you take the phase from 3 you get the number of bases in the split codon
@@ -449,7 +437,6 @@ sub set_supporting_features {
      # Ending on a split codon, so increase the index and finish the loop
      if($k+2 >= scalar(@nucleotide_array)) {
         $codon_index++;
-        say "FM2 SKIPPING SPLIT CODON";
         last;
       }
 
@@ -470,31 +457,15 @@ sub set_supporting_features {
       my $query_char = substr($query_seq,$codon_alignment_index,1);
       my $target_char = substr($target_seq,$codon_alignment_index,1);
       if($query_char eq '-') {
-        say "FM2 TSTART: ".$target_start;
-        say "FM2 TEND: ".$target_end;
-        say "FM2 CODON INDEX: ".$codon_index;
-        say "FM2 CODON ALIGNMENT INDEX: ".$codon_alignment_index;
-        say "FM2 CODON CHARS: '".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]."'";
-        say "FM2 ALIGNMENT CHARS: '".$query_char."'='".$target_char."'";
-        say "FM2 SKIPPING CODON BECAUSE OF ALIGMENT GAP";
         $codon_index++;
         next;
       } elsif(($codon_alignment_index == length($query_seq)-1) && $query_char eq '*' && $target_char eq '*') {
-        say "FM2 LAST CODON IS STOP SO SKIPPING";
         next;
       }
 
       my $hit_start = $self->find_hit_start($codon_alignment_index,$query_seq);
       my $hit_end = $hit_start;
 
-      say "FM2 TSTART: ".$target_start;
-      say "FM2 TEND: ".$target_end;
-      say "FM2 HSTART: ".$hit_start;
-      say "FM2 HEND: ".$hit_end;
-      say "FM2 CODON INDEX: ".$codon_index;
-      say "FM2 CODON ALIGNMENT INDEX: ".$codon_alignment_index;
-      say "FM2 CODON CHARS: '".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]."'";
-      say "FM2 ALIGNMENT CHARS: '".$query_char."'---'".$target_char."'";
       $codon_index++;
 
       push(@{$proto_supporting_features},{'tstart' => $target_start,
@@ -502,9 +473,6 @@ sub set_supporting_features {
                                           'hstart' => $hit_start,
                                           'hend'   =>$hit_end});
     }
-
-    say "\nQUERY:\n".$query_seq;
-    say "\nTARGET:\n".$target_seq;
 
    my $joined_supporting_features = $self->join_supporting_features($proto_supporting_features,$exon->strand);
    my $exon_feature_pairs = [];
@@ -520,8 +488,6 @@ sub set_supporting_features {
                                                         -percent_id => $percent_id,
                                                         -slice      => $exon->slice,
                                                         -analysis   => $transcript->analysis);
-     say "FM2 ADD SUPPORTING EVIDENCE START: ".$feature_pair->start;
-     say "FM2 ADD SUPPORTING EVIDENCE END: ".$feature_pair->end;
      push(@{$exon_feature_pairs},$feature_pair);
      push(@{$all_exon_supporting_features},$feature_pair);
    }
@@ -613,15 +579,6 @@ sub join_supporting_features {
       my $left_proto = $$proto_supporting_features[$i];
       my $right_proto = $$proto_supporting_features[$i-1];
 
-      say "FM2 PROTO LTS: ".$left_proto->{'tstart'};
-      say "FM2 PROTO LTE: ".$left_proto->{'tend'}; 
-      say "FM2 PROTO LHS: ".$left_proto->{'hstart'};
-      say "FM2 PROTO LHE: ".$left_proto->{'hend'};
-      say "FM2 PROTO RTS: ".$right_proto->{'tstart'};
-      say "FM2 PROTO RTE: ".$right_proto->{'tend'};
-      say "FM2 PROTO RHS: ".$right_proto->{'hstart'};
-      say "FM2 PROTO RHE: ".$right_proto->{'hend'};
-
       if($left_proto->{'tend'} == ($right_proto->{'tstart'} - 1)) {
         if($left_proto->{'hend'} == ($right_proto->{'hstart'} + 1)) {
           # If this is the case then the codons and hits are contiguous and so they can be joined
@@ -635,11 +592,6 @@ sub join_supporting_features {
   }
   foreach my $proto_sf (@{$proto_supporting_features}) {
     if($proto_sf) {
-      say "FM2 JOINED TSTART: ".$proto_sf->{'tstart'};
-      say "FM2 JOINED TEND: ".$proto_sf->{'tend'};
-      say "FM2 JOINED HSTART: ".$proto_sf->{'hstart'};
-      say "FM2 JOINED HEND: ".$proto_sf->{'hend'};
-
       # If it's the negative strand then swap the start and end of the hit
       if($strand == -1) {
         my $temp = $proto_sf->{'hstart'};
@@ -861,16 +813,24 @@ sub genblast_pid {
   return $self->{_genblast_pid};
 }
 
-sub database_adaptor {
+=head2 slice_cache
+
+ Arg [1]    : Hashref of Bio::EnsEMBL::Slice, the keys are the Ensembl name which can be retrieved with $slice->name
+ Description: Cache of Slice object to avoid unnecessary call to the DB
+ Returntype : Hashref of Bio::EnsEMBL::Slice
+ Exceptions : Throws if Arg[1] is not a hashref
+
+=cut
+
+sub slice_cache {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::DBAdaptor')
-      unless ($val->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
-    $self->{_database_adaptor} = $val;
+    throw(ref($val).' is not a hash') unless (ref($val) eq 'HASH');
+    $self->{_slice_cache} = $val;
   }
 
-  return $self->{_database_adaptor};
+  return $self->{_slice_cache};
 }
 
 

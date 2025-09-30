@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ sub pipeline_analyses {
 
 This is the config file for all analysis downloading clade data from UniProt. You should use it in your Hive configuration file to
 specify the parameters of an analysis. You can either choose an existing config or you can create
-a new one based on the default hash. 
+a new one based on the default hash.
 
 =head1 METHODS
 
@@ -85,6 +85,7 @@ sub _master_config {
                    'human_taxon_id'    => '9606',
                    'mammals_taxon_id'  => '40674',
                    'mouse_taxon_id'    => '10090',
+                   'zebrafish_taxon_id' => '7955',
                    'primates_taxon_id' => '9443',
                    'rodents_taxon_id'  => '9989',
                    'vert_taxon_id'     => '7742',
@@ -93,6 +94,10 @@ sub _master_config {
                    'reptiles_taxon_id' => '1329799',
                    'amphibians_taxon_id' => '8292',
 # Non vert
+                   'non_vertebrates_taxon_id' => '2759',
+                   'fungi_taxon_id'      => '4751',
+                   'plants_taxon_id'     => '33090',
+                   'metazoa_taxon_id'    => '33208',
                    'flies_taxon_id'      => '7147',
                    'hemiptera_taxon_id'  => '7524',
                    'drosophila_taxon_id' => '7227',
@@ -100,9 +105,16 @@ sub _master_config {
                    'pisum_taxon_id'      => '7029',
                    'gambiae_taxon_id'    => '7165',
                    'aegypti_taxon_id'    => '7159',
+
+                   'atroparvus_taxon_id' => '41427',
+		   'perniciosus_taxon_id' => '13204',
                    # Insects
                    'dicondylia_taxon_id'   => '85512',
                    'monocondylia_taxon_id' => '554674',
+                   'lepidoptera_taxon_id'  => '7088',
+                   'culicidae_taxon_id' => '7157',
+		   'psychodidae_taxon_id' => '7197',
+		   'hymenoptera_taxon_id' => '7399',
                  };
   my %config = (
     default => {},
@@ -143,24 +155,15 @@ sub _master_config {
                               pe_level  => [1,2],
                             },
 
-#              primates_pe12 => {
-#                             file_name => 'primates_pe12.fasta',
-#                             taxon_id  => $taxon_ids->{'primates_taxon_id'},
-#                             exclude_id => ['#taxon_id#',$taxon_ids->{'human_taxon_id'}],
-#                             dest_dir  => '#output_path#',
-#                             compress  => 0,
-#                             pe_level  => [1,2],
-#                           },
+              primates_pe12 => {
+                             file_name => 'primates_pe12.fasta',
+                             taxon_id  => $taxon_ids->{'primates_taxon_id'},
+                             exclude_id => ['#taxon_id#',$taxon_ids->{'human_taxon_id'}],
+                             dest_dir  => '#output_path#',
+                             compress  => 0,
+                             pe_level  => [1,2],
+                           },
 
-#
-#               mammals_pe12 => {
-#                                 file_name  => 'mammals_pe12.fasta',
-#                                 taxon_id   => $taxon_ids->{'mammals_taxon_id'},
-#                                 exclude_id => [$taxon_ids->{'primates_taxon_id'}],
-#                                 dest_dir   => '#output_path#',
-#                                 compress   => 0,
-#                                 pe_level   => [1,2],
-#                               },
              },
 
 
@@ -197,18 +200,17 @@ sub _master_config {
                               pe_level   => [1,2],
                             },
 
-
-               mammals_pe12 => {
+	      mammals_pe12 => {
                                  file_name  => 'mammals_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'mammals_taxon_id'},
-                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                 exclude_id => [$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
                                  dest_dir   => '#output_path#',
                                  compress   => 0,
                                  pe_level   => [1,2],
                                },
              },
 
-    fish_complete => {
+    fish_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
                             taxon_id  => '#taxon_id#',
@@ -242,16 +244,7 @@ sub _master_config {
                              pe_level  => [1,2],
                            },
 
-                fish_pe3 => {
-                             file_name => 'fish_pe3.fasta',
-                             taxon_id  => $taxon_ids->{'fish_taxon_id'},
-                             exclude_id => ['#taxon_id#'],
-                             dest_dir  => '#output_path#',
-                             compress  => 0,
-                             pe_level  => [3],
-                           },
-
-               mammals_pe12 => {
+             mammals_pe12 => {
                                  file_name  => 'mammals_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'mammals_taxon_id'},
                                  exclude_id => [$taxon_ids->{'human_taxon_id'}],
@@ -263,14 +256,58 @@ sub _master_config {
                vert_pe12 => {
                               file_name  => 'vert_pe12.fasta',
                               taxon_id   => $taxon_ids->{'vert_taxon_id'},
-                              exclude_id => [$taxon_ids->{'mammals_taxon_id'}, $taxon_ids->{fish_taxon_id}],
+                              exclude_id => [$taxon_ids->{'human_taxon_id'},$taxon_ids->{'mammals_taxon_id'}, $taxon_ids->{'fish_taxon_id'}],
                               dest_dir   => '#output_path#',
                               compress   => 0,
                               pe_level   => [1,2],
                             },
+                         },
 
-             },
-    birds_basic => {
+      sharks_basic => {
+	  self_pe12 =>{
+	      file_name => 'self_pe12.fasta',
+	      taxon_id  => '#taxon_id#',
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+
+	  self_pe3 =>{
+	      file_name => 'self_pe3.fasta',
+	      taxon_id  => '#taxon_id#',
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [3],
+	  },
+
+	  human_pe12 => {
+	      file_name => 'human_pe12.fasta',
+	      taxon_id  => $taxon_ids->{'human_taxon_id'},
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+
+	  fish_pe12 => {
+	      file_name => 'fish_pe12.fasta',
+	      taxon_id  => $taxon_ids->{'fish_taxon_id'},
+	      exclude_id => ['#taxon_id#'],
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+
+	  vert_pe12 => {
+	      file_name => 'vert_pe12.fasta',
+	      taxon_id  => $taxon_ids->{'vert_taxon_id'},
+	      exclude_id => [$taxon_ids->{'human_taxon_id'}, $taxon_ids->{'fish_taxon_id'}],
+	      dest_dir  => '#output_path#',
+	      compress  => 0,
+	      pe_level  => [1,2],
+	  },
+      },
+
+      aves_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
                             taxon_id  => '#taxon_id#',
@@ -292,7 +329,7 @@ sub _master_config {
                               compress  => 0,
                               pe_level  => [1,2],
                             },
-               bird_pe12 => {
+               aves_pe12 => {
                               file_name  => 'aves_pe12.fasta',
                               taxon_id   => $taxon_ids->{'aves_taxon_id'},
                               dest_dir   => '#output_path#',
@@ -318,51 +355,6 @@ sub _master_config {
                             },
              },
 
-    fish_basic => {
-              self_pe12 =>{
-                            file_name => 'self_pe12.fasta',
-                            taxon_id  => '#taxon_id#',
-                            dest_dir  => '#output_path#',
-                            compress  => 0,
-                            pe_level  => [1,2],
-                          },
-
-              human_pe12 => {
-                              file_name => 'human_pe12.fasta',
-                              taxon_id  => $taxon_ids->{'human_taxon_id'},
-                              dest_dir  => '#output_path#',
-                              compress  => 0,
-                              pe_level  => [1,2],
-                            },
-
-              fish_pe12 => {
-                             file_name => 'fish_pe12.fasta',
-                             taxon_id  => $taxon_ids->{'fish_taxon_id'},
-                             exclude_id => ['#taxon_id#'],
-                             dest_dir  => '#output_path#',
-                             compress  => 0,
-                             pe_level  => [1,2],
-                           },
-
-               mammals_pe12 => {
-                                 file_name  => 'mammals_pe12.fasta',
-                                 taxon_id   => $taxon_ids->{'mammals_taxon_id'},
-                                 exclude_id => [$taxon_ids->{'human_taxon_id'}],
-                                 dest_dir   => '#output_path#',
-                                 compress   => 0,
-                                 pe_level   => [1,2],
-                               },
-
-               vert_pe12 => {
-                              file_name  => 'vert_pe12.fasta',
-                              taxon_id   => $taxon_ids->{'vert_taxon_id'},
-                              exclude_id => [$taxon_ids->{'mammals_taxon_id'}, $taxon_ids->{fish_taxon_id}],
-                              dest_dir   => '#output_path#',
-                              compress   => 0,
-                              pe_level   => [1,2],
-                            },
-
-             },
 
          distant_vertebrate => {
               self_pe12 =>{
@@ -388,107 +380,6 @@ sub _master_config {
                            },
              },
 
-          hemiptera_basic => {
-              self_pe12 =>{
-                            file_name => 'self_pe12.fasta',
-                            taxon_id  => '#taxon_id#',
-                            dest_dir  => '#output_path#',
-                            compress  => 0,
-                            pe_level  => [1,2],
-                          },
-
-              pisum_pe12 => {
-                              file_name  => 'pisum_pe12.fasta',
-                              taxon_id   => $taxon_ids->{'pisum_taxon_id'},
-                              dest_dir   => '#output_path#',
-                              compress   => 0,
-                              pe_level   => [1,2],
-                            },
-
-
-               hemiptera_pe12 => {
-                                    file_name  => 'hemiptera_pe12.fasta',
-                                    taxon_id   => $taxon_ids->{'hemiptera_taxon_id'},
-                                   exclude_id => ['#taxon_id#',$taxon_ids->{'pisum_taxon_id'}],
-                                 dest_dir   => '#output_path#',
-                                 compress   => 0,
-                                 pe_level   => [1,2],
-                               },
-
-               hemiptera_pe3 => {
-                                  file_name  => 'hemiptera_pe3.fasta',
-                                  taxon_id   => $taxon_ids->{'hemiptera_taxon_id'},
-                                  dest_dir   => '#output_path#',
-                                  compress   => 0,
-                                  pe_level   => [3],
-                               },
-
-             },
-
-
-          insects_basic => {
-              self_pe12 =>{
-                            file_name => 'self_pe12.fasta',
-                            taxon_id  => '#taxon_id#',
-                            dest_dir  => '#output_path#',
-                            compress  => 0,
-                            pe_level  => [1,2],
-                          },
-
-              dicondylia_pe12 => {
-                                   file_name  => 'dicondylia_pe12.fasta',
-                                   taxon_id   => $taxon_ids->{'dicondylia_taxon_id'},
-                                   exclude_id => ['#taxon_id#'],
-                                   dest_dir   => '#output_path#',
-                                   compress   => 0,
-                                   pe_level   => [1,2],
-                                 },
-
-
-              monocondylia_pe12 => {
-                                     file_name  => 'monocondylia_pe12.fasta',
-                                     taxon_id   => $taxon_ids->{'monocondylia_taxon_id'},
-                                     exclude_id => ['#taxon_id#'],
-                                     dest_dir   => '#output_path#',
-                                     compress   => 0,
-                                     pe_level   => [1,2],
-                                   },
-
-              self_pe3 =>{
-                           file_name => 'self_pe3.fasta',
-                           taxon_id  => '#taxon_id#',
-                           dest_dir  => '#output_path#',
-                           compress  => 0,
-                           pe_level  => [3],
-                         },
-
-              dicondylia_pe3 => {
-                                  file_name  => 'dicondylia_pe3.fasta',
-                                  taxon_id   => $taxon_ids->{'dicondylia_taxon_id'},
-                                  exclude_id => ['#taxon_id#'],
-                                  dest_dir   => '#output_path#',
-                                  compress   => 0,
-                                  pe_level   => [3],
-                                },
-
-
-              monocondylia_pe3 => {
-                                    file_name  => 'monocondylia_pe3.fasta',
-                                    taxon_id   => $taxon_ids->{'monocondylia_taxon_id'},
-                                    exclude_id => ['#taxon_id#'],
-                                    dest_dir   => '#output_path#',
-                                    compress   => 0,
-                                    pe_level   => [3],
-                                  },
-
-              human_pe12 => {
-                              file_name => 'human_pe12.fasta',
-                              taxon_id  => $taxon_ids->{'human_taxon_id'},
-                              dest_dir  => '#output_path#',
-                              compress  => 0,
-                              pe_level  => [1,2],
-                            },
-           },
 
            reptiles_basic => {
               self_pe12 =>{
@@ -551,9 +442,65 @@ sub _master_config {
 
              },
 
+    amphibians_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+               amphibians_pe12 => {
+                              file_name  => 'amphibians_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'amphibians_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              exclude_id => ['#taxon_id#'],
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+               fish_pe12 => {
+                                 file_name  => 'fish_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'fish_taxon_id'},
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+              reptiles_pe12 => {
+                              file_name  => 'reptiles_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'reptiles_taxon_id'},
+                              exclude_id => ['#taxon_id#',$taxon_ids->{'aves_taxon_id'}],
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+			    vert_pe12 => {
+						   	  file_name => 'vert_pe12.fasta',
+						   	  taxon_id  => $taxon_ids->{'vert_taxon_id'},
+						   	  exclude_id => [$taxon_ids->{'human_taxon_id'}, $taxon_ids->{'amphibians_taxon_id'},$taxon_ids->{'fish_taxon_id'},$taxon_ids->{'reptiles_taxon_id'}],
+						   	  dest_dir  => '#output_path#',
+						   	  compress  => 0,
+						   	  pe_level  => [1,2],
+						   	  },
+             },
+
+
 
              selenocysteine => {
-               query_url => 'taxonomy%3A#taxon_id#+AND+annotation%3A%28type%3Anon_std+Selenocysteine%29+AND+fragment%3Ano&format=fasta&include=yes',
+               query_url => 'taxonomy_id%3A#taxon_id#%20AND%20%28existence%3A1%20OR%20existence%3A2%29%20AND%20ft_non_std%3Aselenocysteine%20AND%20fragment%3Afalse&format=fasta&includeIsoform=true',
                file_name => '#taxon_id#_seleno.fa',
                dest_dir   => '#output_path#',
              },
@@ -594,10 +541,293 @@ sub _master_config {
                          taxon_id   => $taxon_ids->{'mammals_taxon_id'},
                          exclude_id => [$taxon_ids->{'primates_taxon_id'}],
                          dest_dir   => '#output_path#',
+                         compress   => 0,
+                         pe_level   => [1,2],
+                       },
+
+     },
+
+     metazoa_basic => {
+              self_pe12 => {
+                              file_name => 'self_pe12.fasta',
+                              taxon_id  => '#taxon_id#',
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              self_pe3 => {
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+               metazoa_pe12 => {
+                                 file_name  => 'metazoa_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'metazoa_taxon_id'},
+                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+      },
+
+             protists_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+              protists_pe12 => {
+                                 file_name  => 'protists_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'protists_taxon_id'},
+                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+      },
+
+             non_vertebrates_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+              non_vertebrates_pe12 => {
+                                        file_name  => 'non_vertebrates_pe12.fasta',
+                                        taxon_id   => $taxon_ids->{'non_vertebrates_taxon_id'},
+                                        exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                        dest_dir   => '#output_path#',
+                                        compress   => 0,
+                                        pe_level   => [1,2],
+                                      },
+      },
+
+             fungi_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+               fungi_pe12 => {
+                                file_name  => 'fungi_pe12.fasta',
+                                taxon_id   => $taxon_ids->{'fungi_taxon_id'},
+                                exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                dest_dir   => '#output_path#',
+                                compress   => 0,
+                                pe_level   => [1,2],
+                              },
+      },
+
+            plants_basic => {
+              self_pe12 => {
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 => {
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+              plants_pe12 => {
+                                file_name  => 'plants_pe12.fasta',
+                                taxon_id   => $taxon_ids->{'plants_taxon_id'},
+                                exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                dest_dir   => '#output_path#',
+                                compress   => 0,
+                                pe_level   => [1,2],
+                              },
+      },
+     havana_teleost_blast => {
+
+       human_pe12 => {
+                       file_name => 'human_pe12.fasta',
+                       taxon_id  => $taxon_ids->{'human_taxon_id'},
+                       dest_dir  => '#output_path#',
+                       compress  => 0,
+                       pe_level  => [1,2],
+                     },
+
+       zebrafish_pe12 => {
+                          file_name => 'zebrafish_pe12.fasta',
+                          taxon_id  => $taxon_ids->{'zebrafish_taxon_id'},
+                          dest_dir  => '#output_path#',
+                          compress  => 0,
+                          pe_level  => [1,2],
+                        },
+
+       fish_pe12 => {
+                         file_name  => 'fish_pe12.fasta',
+                         taxon_id   => $taxon_ids->{'fish_taxon_id'},
+                         exclude_id => [$taxon_ids->{'zebrafish_taxon_id'}],
+                         dest_dir   => '#output_path#',
                         compress   => 0,
                          pe_level   => [1,2],
                        },
 
+     },
+     havana_mammals_blast => {
+       self_pe12 =>{
+         file_name => 'self_pe12.fasta',
+         taxon_id  => '#taxon_id#',
+         dest_dir  => '#output_path#',
+         compress  => 0,
+         pe_level  => [1,2],
+       },
+
+       human_pe12 => {
+         file_name => 'human_pe12.fasta',
+         taxon_id  => $taxon_ids->{'human_taxon_id'},
+         dest_dir  => '#output_path#',
+         compress  => 0,
+         pe_level  => [1,2],
+       },
+
+       mouse_pe12 => {
+         file_name  => 'mouse_pe12.fasta',
+         taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+         dest_dir   => '#output_path#',
+         compress   => 0,
+         pe_level   => [1,2],
+       },
+
+
+       mammals_pe12 => {
+         file_name  => 'mammals_pe12.fasta',
+         taxon_id   => $taxon_ids->{'mammals_taxon_id'},
+         exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+         dest_dir   => '#output_path#',
+         compress   => 0,
+         pe_level   => [1,2],
+       },
      },
 
   );

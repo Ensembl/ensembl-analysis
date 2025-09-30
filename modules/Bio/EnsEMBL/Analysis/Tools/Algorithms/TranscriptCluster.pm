@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ and geometrical methods for a range.
 sub start {
   my ($self,$start) = @_ ;
 
-  if ($start) {
+  if (defined $start) {
     throw( "$start is not an integer") unless $start =~/^[-+]?\d+$/;
     $self->{_start} = $start;
   }
@@ -158,7 +158,7 @@ sub start {
 sub end {
   my ($self, $end) = @_ ;
 
-  if ($end) {
+  if (defined $end) {
     throw( "$end is not an integer") unless $end =~/^[-+]?\d+$/;
     $self->{_end} = $end;
   }
@@ -685,30 +685,21 @@ sub get_ExonCluster_using_all_Exons {
     foreach my $exon (@{$trans->get_all_Exons}) {
 
       my @matching_clusters;
-       # print "\nStarting Exon " . $exon->dbID . " limits: " . $exon->start . 
-       #" and " .  $exon->end . "\n";
 
       CLUSTER: foreach my $cluster (@clusters) {
-        # print "Testing against cluster with limits " . 
-         $cluster->start. " to " . $cluster->end . " ".$cluster->strand ."\t";
         if (!($exon->start >= $cluster->end ||
               $exon->end <= $cluster->start)) {
           if (!$ignore_strand) {
              if ($cluster->strand eq $exon->strand ){
                 push (@matching_clusters, $cluster);
-                #print "cl. matches " .$cluster->strand ."\t" .$exon->strand . "\t" .$trans->strand ."\n" ;
              }
           } else {
             # ignore strand; do nothing
             push (@matching_clusters, $cluster);
           }
         }
-        #print "\n";
       }
       if (scalar(@matching_clusters) == 0) {
-        # print STDERR "Created new cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
-        # print "\ncreating new cluster for Exon " . $exon->dbID . 
-        # " limits: " . $exon->start . " and " .  $exon->end . "\n";
 
         my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
@@ -716,8 +707,6 @@ sub get_ExonCluster_using_all_Exons {
         push(@clusters,$newcluster);
 
       } elsif (scalar(@matching_clusters) == 1) {
-        # print STDERR "Adding to cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
-        #$matching_clusters[0]->add_exon($exon,$trans);
         $matching_clusters[0]->add_exon_if_not_present($exon,$trans, $ignore_strand);
       } else {
          # Merge the matching clusters into a single cluster

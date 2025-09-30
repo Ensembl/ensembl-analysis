@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -201,7 +201,7 @@ sub pipeline_analyses {
       -logic_name => 'link_bam',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'cd #output_dir#;ln -s #input_dir#/#bam_file# #bam_file#;ln -s #input_dir#/#bam_file#.bai #bam_file#.bai',
+          cmd => 'cd #output_dir#;ln -s #input_dir#/#bam_file# #bam_file#;ln -s #input_dir#/#bam_file#.csi #bam_file#.csi',
         },
         -rc_name => 'default',
         -flow_into  => {
@@ -213,7 +213,7 @@ sub pipeline_analyses {
       -logic_name => 'md5_sum',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'cd #output_dir#;md5sum #bam_file#.bw #bam_file# #bam_file#.bai > #bam_file#.md5',
+          cmd => 'cd #output_dir#;md5sum #bam_file#.bw #bam_file# #bam_file#.csi > #bam_file#.md5',
         },
         -rc_name => 'default',
     },
@@ -249,7 +249,7 @@ sub pipeline_analyses {
           cmd => 'cd #output_dir#;FILES=($(ls *.bam));printf "#free_text#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1; IFS=$\'\n\';echo "${FILES[*]}" >> README.1',
           free_text => 'Note\n------\n\n'.
                        'The RNASeq data for #species_name# consists of NUM individual samples and one merged set containing all NUM samples.\n\n'.
-                       'All files have an index file (.bai).\n\n'.
+                       'All files have an index file (.csi).\n\n'.
                        'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
                        'Files\n-----\n',
         },

@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,7 +111,6 @@ sub run {
   $self->param_required('dna_host');
   $self->param_required('dna_port');
   $self->param_required('dna_user');
-  $self->param_required('dna_pass');
   $self->param_required('reports_dir');
   $self->param_required('output_filename');
 
@@ -387,7 +386,8 @@ sub add_ccds_transcript_xref {
                                              -priority => 240,
                                              -db_display_name => 'CCDS',
                                              -info_type => 'DIRECT',
-                                             -type => 'MISC'
+                                             -type => 'MISC',
+                                             -release => 1
                                            );
   $ccds_xref->status('XREF');
   $dbe_adaptor->store($ccds_xref,$transcript->dbID(),'Transcript');

@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,10 +44,11 @@ sub fetch_input {
   # Once fetch input is done there should be a geneset associated with some of the major
   # groupings
 
+  $self->setup_fasta_db;
+  my $dba = $self->hrdb_get_dba($self->param('dna_db'));
   my $input_gene_dbs =  $self->param('input_gene_dbs');
   my $allowed_input_sets = $self->param('allowed_input_sets');
 
-  my $dba = $self->hrdb_get_dba($self->param('dna_db'));
   $self->hrdb_set_con($dba,'dna_db');
 
   my $input_id = $self->param('iid');

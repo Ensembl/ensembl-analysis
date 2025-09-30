@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,29 +117,16 @@ my $sa = $db->get_SliceAdaptor;
 my $ga = $db->get_GeneAdaptor;
 my $aa = $db->get_AnalysisAdaptor;
 my $analysis = $aa->fetch_by_logic_name($logic_name);
-my $timestamp = strftime("%F %X", localtime(stat($gff_file)->mtime));
-my $infile_name = basename($gff_file);
-if ($analysis) {
-  if ($infile_name ne $analysis->db_file) {
-    warning('Your old analysis had '.$analysis->db_file." as db_file, it will be update to $infile_name\n");
-    $analysis->db_file($infile_name);
-  }
-
-  warning('Old db_version: '.$analysis->db_version."\nNew db_version: $timestamp\n");
-  $analysis->db_version($timestamp);
-  $aa->update($analysis);
-}
-else {
+if (!$analysis) {
     $analysis = Bio::EnsEMBL::Analysis->new(
         -logic_name => $logic_name,
         -db => 'RefSeq',
-        -db_version => $timestamp,
-        -db_file => $infile_name,
     );
 }
 
 my $codon_table = Bio::Tools::CodonTable->new;
-my $gff_parser = Bio::EnsEMBL::IO::Parser::GFF3->open($gff_file, must_parse_metadata => 0);
+my $gff_parser = Bio::EnsEMBL::IO::Parser::GFF3->open($gff_file, must_parse_metadata => 1);
+my $annotation_version = undef;
 my %sequences;
 my $cs_rank2 = $db->get_CoordSystemAdaptor->fetch_by_rank(2);
 foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
@@ -154,6 +141,9 @@ foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
           warning('Could not find a RefSeq synonym for '.$slice->seq_region_name.' '.$cs_rank2->name);
           next;
         }
+        elsif ($slice->strand == -1) {
+          $slice = $sa->fetch_by_region($slice->coord_system->name, $slice->seq_region_name, undef, undef, undef, $slice->coord_system->version);
+        }
       }
       else {
         warning('Could not project '.$slice->seq_region_name.' to '.$cs_rank2->name);
@@ -165,10 +155,12 @@ foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
       next;
     }
   }
+  if ($slice->start != 1) {
+    $slice = $sa->fetch_by_region($slice->coord_system->name, $slice->seq_region_name, 1, $slice->seq_region_length, 1, $slice->coord_system->version);
+  }
   $sequences{$refseq_synonyms->[0]->name} = $slice;
 }
 my %missing_sequences;
-my $MT_acc;
 my @par_regions;
 my $par_srid;
 my %xrefs;
@@ -176,6 +168,7 @@ my %objects_attributes = (
   cds_start_NF => Bio::EnsEMBL::Attribute->new(-code => 'cds_start_NF'),
   cds_end_NF => Bio::EnsEMBL::Attribute->new(-code => 'cds_end_NF'),
   initial_met => Bio::EnsEMBL::Attribute->new(-code => 'initial_met', -value => '1 1 M'),
+  'MANE Select' => Bio::EnsEMBL::Attribute->new(-code => 'MANE_Select'),
 );
 
 foreach my $assemblyexception (@{$sa->db->get_AssemblyExceptionFeatureAdaptor->fetch_all}) {
@@ -188,8 +181,19 @@ my %genes;
 my %transcripts;
 my %do_not_process;
 LINE: while ($gff_parser->next) {
+  if (!$annotation_version) {
+    my $comments = $gff_parser->get_metadata_value('comments');
+    if ($comments) {
+      foreach my $comment (@$comments) {
+        $comment =~ /!annotation-source\D+(\d+)$/;
+        if ($1) {
+          $annotation_version = $1;
+          last;
+        }
+      }
+    }
+  }
   my $seqname = $gff_parser->get_seqname;
-  next LINE if ($MT_acc && $seqname eq $MT_acc);
   next LINE if (exists $missing_sequences{$seqname});
   my $slice;
   if (exists $sequences{$seqname}) {
@@ -268,6 +272,7 @@ LINE: while ($gff_parser->next) {
         if (!exists $transcripts{$attributes->{ID}}) {
           my $transcript = Bio::EnsEMBL::Transcript->new();
           $transcripts{$attributes->{ID}} = $transcript;
+          $transcript->analysis($analysis);
           $transcript->slice($slice);
           $transcript->start($start);
           $transcript->end($end);
@@ -286,6 +291,9 @@ LINE: while ($gff_parser->next) {
     elsif ($type eq 'miRNA') {
       $do_not_process{$attributes->{ID}} = 1;
     }
+    elsif ($type eq 'enhancer') {
+      info('We do not process regulatory elements like enhancer');
+    }
     else {
       if (!exists $transcripts{$attributes->{ID}}) {
         if (exists $genes{$parent}) {
@@ -297,7 +305,7 @@ LINE: while ($gff_parser->next) {
           $transcript->{__start} = $start;
           $transcript->{__end} = $end;
           $transcript->strand($gff_parser->get_strand);
-          $attributes->{gbkey} =~ s/(\w_)(region|segment)/IG_$1gene/;
+          $attributes->{gbkey} =~ s/(\w_)(region|segment).*/IG_$1gene/;
           $transcript->biotype($attributes->{gbkey});
           $transcript->external_name($attributes->{Name} || $attributes->{gene});
           $transcript->description($gff_parser->decode_string($attributes->{product} || $attributes->{standard_name} || $attributes->{gene}));
@@ -318,6 +326,10 @@ LINE: while ($gff_parser->next) {
           if (exists $attributes->{tag} and $attributes->{tag} eq 'refseq_select') {
             $genes{$parent}->canonical_transcript($transcript);
           }
+          if (exists $attributes->{tag} and $attributes->{tag} eq 'MANE Select') {
+            $transcript->add_Attributes($objects_attributes{'MANE Select'});
+            $genes{$parent}->canonical_transcript($transcript);
+          }
         }
         else {
           throw('Could not find a gene for '.$attributes->{ID}.' '.$slice->seq_region_name.' '.$start.' '.$end.' '.$gff_parser->get_strand);
@@ -333,7 +345,7 @@ LINE: while ($gff_parser->next) {
     $gene->{__start} = $start;
     $gene->{__end} = $end;
     $gene->strand($gff_parser->get_strand);
-    $attributes->{gene_biotype} =~ s/(\w_)(region|segment)/IG_$1gene/;
+    $attributes->{gene_biotype} =~ s/(\w_)(region|segment).*/IG_$1gene/;
     $gene->biotype($attributes->{gene_biotype});
     $gene->external_name($attributes->{Name});
     $gene->description($gff_parser->decode_string($attributes->{description} || $attributes->{Name}));
@@ -342,19 +354,35 @@ LINE: while ($gff_parser->next) {
       add_xrefs(\%xrefs, $attributes->{Dbxref}, $gene);
     }
     $genes{$attributes->{ID}} = $gene;
-  }
-  elsif ($type eq 'region') {
-    if (exists $attributes->{genome} and $attributes->{genome} eq 'mitochondrion') {
-      $MT_acc = $seqname;
-    }
+  } elsif ($type eq 'tRNA' or $type eq 'rRNA') {
+    $do_not_process{$attributes->{ID}} = 1;
   }
 }
 $gff_parser->close;
 print "Finished processing GFF file\n";
+if (!$annotation_version) {
+  $annotation_version = 100;
+}
+$annotation_version .= '.'.strftime("%Y%m%d", localtime(stat($gff_file)->mtime));
+my $infile_name = basename($gff_file);
+if ($analysis->is_stored($db)) {
+  if ($infile_name ne $analysis->db_file) {
+    warning('Your old analysis had '.$analysis->db_file." as db_file, it will be update to $infile_name\n");
+    $analysis->db_file($infile_name);
+  }
+
+  warning('Old db_version: '.$analysis->db_version."\nNew db_version: $annotation_version\n");
+  $analysis->db_version($annotation_version);
+  $aa->update($analysis);
+}
+else {
+  $analysis->db_file($infile_name);
+  $analysis->db_version($annotation_version);
+}
 my %stats;
 GENE: foreach my $gene (values %genes) {
   if ($gene->get_all_Transcripts) {
-    if ($gene->biotype =~ /^IG_/) {
+    if (index($gene->biotype, 'IG') == 0) {
       my $transcripts = $gene->get_all_Transcripts;
       if (@$transcripts == 1) {
         $transcripts->[0]->get_all_Exons;
@@ -406,7 +434,12 @@ GENE: foreach my $gene (values %genes) {
       my $phase = 0;
       if (exists $transcript->{exception}) {
         if ($transcript->{exception}->{type} eq 'ribosomal slippage') {
-          my ($direction, $length) = $transcript->{exception}->{note} =~ /([-+])(\d+)/;
+          # A ribosomal framshift is most commonly -1, but it is sometimes mentionned in the Note attribute
+          my $direction = '-';
+          my $length = 1;
+          if (exists $transcript->{exception}->{note}) {
+            ($direction, $length) = $transcript->{exception}->{note} =~ /([-+])(\d+)/;
+          }
           if ($direction eq '-') {
             for (my $index = 1; $index < @{$transcript->{exception}->{data}}-2; $index += 2) {
               if ($transcript->{exception}->{data}->[$index] == $transcript->{exception}->{data}->[$index+1]-$length+1) {
@@ -481,12 +514,26 @@ GENE: foreach my $gene (values %genes) {
             $gene->biotype('protein_coding');
           }
         }
-        else {
-          info('Biotype is "'.$transcript->biotype.'" instead of "mRNA"');
-        }
         my $translation = $transcript->translation;
         my $genomic_start = $translation->start;
         my $genomic_end = $translation->end;
+        my $exons;
+        eval {
+          $exons = $transcript->get_all_Exons;
+        };
+        if ($@) {
+          warning($transcript->stable_id.' on '.$transcript->slice->name.' does not have an exon. I will create one based on the CDS');
+          my $exon = Bio::EnsEMBL::Exon->new();
+          $exon->slice($transcript->slice);
+          $exon->analysis($transcript->analysis);
+          $exon->start($genomic_start);
+          $exon->end($genomic_end);
+          $exon->strand($transcript->strand);
+          $exon->stable_id($transcript->stable_id);
+          $transcript->add_Exon($exon);
+          $transcript->{__start} = $genomic_start;
+          $transcript->{__end} = $genomic_end;
+        }
         foreach my $exon (@{$transcript->get_all_Exons}) {
           if ($genomic_start >= $exon->seq_region_start and $genomic_start <= $exon->seq_region_end) {
             if ($exon->strand == 1) {
@@ -546,20 +593,15 @@ GENE: foreach my $gene (values %genes) {
             my $sub_slice = $transcript->slice->sub_Slice($attribute_start, $attribute_end, $transcript->strand);
             my $codons = lc($sub_slice->seq);
             if (length($codons) < 3 and exists $transcript->{stop}) {
-              $codons .= $transcript->{stop};
-              if (@{$transcript->get_all_Attributes('_transl_end')}) {
-                $transcript->get_all_Attributes('_transl_end')->[0]->value($transcript->get_all_Attributes('_transl_end')->[0]+length($transcript->{stop}));
+              if (length($transcript->{stop}) == 1) {
+                $codons .= $transcript->{stop}x(3-($attribute_end-$attribute_start)-1);
               }
               else {
-                my $attribute = Bio::EnsEMBL::Attribute->new(
-                  -CODE        => '_transl_end',
-                  -VALUE       => length($transcript->{stop})+$transcript->cdna_coding_end,
-                );
-                $transcript->add_Attributes($attribute);
+                $codons .= $transcript->{stop};
               }
             }
             my @stops = $codon_table->revtranslate('*');
-            my $best_codon;
+            my $best_codon = $stops[0];
             if (length($codons) == 3) {
               my $best_score = 4;
               foreach my $stop_codon (@stops) {
@@ -582,15 +624,25 @@ GENE: foreach my $gene (values %genes) {
                 $best_codon = $stop_codon if ($stop_codon =~ /^$codons/);
               }
             }
-            elsif (length($codons) == 1) {
-              $best_codon = $stops[0];
-            }
             $attribute->value($coords[0]->start.' '.$coords[0]->end.' '.uc($best_codon));
+            if (!@{$transcript->get_all_Attributes('_transl_end')}) {
+              my $diff = 3-($attribute_end-$attribute_start)-1;
+              if ($diff) {
+                my $attribute = Bio::EnsEMBL::Attribute->new(
+                  -CODE        => '_transl_end',
+                  -VALUE       => $diff+$transcript->cdna_coding_end,
+                );
+                $transcript->add_Attributes($attribute);
+              }
+            }
             info("Changing $codons with $best_codon at ".$coords[0]->start.' '.$coords[0]->end.' '.$attribute->value);
           }
         }
       }
       $stats{transcript}->{$transcript->biotype}++;
+      if (!$transcript->display_xref()) {
+        $transcript->display_xref($gene->display_xref());
+      }
     }
     $gene->recalculate_coordinates; #Because I'm adding transcript first, I need to force recalculate
   }
@@ -719,7 +771,7 @@ sub add_xrefs {
     }
     $object->add_DBEntry($xrefs_hash->{$xref});
     if ($object->can('display_xref')) {
-      if ($xrefs_hash->{$xref}->dbname eq 'Genbank') {
+      if ($xrefs_hash->{$xref}->dbname eq 'Genbank' or $xrefs_hash->{$xref}->dbname eq 'GenBank') {
         $object->display_xref($xrefs_hash->{$xref});
       }
       elsif ($object->isa('Bio::EnsEMBL::Gene') and $xrefs_hash->{$xref}->dbname eq 'EntrezGene') {
@@ -802,7 +854,7 @@ sub process_cds {
       if ($note =~ /([-+]\d+).*ribosomal frameshift/) {
         $transcript->{exception}->{note} = $1;
       }
-      elsif ($note =~ /stop codon completed by the addition of 3' ([ATGC]+)/) {
+      elsif ($note =~ /completed by the addition of 3' ([ATGC]+) residues/) {
         $transcript->{stop} = $1;
       }
     }
@@ -843,7 +895,7 @@ sub get_one_letter_code {
 sub print_gene {
   my ($gene) = @_;
 
-  print STDERR "GENE: ", join(' ', $gene->display_id, $gene->seq_region_name, $gene->start, $gene->end, $gene->strand, $gene->biotype), "\n";
+  print STDERR "GENE: ", join(' ', $gene->display_id, $gene->seq_region_name, $gene->seq_region_start, $gene->seq_region_end, $gene->strand, $gene->biotype), "\n";
   foreach my $dbe (@{$gene->get_all_DBEntries}) {
     print STDERR "  DBE: ", $dbe->dbname, ' ', $dbe->description, "\n";
   }
@@ -851,7 +903,7 @@ sub print_gene {
     print STDERR '  ATTRIBUTE: ', $attribute->code, ' ', $attribute->value, "\n";
   }
   foreach my $transcript (@{$gene->get_all_Transcripts}) {
-    print STDERR " TRANSCRIPT: ", join(' ', $transcript->display_id, $transcript->seq_region_name, $transcript->start, $transcript->end, $transcript->strand, $transcript->biotype), "\n";
+    print STDERR " TRANSCRIPT: ", join(' ', $transcript->display_id, $transcript->seq_region_name, $transcript->seq_region_start, $transcript->seq_region_end, $transcript->strand, $transcript->biotype), "\n";
     foreach my $dbe (@{$transcript->get_all_DBEntries}) {
       print STDERR "   DBE: ", $dbe->dbname, ' ', $dbe->description, "\n";
     }
@@ -866,7 +918,7 @@ sub print_gene {
       print STDERR "   CDNA: \n", $transcript->translateable_seq, "\n";
     }
     foreach my $exon (@{$transcript->get_all_Exons}) {
-      print STDERR "  EXON: ", join(' ', $exon->display_id, $exon->seq_region_name, $exon->start, $exon->end, $exon->strand, $exon->phase, $exon->end_phase), "\n";
+      print STDERR "  EXON: ", join(' ', $exon->display_id, $exon->seq_region_name, $exon->seq_region_start, $exon->seq_region_end, $exon->strand, $exon->phase, $exon->end_phase), "\n";
     }
   }
 }

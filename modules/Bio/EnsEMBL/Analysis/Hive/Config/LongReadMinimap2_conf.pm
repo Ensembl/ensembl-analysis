@@ -40,14 +40,15 @@ sub default_options {
 'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
 'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
 'minimap2_batch_size'    => '5000',
-'rnaseq_ftp_base'        => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
+'rnaseq_ftp_base'        => 'https://ftp.sra.ebi.ac.uk/vol1/fastq/',
 'long_read_columns'      => ['sample','filename'],
 'skip_long_read'         => 0,
 
 'base_blast_db_path'     => $ENV{BLASTDB_DIR},
 'uniprot_version'        => 'uniprot_2018_07',
-'protein_blast_db'       => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'),
-'protein_blast_index'    => '' || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'),
+'protein_blast_db_file'	 => '',
+'protein_blast_db'       => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file')),
+'protein_blast_index'    => '' || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file')),
 
 'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
 'uniprot_blast_exe_path' => catfile($self->o('binary_base'), 'blastp'),
@@ -360,6 +361,7 @@ sub pipeline_analyses {
         input_gene_dbs => [$self->o('long_read_initial_db')],
         iid_type => 'slice',
         use_strand => 1,
+        disconnect_jobs => 1,
       },
       -batch_size => 100,
       -rc_name    => '5GB',
@@ -378,6 +380,7 @@ sub pipeline_analyses {
                        source_dbs        => [$self->o('long_read_initial_db')],
 		       biotypes => ["isoseq","cdna"],
 		       reduce_large_clusters => 1,
+               disconnect_jobs => 1,
       },
       -rc_name      => '5GB',
       -flow_into => {
@@ -398,6 +401,7 @@ sub pipeline_analyses {
         source_dbs        => [$self->o('long_read_initial_db')],
         biotypes => ["isoseq","cdna"],
         reduce_large_clusters => 1,
+        disconnect_jobs => 1,
       },
       -rc_name      => '20GB',
       -flow_into => {

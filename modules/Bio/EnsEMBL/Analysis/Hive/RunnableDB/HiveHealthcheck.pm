@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -72,8 +72,8 @@ sub param_defaults {
               in 'methods_list' it overrides the defaults
               'core_handover' group add 'supporting_evidence_sanity'
               'otherfeatures_handover' adds no other test
-              'rnaseq_handover' adds 'rnaseq_analysis_sanity', 'intron_supporting_evidence_sanity' and
-                'data_file_sanity'
+              'rnaseq_handover' adds 'rnaseq_analysis_sanity', 'intron_supporting_evidence_sanity',
+              'data_file_sanity' and 'dna_align_feature_sanity'
  Returntype : None
  Exceptions : Throws if the group is not known
 
@@ -99,6 +99,7 @@ sub fetch_input {
     if ($group eq 'core_handover') {
       push(@$methods_list, qw(
         supporting_evidence_sanity
+        supporting_evidence_sanity_advisory
         coding_supporting_evidence_presence
       ));
     }
@@ -110,12 +111,13 @@ sub fetch_input {
       push(@$methods_list, qw(
         rnaseq_analysis_sanity
         data_file_sanity
-        intron_supporting_evidence_sanity
+        dna_align_feature_sanity
       ));
     }
     elsif ($group eq 'protein_cdna') {
       push(@$methods_list, qw(
         supporting_evidence_sanity
+        supporting_evidence_sanity_advisory
         supporting_evidence_presence
       ));
     }
@@ -216,6 +218,7 @@ sub meta_table {
       $species_url = $meta_results->[0];
       if ($species_production_name) {
         $species_production_name =~ s/^(\w)/\U$1\E/;
+        $species_production_name =~ s/gca(\d+)v(\d+)$/GCA_$1.$2/;
         $self->say_with_header("$species_production_name and $species_url are different, one of them could be wrong")
           unless ($species_production_name eq $species_url);
       }
@@ -363,8 +366,6 @@ sub supporting_evidence_sanity {
     'SELECT t.transcript_id, t.seq_region_id, daf.seq_region_id FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN dna_align_feature daf ON daf.dna_align_feature_id = tsf.feature_id WHERE tsf.feature_type = "dna_align_feature" AND t.seq_region_id != daf.seq_region_id',
     'SELECT t.transcript_id, t.seq_region_id, paf.seq_region_id FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN protein_align_feature paf ON paf.protein_align_feature_id = tsf.feature_id WHERE tsf.feature_type = "protein_align_feature" AND t.seq_region_id != paf.seq_region_id',
     'SELECT t.transcript_id, t.seq_region_id, ise.seq_region_id FROM transcript t LEFT JOIN transcript_intron_supporting_evidence tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN intron_supporting_evidence ise ON ise.intron_supporting_evidence_id = tsf.intron_supporting_evidence_id WHERE t.seq_region_id != ise.seq_region_id',
-    'SELECT t.exon_id, t.seq_region_start, t.seq_region_end, daf.seq_region_start, daf.seq_region_end FROM exon t LEFT JOIN supporting_feature sf ON t.exon_id = sf.exon_id LEFT JOIN dna_align_feature daf ON daf.dna_align_feature_id = sf.feature_id WHERE sf.feature_type = "dna_align_feature" AND NOT (t.seq_region_start <= daf.seq_region_end AND t.seq_region_end >= daf.seq_region_start)',
-    'SELECT t.exon_id, t.seq_region_start, t.seq_region_end, paf.seq_region_start, paf.seq_region_end FROM exon t LEFT JOIN supporting_feature sf ON t.exon_id = sf.exon_id LEFT JOIN protein_align_feature paf ON paf.protein_align_feature_id = sf.feature_id WHERE sf.feature_type = "protein_align_feature" AND NOT (t.seq_region_start <= paf.seq_region_end AND t.seq_region_end >= paf.seq_region_start)',
   );
 
   my $hc_db = $self->hrdb_get_con('hc_db');
@@ -386,6 +387,46 @@ sub supporting_evidence_sanity {
   }
   if ($failed) {
     $self->output(['supporting_evidence_sanity']);
+  }
+}
+
+
+=head2 supporting_evidence_sanity_advisory
+
+ Arg [1]    : None
+ Description: Run basic SQL queries to check that supporting evidences are correctly linked
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub supporting_evidence_sanity_advisory {
+  my ($self) = @_;
+
+  my @sql_queries = (
+    'SELECT t.exon_id, t.seq_region_start, t.seq_region_end, daf.seq_region_start, daf.seq_region_end FROM exon t LEFT JOIN supporting_feature sf ON t.exon_id = sf.exon_id LEFT JOIN dna_align_feature daf ON daf.dna_align_feature_id = sf.feature_id WHERE sf.feature_type = "dna_align_feature" AND NOT (t.seq_region_start <= daf.seq_region_end AND t.seq_region_end >= daf.seq_region_start)',
+    'SELECT t.exon_id, t.seq_region_start, t.seq_region_end, paf.seq_region_start, paf.seq_region_end FROM exon t LEFT JOIN supporting_feature sf ON t.exon_id = sf.exon_id LEFT JOIN protein_align_feature paf ON paf.protein_align_feature_id = sf.feature_id WHERE sf.feature_type = "protein_align_feature" AND NOT (t.seq_region_start <= paf.seq_region_end AND t.seq_region_end >= paf.seq_region_start)',
+  );
+
+  my $hc_db = $self->hrdb_get_con('hc_db');
+  my $dbc = $hc_db->dbc;
+  my $max_lines = 5;
+  my $failed = 0;
+  foreach my $query (@sql_queries) {
+    my $sth = $dbc->prepare($query);
+    $sth->execute;
+    my $count = 0;
+    my $msg = '';
+    foreach my $row (@{$sth->fetchall_arrayref}) {
+      $msg .= join("\t", @$row) if ($count++ < $max_lines);
+    }
+    if ($count > 2000) {
+      $self->say_with_header("$count rows where it should be below 2000, an optimise_* analysis may have failed. You should rerun this query: $query");
+      $failed = 1;
+    }
+  }
+  if ($failed) {
+    $self->output(['supporting_evidence_sanity_advisory']);
   }
 }
 
@@ -446,6 +487,47 @@ sub intron_supporting_evidence_sanity {
 }
 
 
+=head2 dna_align_feature_sanity
+
+ Arg [1]    : None
+ Description: Check that:
+                1. all the dna_align_feature rows are linked to an analysis whose logic name ends with "_daf"
+                2. all the analysis rows whose logic name ends with "_daf" are linked to at least 1 row in the dna_align_feature table
+              and output 'dna_align_feature_sanity' if the above checks fail. 
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub dna_align_feature_sanity {
+  my ($self) = @_;
+
+  my @sql_queries = (
+    'SELECT DISTINCT a.logic_name FROM analysis a RIGHT JOIN dna_align_feature daf ON a.analysis_id=daf.analysis_id WHERE a.logic_name NOT LIKE "%_daf" OR a.logic_name IS NULL', # check 1 (see description)
+    'SELECT logic_name FROM analysis a LEFT JOIN dna_align_feature daf ON a.analysis_id=daf.analysis_id WHERE a.logic_name LIKE "%_daf" AND dna_align_feature_id IS NULL', # check 2 (see description)
+  );
+
+  my $hc_db = $self->hrdb_get_con('hc_db');
+  my $dbc = $hc_db->dbc();
+  my $failed = 0;
+
+  foreach my $query (@sql_queries) {
+    my $sth = $dbc->prepare($query);
+    $sth->execute();
+    foreach my $row (@{$sth->fetchall_arrayref()}) {
+      $row->[0] = "NULL" if (!($row->[0]));
+      my $error_msg = "Analysis whose logic_name is ".$row->[0]." is not linked to the right set of dna_align_feature rows or viceversa.\n";
+      $self->say_with_header($error_msg);
+      $failed++;
+    }
+  }
+
+  if ($failed) {
+    $self->output(['dna_align_feature_sanity']);
+  }
+}
+
+
 =head2 gene_sanity
 
  Arg [1]    : None
@@ -500,8 +582,8 @@ sub gene_sanity {
 
  Arg [1]    : None
  Description: Check that 'other_protein' is present, check that all the other logic_names have 'rnaseq'
-              in the name and that there is four similar analyses for each samples. The type is expected
-              to be bam, daf, ise, gene.
+              in the name and that there is 3 similar analyses for each samples. The type is expected
+              to be bam, daf, and gene.
  Returntype : None
  Exceptions : None
 
@@ -543,14 +625,16 @@ sub rnaseq_analysis_sanity {
     $failed = 1;
     $self->say_with_header('Some of your analyses have uppercase characters');
   }
-  if (4 != keys %types) {
+  if (3 != keys %types) {
     $failed = 1;
-    $self->say_with_header('Some of your analyses are missing either gene, daf, bam or ise');
+    $self->say_with_header('Some of your analyses are missing either gene, daf or bam');
   }
   foreach my $base (keys %bases) {
-    if ($bases{$base} != 4) {
+    if ($bases{$base} != 3) {
       $failed = 1;
       $self->say_with_header('There is a problem with your analysis '.$base);
+      $self->say_with_header('Check if gene, daf and bam analyses are present.');
+      $self->say_with_header('Total number of analyses in the database: '.$total);
     }
   }
   if ($failed) {
@@ -562,9 +646,8 @@ sub rnaseq_analysis_sanity {
 =head2 data_file_sanity
 
  Arg [1]    : None
- Description: Check that there is data in the data_file table, check that the logic_name
-              and the name are equals and check that no logic_name is used for more than
-              one file.
+ Description: Check that there is data in the data_file table
+              and check that no logic_name is used for more than one file.
  Returntype : None
  Exceptions : None
 
@@ -594,32 +677,6 @@ sub data_file_sanity {
         $failed = 1;
         $self->say_with_header('You have more than 1 data_file for '.$analysis->logic_name);
       }
-    }
-  }
-  my $production_name = $self->param_is_defined('production_name') ? $self->param('production_name') : undef;
-  foreach my $data_file (@{$datafile_adaptor->fetch_all}) {
-    if ($data_file->analysis and $data_file->analysis->logic_name =~ /_rnaseq_bam$/) {
-      if ($production_name) {
-        my ($dln) = $data_file->name =~ /\.([^.]+)\.\d+$/;
-
-        my $ln = lc($data_file->analysis->logic_name);
-        $ln =~ s/_rnaseq_bam$//;
-        if ($ln =~ s/${production_name}_// == 0) {
-          my ($pname) = $production_name =~ /(\w+)_[^_]+$/;
-          $ln =~ s/${pname}_//;
-        }
-        if ($dln ne $ln) {
-          $failed = 1;
-          $self->say_with_header('Your logic_name and datafile does not seem to match: '.$data_file->name.' and '.lc($data_file->analysis->logic_name));
-        }
-      }
-      else {
-        $self->say_with_header('Could not check file name for '.$data_file->name);
-      }
-    }
-    else {
-      $failed = 1;
-      $self->say_with_header('There is a problem with '.$data_file->name);
     }
   }
   $failed = 1 unless ($count);

@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -192,7 +192,7 @@ sub pipeline_analyses {
                          'compara_db' => $self->o('compara_db'),
                          'method_link_type' => $self->o('method_link_type'),
                          'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '3', # mem in GB to be used by cesar (parameter --max-memory)
+                         'cesar_mem' => '10', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {
@@ -204,7 +204,7 @@ sub pipeline_analyses {
                          'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
-        -rc_name    => 'default',
+        -rc_name    => 'default_10GB',
         -analysis_capacity => 100,
         -max_retry_count => 1,
         -flow_into => {
@@ -371,6 +371,7 @@ sub resource_classes {
     my $self = shift;
     return {
       'default' => { LSF => '-M3000 -R"select[mem>3000] rusage[mem=3000]"' },
+      'default_10GB' => { LSF => '-M10000 -R"select[mem>10000] rusage[mem=10000]"' },
       'default_15GB' => { LSF => '-M15000 -R"select[mem>15000] rusage[mem=15000]"' },
       'default_25GB' => { LSF => '-M25000 -R"select[mem>25000] rusage[mem=25000]"' },
       'default_35GB' => { LSF => '-M35000 -R"select[mem>35000] rusage[mem=35000]"' },

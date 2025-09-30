@@ -1,26 +1,23 @@
+os: linux
+dist: xenial
+
 language: "perl"
 
 perl:
-  - "5.30"
   - "5.28"
   - "5.26"
   - "5.24"
-  - "5.22"
 
 services:
   - mysql
 
 env:
-  - COVERALLS=false DB=mysql OLDPERL=false
-  - COVERALLS=false DB=mysql OLDPERL=true
-
-sudo: false
+  - COVERALLS=false DB=mysql
 
 addons:
     apt:
         packages:
         - unzip
-        - samtools
         - graphviz
 
 before_install:
@@ -31,57 +28,46 @@ before_install:
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-killlist.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-compara.git
-    - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-production.git
-    - git clone --branch release/90 --depth 1 https://github.com/Ensembl/ensembl-funcgen.git
+    - git clone --quiet --branch release/90 --depth 1 https://github.com/Ensembl/ensembl-funcgen.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-hive.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-io.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-test.git
-#    We need the repo to be public or to have a token to use it. If this is uncommented
-#    you also need to update travisci/harness.sh
+    - git clone --quiet --depth 1 https://github.com/Ensembl/ensembl-production.git
     - git clone --quiet --depth 1 https://github.com/Ensembl/GIFTS.git
     - echo "We need release 56 for FuncGen modules"
-    - git clone --branch release/56 --depth 1 https://github.com/Ensembl/ensembl.git ensembl-56
-    - git clone --branch release-1-6-924 --depth 1 https://github.com/bioperl/bioperl-live.git
-    - git clone --branch release-1-6-9 --depth 1 https://github.com/bioperl/bioperl-run.git
+    - git clone --quiet --branch release/56 --depth 1 https://github.com/Ensembl/ensembl.git ensembl-56
+    - git clone --quiet --branch release-1-6-924 --depth 1 https://github.com/bioperl/bioperl-live.git
+    - git clone --quiet --branch release-1-6-9 --depth 1 https://github.com/bioperl/bioperl-run.git
+#Installing dependencies for ensembl and ensembl-hive
+    - cpanm --quiet --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
+    - cpanm --quiet --installdeps --with-recommends --notest --cpanfile ensembl-hive/cpanfile .
+# htslib
     - wget https://github.com/samtools/htslib/releases/download/1.3.2/htslib-1.3.2.tar.bz2
     - tar -jxvf htslib-1.3.2.tar.bz2
-    - cd htslib-1.3.2 && make CFLAGS="-g -O2 -fPIC"
-    - cd ..
-
-
-install:
-    - cpanm --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
-    - cpanm --installdeps --with-recommends --notest --cpanfile ensembl-hive/cpanfile .
-    - export HTSLIB_DIR=$PWD/htslib-1.3.2
-    - export PERL5LIB=$PWD/bioperl-live
-    - cpanm --with-recommends --notest Bio::DB::HTS
-    - cpanm --with-recommends --notest JSON
-    - unset HTSLIB_DIR
-    - unset PERL5LIB
+    - cd htslib-1.3.2 && make CFLAGS="-g -O2 -fPIC" && cd ..
+# samtools
+    - wget https://github.com/samtools/samtools/releases/download/1.15.1/samtools-1.15.1.tar.bz2
+    - tar -jxvf samtools-1.15.1.tar.bz2
+    - cd samtools-1.15.1 && ./configure --prefix=/home/travis/samtools && make && make install && cd ..
 # We don't really need the modules below this, just one module needs it (modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm) and it is not used by us
     - echo "We need these modules for an unused module"
-    - cpanm --notest MooseX::ClassAttribute
-    - cpanm --notest File::Spec::Link
-    - cpanm --notest Readonly
+    - cpanm --quiet --notest MooseX::ClassAttribute
+    - cpanm --quiet --notest File::Spec::Link
+    - cpanm --quiet --notest Readonly
+# Environment variables needed for 'install'
+    - export HTSLIB_DIR=$PWD/htslib-1.3.2
+    - export PERL5LIB=$PWD/bioperl-live
+
+before_script:
 # Needed for test needing connection to a DB
     - cp travisci/MultiTestDB.conf.mysql modules/t/MultiTestDB.conf.mysql
     - mkdir -p modules/t/test-genome-DBs/homo_sapiens
     - cp -r ensembl/modules/t/test-genome-DBs/homo_sapiens/core modules/t/test-genome-DBs/homo_sapiens
+    - unset HTSLIB_DIR
+    - unset PERL5LIB
+    - export PATH=$HOME/samtools/bin:$PATH
 
 script: "./travisci/harness.sh"
-
-matrix:
-  exclude:
-    - perl: "5.26"
-      env: COVERALLS=false DB=mysql OLDPERL=true
-    - perl: "5.22"
-      env: COVERALLS=false DB=mysql OLDPERL=true
-    - perl: "5.18"
-      env: COVERALLS=false DB=mysql OLDPERL=true
-    - perl: "5.14"
-      env: COVERALLS=false DB=mysql OLDPERL=true
-    - perl: "5.10"
-      env: COVERALLS=false DB=mysql OLDPERL=false
 
 notifications:
   email:

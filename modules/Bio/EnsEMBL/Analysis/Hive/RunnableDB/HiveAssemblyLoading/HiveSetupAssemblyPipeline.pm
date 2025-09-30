@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ sub parse_ftp_link_file {
 
     unless($link =~ /\/genomes\/genbank\/[^\/]+\/([^\/]+)\/all_assembly_versions\/([^\/]+)\//) {
       $self->throw("Failed to parse the following line:\n".$link."\n\nExpected a link to the main dir for the species. For example:\n".
-                   "ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Propithecus_coquereli/all_assembly_versions/GCA_000956105.1_Pcoq_1.0/");
+                   "https://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Propithecus_coquereli/all_assembly_versions/GCA_000956105.1_Pcoq_1.0/");
     }
 
     $species_name = $1;

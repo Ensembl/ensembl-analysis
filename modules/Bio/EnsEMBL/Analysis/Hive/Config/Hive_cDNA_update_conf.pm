@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -102,8 +102,8 @@ sub default_options {
     'user_r'                     => 'ensro',
     'password_r'                 => undef,
 
-    'refseq_ftp'                 => 'ftp://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian',
-    'ena_ftp'                    => 'ftp://ftp.ebi.ac.uk/pub/databases/ena/sequence',
+    'refseq_ftp'                 => 'https://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian',
+    'ena_ftp'                    => 'https://ftp.ebi.ac.uk/pub/databases/ena/sequence',
 
     'cdna_table_name'            => 'cdna_sequences',
 

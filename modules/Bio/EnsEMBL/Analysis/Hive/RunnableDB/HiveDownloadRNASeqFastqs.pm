@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2019] EMBL-European Bioinformatics Institute
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -79,34 +79,23 @@ sub write_output {
     $srr = (split /\./, $fastq)[0];
   }
   my $first = substr $srr, 0, 6;
-  my $second = '00'.(substr $srr, -1, 1);
-  my $third = '0'.(substr $srr, -2, 2);
 
-  my $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$second/$srr/$fastq",  '-P', $path]);
-  if ($res) {
-    $res >>= 8;
-    if ($res == 8) {
-      $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]);
-      $res >>= 8;
-      if ($res == 8) {
-        $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$third/$srr/$fastq",  '-P', $path]);
-      }
-      if ($res) {
-        $res >>= 8;
-        # if wget failed, delete the file so it can be downloaded again when retried
-        if (-e $path.'/'.$fastq) {
-          $self->run_system_command(['rm',"$path/$fastq"]);
-        }
-        $self->throw("Could not download file $fastq error code is $res");
-      }
+  my $second_a = '00'.(substr $srr, -1, 1);
+  my $second_b ='0'.(substr $srr, -2, 2);
+
+  my $exit_code = 0;
+  my $wget_cmd_list = [['wget', '-c', '-qq', "$ftp_base_url/$first/$second_a/$srr/$fastq", '-P', $path],['wget', '-c', '-qq', "$ftp_base_url/$first/$second_b/$srr/$fastq", '-P', $path],['wget', '-c', '-qq', "$ftp_base_url/$first/$srr/$fastq", '-P', $path]];
+  foreach my $wget_cmd (@$wget_cmd_list){
+    $exit_code = $self->exit_code_test($wget_cmd);
+    if ($exit_code){
+      last;
     }
-    elsif ($res) {
-      # if wget failed, delete the file so it can be downloaded again when retried
-      if (-e $path.'/'.$fastq) {
-        $self->run_system_command(['rm',"$path/$fastq"]);
-      }
-      $self->throw("wget died with error code $res");
+  }
+  if (!$exit_code){
+    if (-e $path.'/'.$fastq) {
+      $self->run_system_command(['rm',"$path/$fastq"]);
     }
+    $self->throw("Failed to download $fastq");
   }
 
   unless(-e $path.'/'.$fastq) {
@@ -158,5 +147,31 @@ sub create_faidx {
     $self->throw("Failed to index file. Command:\n".$cmd);
   }
 }
+
+=head2 exit_code_test
+
+  Arg [1]    : Array, wget command
+               e.g. ['wget', '-qq', "$ftp_base_url/$first/$second_a/$srr/$fastq",  '-P', $path]
+  Description: The run_system_command returns a different exit code to wget
+               Here, run_system_command exit code is bit-shifted and tested (wget exit code for server error is 8)
+  Returntype : Boolean
+  Exceptions : Warning if error code not 8
+
+=cut
+
+sub exit_code_test {
+  my ($self,$wget_cmd) = @_;
+
+  my $res = $self->run_system_command($wget_cmd);
+  if ($res) {
+    $res >>= 8;
+    $self->warning("wget died with error code $res");
+    return 0;
+  } else {
+    return 1;
+  }
+
+}
+
 
 1;

@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,10 @@ use Exporter qw(import);
 use File::Spec::Functions qw(catfile tmpdir);
 use File::Which;
 use File::Temp;
+use Scalar::Util qw(weaken);
+use Proc::ProcessTable;
 
+use Bio::SeqIO;
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -93,6 +96,8 @@ our @EXPORT_OK = qw(
               get_biotype_groups
               get_feature_name
               create_production_directory
+              parse_uri
+              setup_fasta_db
               );
 
 
@@ -941,8 +946,8 @@ sub align_proteins {
 sub align_proteins_with_alignment {
   my ($source_protein_seq,$target_protein_seq) = @_;
 
-  my $align_input_file = "/tmp/align_".$$.".fa";
-  my $align_output_file = "/tmp/align_".$$.".aln";
+  my $align_input_file = create_file_name('align_', 'fa');
+  my $align_output_file = create_file_name('align_', 'aln');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";
@@ -1024,6 +1029,8 @@ sub align_proteins_with_alignment {
               -host, -user, -dbname, -port [, -pass, -dna_db,...]
  Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object (optional), the database will have the dna
  Arg [3]    : String $alternative_class (optional), Allowed class are Variation, Compara, Funcgen
+ Arg [4]    : String $fasta_file (optional), fasta file containing the toplevel sequences, preferably indexed.
+              setup_fasta_db must have been called before trying to get any DBAdaptor.
  Example    : hrdb_get_dba->($self->param('target_db'));
  Description: It creates a object based on the information contained in $connection_info.
               If the hasref contains -dna_db or if the second argument is populated, it will
@@ -1032,11 +1039,12 @@ sub align_proteins_with_alignment {
  Exceptions : Throws if it cannot connect to the database.
               Throws if $connection_info is not a hashref
               Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+              Throws if $fasta_file does not exist
 
 =cut
 
 sub hrdb_get_dba {
-  my ($connection_info, $dna_db, $alternative_class) = @_;
+  my ($connection_info, $dna_db, $alternative_class, $fasta_file) = @_;
 
   my $dba;
   my %params;
@@ -1045,16 +1053,13 @@ sub hrdb_get_dba {
     if ($alternative_class) {
       if ($alternative_class =~ /::/) {
         $module_name = $alternative_class;
-        if ($alternative_class =~ /Vega/) {
-          $params{-GROUP} = 'vega';
-        }
       }
       else {
         $module_name = 'Bio::EnsEMBL::'.$alternative_class.'::DBSQL::DBAdaptor';
       }
       eval "use $module_name";
       if ($@) {
-        throw("Cannot find module $module_name");
+        throw("Cannot find module $module_name . Error message: ".$@);
       }
     }
     eval {
@@ -1063,6 +1068,11 @@ sub hrdb_get_dba {
 
     if($@) {
       throw("Error while setting up database connection:\n".$@);
+    }
+    if (!$dba->isa($module_name)) {
+      warning("Hardcore blessing $dba into $module_name");
+      weaken($dba);
+      bless $dba, $module_name;
     }
   } else {
     throw("DB connection info passed in was not a hash:\n".$connection_info);
@@ -1075,6 +1085,19 @@ sub hrdb_get_dba {
       else {
           throw(ref($dna_db)." is not a Bio::EnsEMBL::DBSQL::DBAdaptor\n");
       }
+  }
+  if ($fasta_file) {
+    if (-e $fasta_file) {
+      if ($dba->dnadb) {
+        $dba->dnadb->get_SequenceAdaptor->fasta($fasta_file);
+      }
+      else {
+        $dba->get_SequenceAdaptor->fasta($fasta_file);
+      }
+    }
+    else {
+      throw("'$fasta_file' does not exist");
+    }
   }
 
   return $dba;
@@ -1228,7 +1251,7 @@ sub execute_with_wait {
 
  Arg [1]    : String $cmd, the command to run
  Arg [2]    : Int $timer, how long we should wait before killing your job
- Description: Execute a system command and kill it if it doesn't finish in time
+ Description: Execute a system command and kill it (and other processes under it) if it doesn't finish in time
               You can either specify the time in seconds as digits only or
               you can use M and H to specify hours and/or minutes, without white spaces.
  Returntype : Int 1 if successfull
@@ -1242,7 +1265,7 @@ sub execute_with_timer {
 
   my $realtimer = parse_timer($timer);
   my $remaining_time = 0;
-
+  
   # As seen on perldoc: http://perldoc.perl.org/5.14.2/functions/alarm.html
   eval {
     local $SIG{ALRM} = sub {die("alarm\n")};
@@ -1251,7 +1274,18 @@ sub execute_with_timer {
     $remaining_time = alarm 0;
   };
   if ($@) {
+ 
     if ($@ eq "alarm\n") {
+      my $pid_list = collect_processes($$);
+      foreach my $kid (@$pid_list) {
+        kill 'KILL', $kid;	
+      }
+      sleep(10);
+      $pid_list = collect_processes($$);
+      foreach my $kid (@$pid_list) {
+        kill 'KILL', $kid;	
+      }
+      sleep(10);
       throw("Your job $cmd was still running after your timer: $realtimer\n");
     }
     else {
@@ -1260,6 +1294,35 @@ sub execute_with_timer {
   }
   return $remaining_time;
 }
+
+
+=head2 collect_processes
+
+ Arg [1]    : String $process_to_check, the initial process to check.
+ Description: It uses a ProcessTable to collect all processes that are running under one process. 
+ Returntype : Returns a list with process ids
+ Exceptions : 
+
+=cut 
+
+sub collect_processes {
+  my ($process_to_check, $proc_table, $pid_list) = @_;
+
+  if (!$proc_table) {
+    $proc_table = Proc::ProcessTable->new;
+  }
+  if (!$pid_list) {
+    $pid_list = [];
+  }
+  foreach my $p (grep {$_->ppid eq $process_to_check} @{$proc_table->table} ){
+    if ($p and $p->state ne "defunct") {
+      push(@$pid_list, $p->pid);
+      collect_processes($p->pid, $proc_table, $pid_list);
+    }
+  }
+  return $pid_list;
+}
+
 
 
 =head2 parse_timer
@@ -1472,6 +1535,32 @@ sub create_production_directory {
       }
     }
   }
+}
+
+sub parse_uri {
+  my ($uri) = @_;
+
+  return $uri =~ m|(?:([^:/?#]+):)?(?://([^/:?#]*)?(?::([^@]*))?@([^:?#]*)(?::(\d+))\/?)?([^?#]*)|;
+}
+
+
+=head2 setup_fasta_db
+
+ Arg [1]    : None
+ Description: Replace Bio::EnsEMBL::DBSQL::SliceAdaptor with Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor
+              to retrieve the genomic sequence from a fasta file which is preferably indexed with samtools faidx.
+              The method should be called, preferably before any call to a DBAdaptor. The fasta file can be set
+              with: $dba->get_SequenceAdaptor->fasta($path_to_fasta_file);
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub setup_fasta_db {
+  my $adaptors = Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors;
+  $adaptors->{Sequence} = 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
+  no warnings 'redefine';
+  *Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors = sub {return $adaptors};
 }
 
 1;

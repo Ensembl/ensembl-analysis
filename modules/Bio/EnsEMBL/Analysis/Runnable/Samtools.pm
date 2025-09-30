@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -202,7 +202,7 @@ sub index {
   my ($self, $file, $options) = @_;
 
   $options = '' unless (defined $options);
-  my $cmd = join(' ', $self->_base_command('index', $options), $file);
+  my $cmd = join(' ', $self->_base_command('index -c', $options), $file);
   logger_info($cmd);
   execute_with_wait($cmd, $file.' indexing failed');
 }
@@ -230,8 +230,8 @@ sub flagstat {
   my @output;
   open(CMD, $cmd.' 2>&1 | ') || throw("Could not open command $cmd");
   while(<CMD>) {
-      throw($file.' is truncated, something went wrong: '.$_)
-        if (/truncated/ or /EOF marker is absent/ or /invalid BAM binary header/);
+      throw($file.' is truncated or there was an error, something went wrong: '.$_)
+        if (/error/ or /truncated/ or /EOF marker is absent/ or /invalid BAM binary header/);
       if ($stat and /^\s*(\d+).*in total/) {
           $output[0] = $1;
       }

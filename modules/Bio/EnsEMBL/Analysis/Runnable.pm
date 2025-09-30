@@ -1,7 +1,7 @@
 # Ensembl module for Bio::EnsEMBL::Analysis::Runnable
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name write_seqfile);
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 
 
 =head2 new
@@ -119,10 +119,10 @@ sub new{
   my $self = bless {},$class;
   my ($query, $program, $options,
       $workdir, $bindir, $libdir,
-      $datadir, $analysis) = rearrange
+      $datadir, $analysis, $verbosity) = rearrange
         (['QUERY', 'PROGRAM', 'OPTIONS',
           'WORKDIR', 'BINDIR', 'LIBDIR',
-          'DATADIR', 'ANALYSIS'], @args);
+          'DATADIR', 'ANALYSIS', 'VERBOSITY'], @args);
   if(!$analysis){
     throw("Can't create a Runnable without an analysis object");
   }
@@ -134,6 +134,7 @@ sub new{
   $self->libdir($libdir);
   $self->datadir($datadir);
   $self->analysis($analysis);
+  $self->verbosity($verbosity);
 
   return $self;
 }
@@ -858,5 +859,28 @@ sub parse_results{
         "Runnable won't provide this functionality for you");
 }
 
+
+=head2 verbosity
+
+ Arg [1]    : Int, 0 for no verbosity
+                   1 or 4000 for information
+                   5000 for the stack trace with the information
+ Description: Set the verbosity when using logger_info from Bio::EnsEMBL::Analysis::Tools::Logger
+ Returntype : Int
+ Exceptions : None
+
+=cut
+
+sub verbosity {
+  my ($self, $verbosity) = @_;
+
+  if (defined $verbosity) {
+    if ($verbosity == 1) {
+      $verbosity = 4000;
+    }
+    logger_verbosity($verbosity);
+  }
+  return logger_verbosity;
+}
 
 1;

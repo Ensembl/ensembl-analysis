@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_ovewrite empty_Gene print_Gene_Transcript_and_Exons);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_ovewrite empty_Gene print_Gene_Transcript_and_Exons clean_utrs);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
   qw(are_strands_consistent are_phases_consistent calculate_exon_phases
      is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum exon_overlap features_overlap overlap_length);
@@ -57,7 +57,6 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils
   qw(validate_Translation_coords contains_internal_stops print_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(cluster_Genes_by_coding_exon_overlap cluster_Genes);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -89,30 +88,43 @@ sub param_defaults {
       recovery_overlap_threshold => 0.9,
       skip_readthrough_check => 1,
       load_all_biotypes => 1,
+      min_size_utr_exon => 30,
+      ratio_5prime_utr => .3,
+      ratio_3prime_utr => .6,
+      ratio_same_transcript => .02,
+      ratio_max_allowed_difference => .05,
+      ratio_expansion => 3,
+      minimum_expanding_number_for_single_transcript => 2,
+      ratio_transcript_fragment => 3,
+      ratio_exon_expansion => 2,
+      ratio_utrs => 2,
+      store_rejected => 0,
     }
 }
 
 
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Fetch all the genes and create one runnable for the protein coding genes
+              and one runnable for the lncRNA. This way we collapse all the genes but
+              the lncRNA don't interfere with the protein coding genes
+ Returntype : None
+ Exceptions : Throws if 'use_genome_flatfile' is set and 'genome_file' cannot be found
+              Throws if 'source_db' is not set
+              Throws if 'target_db' is not set
+
+=cut
+
 sub fetch_input{
   my ($self) = @_;
 
+  $self->setup_fasta_db;
   my $input_dba = $self->get_database_by_name('source_db');
   my $output_dba = $self->get_database_by_name('target_db');
 
-  if($self->param('use_genome_flatfile')) {
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param_required('genome_file'),
-               );
-  } else {
-    my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
-    $input_dba->dnadb($dna_dba);
-    $output_dba->dnadb($dna_dba);
-  }
 
   $self->hrdb_set_con($output_dba,'output_db');
   $self->create_analysis;
@@ -151,31 +163,62 @@ sub fetch_input{
 
 
   $self->runnable($runnable);
+  if ($self->param_is_defined('pre_lncRNA')) {
+
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder
+      ->new(
+            -query => $self->query,
+            -analysis => $self->analysis,
+            -genes => $self->param('pre_lncRNA'),
+            -output_biotype => 'pre_lncRNA',
+            -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER,
+            -min_short_intron_len => $self->MIN_SHORT_INTRON_LEN,
+            -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
+            -blessed_biotypes => $self->BLESSED_BIOTYPES,
+            -coding_only => $self->CODING_ONLY,
+            -skip_readthrough_check => $self->param('skip_readthrough_check'),
+           );
+
+
+    $self->runnable($runnable);
+  }
 
 };
 
+=head2 run
+
+ Arg [1]    : None
+ Description: Run all runnables created in fetch_input to collapse the genes into
+              multi-transcript genes
+ Returntype : None
+ Exceptions : Throws if no genes are present post filtering
+
+=cut
 
 sub run {
   my ($self) = @_;
-  my $runnable = shift(@{$self->runnable()});
-  $runnable->run;
-  my $initial_genes = $runnable->output;
-  say "Found ".scalar(@$initial_genes)." in initial runnable output";
-  unless(scalar(@$initial_genes)) {
-    $self->warning("No initial set of output genes created");
-    return;
-  }
 
-  
-  if($self->param('post_filter_genes')) {
-    my $output_genes = $self->post_filter_genes($initial_genes);
-    unless(scalar(@$output_genes)) {
-      $self->throw("The output genes array is empty after running filter genes. This should not happen");
+  foreach my $runnable (@{$self->runnable}) {
+    $runnable->run;
+    my $initial_genes = $runnable->output;
+    if (scalar(@$initial_genes)) {
+      $self->say_with_header('Found '.scalar(@$initial_genes).' in initial runnable output');
+      if($self->param('post_filter_genes')) {
+        my $output_genes = $self->post_filter_genes($initial_genes);
+        if (scalar(@$output_genes)) {
+          $self->say_with_header('Found '.scalar(@$output_genes).' after post filtering');
+          $self->output($output_genes);
+        }
+        else {
+          $self->throw("The output genes array is empty after running filter genes. This should not happen");
+        }
+      } else {
+        $self->output($initial_genes);
+      }
     }
-    say "Found ".scalar(@$output_genes)." after post filtering";
-    $self->output($output_genes);
-  } else {
-    $self->output($initial_genes);
+    else {
+      $self->warning("No initial set of output genes created");
+    }
   }
 }
 
@@ -232,9 +275,25 @@ sub post_filter_genes {
   #    Not implemented yet. Sometimes tricky as terminal exons are often misaligned. Might be worth
   #    ignoring any introns bordering a terminal exon when deciding if a gene lies in the intron of another
 
+#  $genes = $self->clean_overlapping_utrs($genes);
+
   return($genes);
 }
 
+
+sub clean_overlapping_utrs {
+  my ($self, $genes) = @_;
+
+  my ($extra_genes, $rejected) = clean_utrs($genes, $self->param('min_size_utr_exon'),
+          $self->param('ratio_5prime_utr'), $self->param('ratio_3prime_utr'), $self->param('ratio_same_transcript'),
+          $self->param('ratio_max_allowed_difference'), $self->param('ratio_expansion'), $self->param('minimum_expanding_number_for_single_transcript'),
+          $self->param('ratio_transcript_fragment'), $self->param('ratio_exon_expansion'), $self->param('ratio_utrs'), $self->param('store_rejected'));
+
+  push(@$genes, @$extra_genes) if ($extra_genes);
+  push(@$genes, @$rejected) if ($rejected and $self->param('store_rejected'));
+
+  return $genes;
+}
 
 sub remove_bad_transcripts {
   my ($self,$genes) = @_;
@@ -611,14 +670,30 @@ sub input_genes {
   return $self->param('_input_genes');
 }
 
+=head2 filter_genes
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Gene, (optional) the list of genes to filter
+ Description: Check that the gene can be properly loaded and has valid transcript.
+              If the biotype is one of 'cdna', 'rnaseq_merged', 'rnaseq_tissue'; it
+              means the model will be used for lncRNA and should not be used in the
+              process of possible protein coding transcripts. These models are stored
+              in 'pre_lncRNA'.
+ Returntype : Arrayref of Bio::EnsEMBL::Gene
+ Exceptions : None
+
+=cut
+
 sub filter_genes{
   my ($self, $genes) = @_;
   $genes = $self->input_genes if(!$genes);
-  print "Have ".@$genes." to filter\n";
+  $self->say_with_header('Have '.@$genes.' to filter');
   my @filtered;
+  my @pre_lncRNA;
   GENE:foreach my $gene (@$genes) {
-    #throw("Genebuilder only works with one gene one transcript structures")
-    #  if(@{$gene->get_all_Transcripts} >= 2);
+    if ($gene->biotype eq 'cdna' or $gene->biotype eq 'rnaseq_merged' or $gene->biotype eq 'rnaseq_tissue') {
+      push(@pre_lncRNA, $gene);
+      next GENE;
+    }
     my $transcripts = $gene->get_all_Transcripts();
     unless(scalar(@$transcripts)) {
       $self->warning("Likely broken gene as no transcripts were recovered. Skipping");
@@ -635,10 +710,13 @@ sub filter_genes{
         push(@filtered, $gene);
         next GENE;
       } else {
-        print Gene_info($gene)." is invalid skipping\n";
+        $self->warning(Gene_info($gene).' is invalid skipping');
         next GENE;
       }
     }
+  }
+  if (@pre_lncRNA) {
+    $self->param('pre_lncRNA', \@pre_lncRNA);
   }
   return \@filtered;
 }

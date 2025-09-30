@@ -1,7 +1,8 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2021] EMBL-European Bioinformatics Institute
+
+Copyright [2016-2024] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -96,7 +97,9 @@ sub fetch_input {
       if (!exists $unwanted->{$gene->biotype}) {
         $gene->load;
         push(@genes, $gene);
-        if ($gene->biotype eq 'protein_coding' or $gene->biotype eq 'gbiab_protein_coding') {
+
+        if ($gene->biotype eq 'protein_coding') {
+
           push(@protein_coding, $gene);
         }
       }
@@ -138,6 +141,21 @@ sub write_output {
     }
     empty_Gene($gene);
     $gene_adaptor->store($gene);
+  }
+}
+
+
+sub pre_cleanup {
+  my ($self) = @_;
+
+  if ($self->param_is_defined('target_db')) {
+    my $db = $self->get_database_by_name('target_db');
+    my $slice = $db->get_SliceAdaptor->fetch_by_name($self->input_id);
+    my $gene_adaptor = $db->get_GeneAdaptor;
+    foreach my $gene (@{$slice->get_all_Genes}) {
+      $self->warning('Deleting gene '.$gene->dbID);
+      $gene_adaptor->remove($gene);
+    }
   }
 }
 

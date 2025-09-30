@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2019] EMBL-European Bioinformatics Institute
+#Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,7 +85,6 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -121,35 +120,28 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  $self->setup_fasta_db;
   $self->create_analysis;
 
   unless(-e $self->param_required('output_path')) {
     system("mkdir -p ".$self->param('output_path'));
   }
 
-  my $input_dba = $self->hrdb_get_dba($self->param('input_gene_db'));
-  my $repeat_dba = $self->hrdb_get_dba($self->param('repeat_db'));
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-
-  if($self->param('use_genome_flatfile')) {
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param_required('genome_file'),
-               );
-  } else {
-    my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
-    $input_dba->dnadb($dna_dba);
-    $repeat_dba->dnadb($dna_dba);
-    $output_dba->dnadb($dna_dba);
-  }
+  my $input_dba = $self->get_database_by_name('input_gene_db');
+  my $repeat_dba = $self->get_database_by_name('repeat_db');
+  my $output_dba = $self->get_database_by_name('output_db');
 
   $self->hrdb_set_con($output_dba,'output_db');
-  my $slices = $input_dba->get_SliceAdaptor->fetch_all('toplevel');
+  my $slices;
+  if ($self->param_is_defined('iid')) {
+    $slices = [$input_dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
+  }
+  else {
+    $slices = $input_dba->get_SliceAdaptor->fetch_all('toplevel');
+  }
+  my $repeat_slice_adaptor = $repeat_dba->get_SliceAdaptor;
   foreach my $slice (@$slices) {
-    my $genes = $slice->get_all_Genes;
-    my $repeat_slice_adaptor = $repeat_dba->get_SliceAdaptor;
+    my $genes = $slice->get_all_Genes(undef, undef, 1);
     if (@$genes) {
       foreach my $gene (@$genes) {
         if ($gene->biotype eq 'protein_coding') {
@@ -162,7 +154,11 @@ sub fetch_input {
       }
     }
   }
-
+  if ($self->param('disconnect_jobs')) {
+    $input_dba->dbc->disconnect_when_inactive(1);
+    $repeat_dba->dbc->disconnect_when_inactive(1);
+    $output_dba->dbc->disconnect_when_inactive(1);
+  }
 
 } ## end sub fetch_input
 
@@ -171,20 +167,24 @@ sub run {
   my ($self) = @_;
 
   my $output_path = $self->param('output_path');
-  unless(open(OUT,">".$output_path."/all_multi_exon_genes.fasta")) {
-    $self->throw("Could not create all_multi_exon_genes.fasta for writing. Path used:\n".$output_path."/all_multi_exon_genes.fasta")
+  my $write_single_file = $self->param('single_multi_file');
+  if ($write_single_file) {
+    open(OUT, ">$output_path/all_multi_exon_genes.fasta")
+      or $self->throw("Could not create all_multi_exon_genes.fasta for writing. Path used:\n$output_path/all_multi_exon_genes.fasta");
   }
 
   foreach my $runnable (@{$self->runnable}) {
-    if($self->SINGLE_EXON) {
-      foreach my $gene (@{$runnable->genes}) {
-        if(scalar(@{$gene->get_all_Exons}) == 1) {
-          say "Will analyse ".$gene->dbID." in spliced elsewhere";
-        } else {
-          my $transcripts = $gene->get_all_Transcripts;
-          foreach my $transcript (@$transcripts) {
-            say OUT ">".$transcript->dbID;
-            say OUT $transcript->translateable_seq();
+    if ($write_single_file) {
+      if($self->SINGLE_EXON) {
+        foreach my $gene (@{$runnable->genes}) {
+          if(scalar(@{$gene->get_all_Exons}) == 1) {
+            $self->say_with_header("Will analyse ".$gene->dbID." in spliced elsewhere");
+          } else {
+            my $transcripts = $gene->get_all_Transcripts;
+            foreach my $transcript (@$transcripts) {
+              say OUT ">".$transcript->dbID;
+              say OUT $transcript->translateable_seq();
+            }
           }
         }
       }
@@ -192,7 +192,9 @@ sub run {
     $runnable->run();
     $self->output($runnable->output());
   }
-  close(OUT) || $self->throw("Could not close $output_path/all_multi_exon_genes.fasta");
+  if ($write_single_file) {
+    close(OUT) or $self->throw("Could not close $output_path/all_multi_exon_genes.fasta");
+  }
 }
 
 sub make_runnable {
@@ -326,6 +328,11 @@ sub write_output {
   # write genes out to a different database from the one we read genes from.
   my $out_dba = $self->hrdb_get_con('output_db');
 
+  # if disconnect_jobs is set, we need to stop disconnecting our inactive connections
+  # or we may spend a lot of time reconnecting
+  if ($self->param('disconnect_jobs')) {
+    $out_dba->dbc->disconnect_when_inactive(0);
+  }
   my $gene_adaptor = $out_dba->get_GeneAdaptor;
   foreach my $gene ( @{$genes} ) {
     empty_Gene($gene);

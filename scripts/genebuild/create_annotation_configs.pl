@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [2017-2019] EMBL-European Bioinformatics Institute
+# Copyright [2017-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,16 +19,17 @@ use strict;
 use feature 'say';
 
 use Getopt::Long qw(:config no_ignore_case);
-use File::Spec::Functions qw(catfile splitdir catdir updir);
+use File::Spec::Functions qw(catfile splitdir catdir updir devnull);
 use File::Basename;
+use File::Copy;
 use Bio::EnsEMBL::Utils::Exception qw (warning throw);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Net::FTP;
-use Cwd qw(realpath);
+use Cwd qw(realpath chdir getcwd);
 use Data::Dumper;
-
+use DateTime;
 use JSON;
 
 my $config_file;
@@ -36,7 +37,7 @@ my $config_only = 0;
 my $custom_load = 0;
 my $early_load = 0;
 
-my $total_running_workers_max = 200;
+my $total_running_workers_max = 2000;
 my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
@@ -45,45 +46,52 @@ my $assembly_registry_host = $ENV{GBS1};
 my $assembly_registry_port = $ENV{GBP1};
 my $force_init = 0;
 my $check_for_transcriptomic = 0;
+my $selected_db;
+my $current_genebuild = 0;
+
+### change to to 1 for non-verts
+my $is_non_vert = 0;
+
 
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
            'custom_load!'  => \$custom_load,
-	   'early_load!'   => \$early_load,
+           'early_load!'   => \$early_load,
            'assembly_registry_host:s' => \$assembly_registry_host,
            'assembly_registry_port:s' => \$assembly_registry_port,
            'force_init!' => \$force_init,
+           'is_non_vert!' => \$is_non_vert,
            'check_for_transcriptomic!' => \$check_for_transcriptomic,
+           'current_genebuild!' => \$current_genebuild,
           );
 
 unless(-e $config_file) {
   throw("Could not find the config file. Path used:\n".$config_file);
 }
 
-my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-  -host    => $assembly_registry_host,
-  -port    => $assembly_registry_port,
-  -user    => 'ensro',
-  -dbname  => 'gb_assembly_registry');
+my $general_hash = {};
+
+if ($is_non_vert == 1) {
+  $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
+  $general_hash->{'skip_projection'} = '1';
+  $general_hash->{'is_non_vert'} = '1';
+  $general_hash->{'protein_blast_db_file'} = 'PE12';
+  $general_hash->{'protein_entry_loc_file'} = 'entry_loc';
+}
+
+$selected_db = "gb_assembly_registry";
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
-  -host    => 'mysql-ens-mirror-1',
-  -port    => 4240,
+  -host    => 'mysql-ens-meta-prod-1',
+  -port    => 4483,
   -user    => 'ensro',
   -dbname  => 'ncbi_taxonomy');
 
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-  -port    => 4240,
+  -port    => 4483,
   -user    => 'ensro',
-  -host    => 'mysql-ens-mirror-1',
+  -host    => 'mysql-ens-meta-prod-1',
   -dbname  => 'ncbi_taxonomy');
-
-my $general_hash = {};
-
-#Adding registry details to hash for populating main config
-$general_hash->{registry_host} = $assembly_registry_host;
-$general_hash->{registry_port} = $assembly_registry_port;
-$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
 
 open(IN,$config_file) || throw("Could not open $config_file");
 while(<IN>) {
@@ -100,6 +108,10 @@ while(<IN>) {
       # for this
       if($key eq 'user_w') {
         $key = 'user';
+        $general_hash->{$key} = $value;
+      }
+      if($key eq 'password') {
+        $general_hash->{$key} = $value;
       }
       #Ignore clade settings from .ini file if set
       if($key eq 'clade' && !$custom_load && !$early_load) {
@@ -116,6 +128,24 @@ while(<IN>) {
     }
 }
 close IN || throw("Could not close $config_file");
+
+# If replace_repbase_with_red_to_mask is true then force first_choice_repeat to be red logic name
+if (exists $general_hash->{'replace_repbase_with_red_to_mask'} and $general_hash->{'replace_repbase_with_red_to_mask'} and !exists $general_hash->{first_choice_repeat}) {
+  $general_hash->{first_choice_repeat} = $general_hash->{red_logic_name} || 'repeatdetector';
+}
+
+ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+  -host    => $assembly_registry_host,
+  -port    => $assembly_registry_port,
+  -user    => $general_hash->{'user'},
+  -pass    => $general_hash->{'password'},
+  -dbname  => $selected_db
+  );
+
+#Adding registry details to hash for populating main config
+$general_hash->{registry_host} = $assembly_registry_host;
+$general_hash->{registry_port} = $assembly_registry_port;
+$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
 
 unless($general_hash->{'output_path'}) {
   throw("Could not find an output path setting in the config. Expected setting".
@@ -208,6 +238,12 @@ foreach my $accession (@accession_array) {
     throw("Found an assembly accession that did not match the regex. Offending accession: ".$accession);
   }
 
+  #Check genebuild status of assembly
+  if ($current_genebuild == 1) {
+  } else {
+    check_annotation_status($accession);
+  }
+
   # Get stable id prefix
   my $stable_id_prefix;
   if ($general_hash->{'stable_id_prefix'}){
@@ -229,10 +265,21 @@ foreach my $accession (@accession_array) {
   }
   say "Fetched the following clade for ".$accession.": ".$clade;
   #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
-  if (($clade eq 'amphibians') || ($clade eq 'sharks') || ($clade eq 'vertebrates')){
+  if ($clade eq 'vertebrates'){
     $clade = 'distant_vertebrate';
   }
+
   $assembly_hash->{'clade'} = $clade;
+  #set a db for validating models from transcriptomic data
+  if ($clade eq 'mammalia' || $clade eq 'rodentia' || $clade eq 'primates' || $clade eq 'marsupials'){
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_mammalia_sp';
+  }
+  elsif ($clade eq 'teleostei' || $clade eq 'sharks'){
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrataSP_plus_fishTR';
+  }
+  else{
+      $general_hash->{'protein_blast_db_file'} = 'uniprot_vertebrata_sp';
+  }
 
   # Get stable id start
   my $stable_id_start;
@@ -282,72 +329,48 @@ foreach my $accession (@accession_array) {
 
   # Add in the species url by uppercasing the first letter of the species name
   my $species_url = $assembly_hash->{'species_name'};
-  $species_url = ucfirst($species_url);
+  $species_url = ucfirst($species_url).'_'.$accession;
   $assembly_hash->{'species_url'} = $species_url;
 
-  # Get repeatmodeler library path if one exists
-  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
-  if(-e $repeatmodeler_file) {
-    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
-    $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
-  } else {
-    say "Did not find an repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+  #Set up taxonomy adaptor to fetch rank of species using NCBI taxonomy database
+  my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
+  my $taxon_node = $node_adaptor->fetch_by_taxon_id($assembly_hash->{'taxon_id'});
+
+ # Check for repeatmodeler library at species level
+  if ($taxon_node->rank() eq 'subspecies' || $taxon_node->rank() eq 'no rank'){
+    my $parent_node = $node_adaptor->fetch_by_taxon_id($taxon_node->parent_id());
+    my $parent_name = $parent_node->names()->{'scientific name'}->[0];
+    $parent_name =~ s/\s+/\_/g;
+    $parent_name = lc($parent_name);
+   #  Species is at subspecies level so get repeatmodeler library path if one exists at the species level
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$parent_name,$parent_name.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+    }
+  }
+  elsif ($taxon_node->rank() eq 'species'){
+  #   Get repeatmodeler library path if one exists
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+    }
+  }
+  else{
+    say "Rank is ",$taxon_node->rank();
   }
 
   create_config($assembly_hash);
+  copy_general_module();
+  check_compara_release_version();
 
   unless($config_only) {
     init_pipeline($assembly_hash,$hive_directory,$force_init,$fh);
-#    chdir($assembly_hash->{'output_path'});
-#    my $cmd;
-#    if ($hive_directory) {
-#      $cmd = 'perl '.catfile($hive_directory, 'scripts', 'init_pipeline.pl');
-#    }
-#    else {
-#      print "WARNING using init_pipeline.pl from your PATH, may not be the same as your PERL5LIB\n";
-#      $cmd = 'init_pipeline.pl';
-#    }
-#    if ($force_init) {
-#      $cmd .= ' Genome_annotation_conf.pm -hive_force_init 1';
-#    }
-#    else {
-#      $cmd .= ' Genome_annotation_conf.pm';
-#    }
-#    my $result = `$cmd`;
-#    unless($result =~ /beekeeper.+\-sync/) {
-#      throw("Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd);
-#    }
-
-#    my $sync_command = $&;
-#    if ($hive_directory) {
-#      $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator
-#    }
-#    my $return = system($sync_command);
-#    if($return) {
-#      throw("Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$sync_command);
-#    }
-
-
-#    if($check_for_transcriptomic) {
-#      my $run_command = $sync_command;
-#      $run_command =~ s/\-sync/\-run/;
-#      my $return = system($run_command);
-#      if($return) {
-#        throw("Failed to run a loop the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$run_command);
-#      }
-#    }
-
-
-#    my $loop_command = $sync_command;
-#    $loop_command =~ s/sync/loop \-sleep 0.3/;
-#    my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
-#    my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
-#    if ($password) {
-#      $password = '&passwd=xxxxx';
-#    }
-#    say $fh "#GuiHive: $base_guihive/?driver=$driver&username=$user&host=$host&port=$port&dbname=$dbname$password";
-#    say $fh "export EHIVE_URL=$ehive_url";
-#    say $fh $loop_command;
   }
 }
 
@@ -373,6 +396,7 @@ sub parse_assembly_report {
   my $refseq_accession;
   my $assembly_level;
   my $wgs_id;
+  my $modifier;
   open($report_file_handle, '>', \$report_file_content) || throw("could not open $report_file_name");
 
   unless($ftp->get($report_file_name, $report_file_handle)) {
@@ -402,7 +426,10 @@ sub parse_assembly_report {
   }
 
   if(exists($general_hash->{'load_toplevel_only'}) && $general_hash->{'load_toplevel_only'} == 0) {
-    unless($wgs_id) {
+    if ($wgs_id) {
+      $assembly_hash->{'wgs_id'} = $wgs_id;
+    }
+    else {
       throw("Need the wgs id as the load_toplevel_only flag was set to 0. Failed to find the id in the report file");
     }
   }
@@ -443,17 +470,92 @@ sub parse_assembly_report {
     say "Found no RefSeq accession for this assembly";
   }
 
+# create production name - must be unique, no more than trinomial, and include GCA
+# Add dbname_accession which replace production_name in the dbname and is just the GCA MySQL friendly
+  my $underscore_count = $species_name =~ tr/_//;
+  $species_name =~ /(^[^_]+_[^_]+)_*.*/;
+  my $binomial_name = $1;
+  my $accession_append = lc($accession);
+  $accession_append =~ s/\./v/g;
+  $accession_append =~ s/_//g;
+  $assembly_hash->{'production_name'} = $binomial_name.'_'.$accession_append;
+  $assembly_hash->{'dbname_accession'} = $accession_append;
+
+  $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;
-  $assembly_hash->{'wgs_id'} = $wgs_id;
   $assembly_hash->{'species_name'} = $species_name;
-  $assembly_hash->{'production_name'} = $species_name;
   @{$assembly_hash}{keys(%$general_hash)} = values(%$general_hash);
   $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
 }
 
+=pod
+
+=head1 Description of method
+
+This method updates the registry database with the timestamp of when the annotation started.
+It also updates the registry with the status of the annotation as well as the user who started it.
+
+=cut
+
+sub update_annotation_status{
+  my $accession = shift;
+  my $dt   = DateTime->now;   # Stores current date and time as datetime object
+  my $date = $dt->ymd;
+  my $assembly_id = $assembly_registry->fetch_assembly_id_by_gca($accession);
+  my ($sql,$sth);
+  if ($current_genebuild == 1){
+    say "Updating genebuild status to overwrite";
+    $sql = "update genebuild_status set is_current = ? where assembly_accession = ?";
+    $sth = $assembly_registry->dbc->prepare($sql);
+    $sth->bind_param(1,0);
+    $sth->bind_param(2,$accession);
+    unless($sth->execute()){
+      throw("Could not update annoation status for assembly with accession ".$accession);
+    }
+  }
+  $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id,is_current,annotation_source) values(?,?,?,?,?,?,?)";
+  $sth = $assembly_registry->dbc->prepare($sql);
+  $sth->bind_param(1,$accession);
+  $sth->bind_param(2,'in progress');
+  $sth->bind_param(3,$date);
+  $sth->bind_param(4,$ENV{EHIVE_USER} || $ENV{USER});
+  $sth->bind_param(5,$assembly_id);
+  $sth->bind_param(6,1);
+  $sth->bind_param(7,'pending');
+  say "Accession being worked on is $accession";
+  unless($sth->execute()){
+   throw("Could not update annotation status for assembly with accession ".$accession);
+  }
+}
+
+=pod
+
+=head1 Description of method
+
+This method checks if there is an existing genebuild entry for the assembly.
+If yes, genebuilder must decide whether to continue annotation or not.
+If genebuilder decides to continue, then rerun with option: -current_genebuild 1
+This would automatically make this new genebuild the current annotation for tracking purposes
+
+=cut
+
+sub check_annotation_status{
+  my $accession = shift;
+  my @status = $assembly_registry->fetch_genebuild_status_by_gca($accession);
+  if (@status){
+    if ($status[2]){
+      throw("A genebuild pipeline has already been run for this assembly. "."$accession.\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3],\nAnnotation source: $status[4]"."\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1"  );
+    }
+    else{
+      throw("A genebuild pipeline is currently in progress for this assembly. "."$accession\nGenebuild status: $status[0]\nDate started: $status[1]\nDate completed: Pending\nGenebuilder: $status[3]\nAnnotation source: $status[4]"."\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1"  );
+    }
+  }
+}
 
 sub create_config {
   my ($assembly_hash) = @_;
+
+  $assembly_hash->{'registry_path'} = catfile($assembly_hash->{'output_path'},"Databases.pm");
 
   foreach my $key (keys(%{$assembly_hash})) {
     say "ASSEMBLY: ". $key." => ".$assembly_hash->{$key};
@@ -476,22 +578,12 @@ sub create_config {
           $line .= "'dbowner' => '".$assembly_hash->{'dbowner'}."',";
         }
       }
-      if($line =~ /\'([^\']+)\'\s*\=\>\s*('[^\']*\')/) {
+      if($line =~ /'?([^' ]+)'?\s*=>\s*('?[^']*'?)/) {
         my $conf_key = $1;
         my $conf_val = $2;
-        if($assembly_hash->{$conf_key}) {
+        if(exists $assembly_hash->{$conf_key}) {
+          print "REPLACING ".$conf_key." with ".$assembly_hash->{$conf_key}."\n";
           my $sub_val = "'".$assembly_hash->{$conf_key}."'";
-          $line =~ s/$conf_val/$sub_val/;
-        }
-      } elsif($line =~ /\'([^\']+)\'\s*(\=\>\s*undef\s*\,)/) {
-        # Note, a special case needed to be added for undef. In the main config we have to put in undef as opposed to '' in cases where the value will be evalutated
-        # later in the config in a conditional (e.g. deciding the blast db path based on whether a custom db path has been provided or not). In these cases '' will
-        # evaluate to true in the conditional, which is wrong and a quirk of hive. Since undef as a string is not very unique and could be accidently be matched
-        # in the key when doing the subsitution, I have added this as it's own conditional to be very safe
-        my $conf_key = $1;
-        my $conf_val = $2;
-        if($assembly_hash->{$conf_key}) {
-          my $sub_val = "=> '".$assembly_hash->{$conf_key}."',";
           $line =~ s/$conf_val/$sub_val/;
         }
       }
@@ -510,66 +602,232 @@ sub create_config {
 sub clade_settings {
   my ($clade) = @_;
   my $clade_settings = {
+
     'primates' => {
       'repbase_library'    => 'primates',
       'repbase_logic_name' => 'primates',
       'uniprot_set'        => 'primates_basic',
+      'sanity_set'         => 'primates_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'rodentia' => {
-      'repbase_library'    => 'rodents',
-      'repbase_logic_name' => 'rodents',
+      'repbase_library'    => 'rodentia',
+      'repbase_logic_name' => 'rodentia',
       'uniprot_set'        => 'mammals_basic',
+      'sanity_set'         => 'rodentia_basic',
+      'ig_tr_fasta_file'    => 'imgt_mammals_ig_tr.fa',
+      'projection_source_production_name' => 'mus_musculus',
+      'projection_source_db_name' => current_projection_source_db('mus_musculus'),
     },
 
     'mammalia' => {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
+      'sanity_set'         => 'mammals_basic',
+      'ig_tr_fasta_file'    => 'imgt_mammals_ig_tr.fa',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
    'marsupials' => {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
+      'sanity_set'         => 'mammals_basic',
+      'ig_tr_fasta_file'    => 'imgt_mammals_ig_tr.fa',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'aves' => {
       'repbase_library'    => 'Birds',
-      'repbase_logic_name' => 'birds',
-      'uniprot_set'        => 'birds_basic',
+      'repbase_logic_name' => 'aves',
+      'uniprot_set'        => 'aves_basic',
+      'sanity_set'         => 'aves_basic',
+      'ig_tr_fasta_file'    => 'imgt_mammals_aves_ig_tr.fa',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'reptiles' => {
       'repbase_library'    => 'vertebrates',
       'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'reptiles_basic',
+      'sanity_set'         => 'reptiles_basic',
+      'ig_tr_fasta_file'   => 'imgt_mammals_aves_ig_tr.fa',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'amphibians' => {
+      'repbase_library'    => 'vertebrates',
+      'repbase_logic_name' => 'vertebrates',
+      'uniprot_set'        => 'amphibians_basic',
+      'sanity_set'         => 'amphibians_basic',
+      'ig_tr_fasta_file'   => 'imgt_mammals_aves_ig_tr.fa',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'teleostei' => {
       'repbase_library'     => 'Teleostei',
       'repbase_logic_name'  => 'teleost',
       'uniprot_set'         => 'fish_basic',
+      'sanity_set'          => 'fish_basic',
       'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      # need a default projection source db set
+      'projection_source_production_name' => 'danio_rerio',
+      'projection_source_db_name' => current_projection_source_db('danio_rerio'),
+      # need a different value for creating repeatmasker slices
+      repeatmasker_slice_size => 500000,
+    },
+
+	'sharks' => {
+	    'repbase_library'     => 'Teleostei',
+		'repbase_logic_name'  => 'teleost',
+		'uniprot_set'         => 'sharks_basic',
+		'sanity_set'          => 'sharks_basic',
+		'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
+		'masking_timer_long'  => '6h',
+		'masking_timer_short' => '3h',
+		'skip_projection'    => 1,
+		'skip_lastz'         => 1,
+		# need a default projection source db set
+		'projection_source_production_name' => 'danio_rerio',
+		'projection_source_db_name' => current_projection_source_db('danio_rerio'),
+		# need a different value for creating repeatmasker slices
+		repeatmasker_slice_size => 500000,
     },
 
     'distant_vertebrate' => {
       'repbase_library'    => 'vertebrates',
       'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'distant_vertebrate',
+      'sanity_set'         => 'distant_vertebrate',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+      # need a different value for creating repeatmasker slices and batching slices to avoid long-running jobs
+      repeatmasker_slice_size => 300000,
+      batch_target_size => 300000,
     },
-
 
     'insects' => {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
+      'sanity_set'         => 'insects_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'lepidoptera' => {
+      'repbase_library'    => 'lepidoptera',
+      'repbase_logic_name' => 'lepidoptera',
+      'uniprot_set'        => 'lepidoptera_basic',
+      'sanity_set'         => 'lepidoptera_basic',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP_index',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a butterfly annotation
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'hymenoptera' => {
+      'repbase_library'    => 'hymenoptera',
+      'repbase_logic_name' => 'hymenoptera',
+      'uniprot_set'        => 'hymenoptera_basic',
+      'sanity_set'         => 'hymenoptera_basic',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a hymenoptera annotation
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'atroparvus' => {
+      'repbase_library'    => 'insecta',
+      'repbase_logic_name' => 'insects',
+      'uniprot_set'        => 'insects_basic',
+      'sanity_set'         => 'insects_basic',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016_index',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+   'perniciosus' => {
+      'repbase_library'    => 'insecta',
+      'repbase_logic_name' => 'insects',
+      'uniprot_set'        => 'insects_basic',
+      'sanity_set'         => 'insects_basic',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB_index',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'non_vertebrates' => {
+      'repbase_library'    => 'non_vertebrates',
+      'repbase_logic_name' => 'non_vertebrates',
+      'uniprot_set'        => 'non_vertebrates_basic',
+      'sanity_set'         => 'non_vertebrates_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'fungi' => {
+      'repbase_library'    => 'fungi',
+      'repbase_logic_name' => 'fungi',
+      'uniprot_set'        => 'fungi_basic',
+      'sanity_set'         => 'fungi_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'metazoa' => {
+      'repbase_library'    => 'metazoa',
+      'repbase_logic_name' => 'metazoa',
+      'uniprot_set'        => 'metazoa_basic',
+      'sanity_set'         => 'metazoa_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'plants'  => {
+      'repbase_library'    => 'plants',
+      'repbase_logic_name' => 'plants',
+      'uniprot_set'        => 'plants_basic',
+      'sanity_set'         => 'plants_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'protists'  => {
+      'repbase_library'    => 'protists',
+      'repbase_logic_name' => 'protists',
+      'uniprot_set'        => 'protists_basic',
+      'sanity_set'         => 'protists_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
   };
@@ -614,8 +872,15 @@ sub custom_load_data {
     throw("A critical key was missing a value");
   }
 
-  # Should update registry api to allow clade to be fetched by taxon id
-  my $clade = $general_hash->{'clade'};
+  # Get clade
+  my $clade;
+  if ($general_hash->{'clade'}) {
+    $clade = $general_hash->{'clade'};
+  }
+  else {
+    $clade = $assembly_registry->fetch_clade_by_taxon_id($general_hash->{'taxon_id'});
+  }
+
   my $clade_hash = clade_settings($clade);
   foreach my $key (keys(%{$clade_hash})) {
     $general_hash->{$key} = $clade_hash->{$key};
@@ -643,21 +908,43 @@ sub custom_load_data {
     }
   }
 
-  # Get repeatmodeler library path if one exists. Note that this will be overwritten with a custom path if one has been provided
-  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$general_hash->{'species_name'},$general_hash->{'species_name'}.'.repeatmodeler.fa');
-  if(-e $repeatmodeler_file) {
-    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
-    $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
-  } else {
-    say "Did not find an repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+  #Set up taxonomy adaptor to fetch rank of species using NCBI taxonomy database
+  my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
+  my $taxon_node = $node_adaptor->fetch_by_taxon_id($general_hash->{'taxon_id'});
+
+  #Check for repeatmodeler library at species level
+  if ($taxon_node->rank() eq 'subspecies' || $taxon_node->rank() eq 'no rank'){
+    my $parent_node = $node_adaptor->fetch_by_taxon_id($taxon_node->parent_id());
+    my $parent_name = $parent_node->names()->{'scientific name'}->[0];
+    $parent_name =~ s/\s+/\_/g;
+    $parent_name = lc($parent_name);
+    # Species is at subspecies level so get repeatmodeler library path if one exists at the species level. Note that this will be overwritten with a custom path if one has been provided
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$parent_name,$parent_name.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+    }
+  }
+  elsif ($taxon_node->rank() eq 'species'){
+   #  Get repeatmodeler library path if one exists. Note that this will be overwritten with a custom path if one has been provided
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$general_hash->{'species_name'},$general_hash->{'species_name'}.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+    }
+  }
+  else{
+    say "Rank is ",$taxon_node->rank();
   }
 
 }
 
 sub init_pipeline {
     my ($assembly_hash,$hive_directory,$force_init,$fh) = @_;
-
-    my $reg_conf_path = catfile($assembly_hash->{'output_path'},$assembly_hash->{'accession'},"Databases.pm");
 
     chdir($assembly_hash->{'output_path'});
     my $cmd;
@@ -678,7 +965,9 @@ sub init_pipeline {
     unless($result =~ /beekeeper.+\-sync/) {
       throw("Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd);
     }
-
+    unless ($custom_load){
+	update_annotation_status($assembly_hash->{'assembly_accession'});
+    }
     my $sync_command = $&;
     if ($hive_directory) {
       $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator
@@ -700,52 +989,179 @@ sub init_pipeline {
 
 
     my $loop_command = $sync_command;
-    $loop_command =~ s/sync/loop \-sleep 0.3/;
+    $loop_command =~ s/\-sync/\-loop \-sleep 0.3/;
     my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
-    my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
+    my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^"?(\w+)[:\/]+(\w*):(\w+).([^:]+):(\d+)\/(\w+)"?$/;
     if ($password) {
       $password = '&passwd=xxxxx';
     }
+
     say $fh "#GuiHive: $base_guihive/?driver=$driver&username=$user&host=$host&port=$port&dbname=$dbname$password";
     say $fh "export EHIVE_URL=$ehive_url";
     say $fh $loop_command;
 }
 
 
+=head2 assign_server_info
+
+ Arg [1]    : Hashref, the hash with all the information about the config
+ Description: Assign servers connection details based on 'server_set' if it is present.
+              If the set does not exists, it uses the values for "set1"
+              If 'server_set' is not defined, it looks for the following keys which should
+              all be defined:
+                databases_host
+                databases_port
+                pipe_db_host
+                pipe_db_port
+                dna_db_host
+                dna_db_port
+ Returntype : None
+ Exceptions : Throws if 'server_set' is not set and none of the connection details are set.
+
+=cut
+
 sub assign_server_info {
   my ($general_hash) = @_;
 
   my $servers = {
     set1 => {
-              pipe_db_server => "mysql-ens-genebuild-prod-4",
+              pipe_db_host => "mysql-ens-genebuild-prod-4",
               pipe_db_port   => 4530,
-              databases_server  => "mysql-ens-genebuild-prod-3",
+              databases_host  => "mysql-ens-genebuild-prod-3",
               databases_port    => 4529,
-              dna_db_server  => "mysql-ens-genebuild-prod-2",
+              dna_db_host  => "mysql-ens-genebuild-prod-2",
               dna_db_port    => 4528,
             },
 
     set2 => {
-              pipe_db_server => "mysql-ens-genebuild-prod-7",
+              pipe_db_host => "mysql-ens-genebuild-prod-7",
               pipe_db_port   => 4533,
-              databases_server  => "mysql-ens-genebuild-prod-5",
+              databases_host  => "mysql-ens-genebuild-prod-5",
               databases_port    => 4531,
-              dna_db_server  => "mysql-ens-genebuild-prod-6",
+              dna_db_host  => "mysql-ens-genebuild-prod-6",
               dna_db_port    => 4532,
             },
   };
 
   my $server_set = $general_hash->{'server_set'};
-  unless(exists $servers->{$server_set}) {
-    warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
-    return($servers->{'set1'});
+  if ($server_set) {
+    if (! exists $servers->{$server_set}) {
+      warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
+      $server_set = 'set1';
+    }
+    $general_hash->{databases_host} = $servers->{$server_set}->{'databases_host'};
+    $general_hash->{databases_port} = $servers->{$server_set}->{'databases_port'};
+    $general_hash->{pipe_db_host} = $servers->{$server_set}->{'pipe_db_host'};
+    $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
+    $general_hash->{dna_db_host} = $servers->{$server_set}->{'dna_db_host'};
+    $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
+
   }
+  else {
+    throw("You are missing connection details for at least one of them: databases_host, databases_port, pipe_db_host, pipe_db_port, dna_db_host, dna_db_port")
+      unless (
+        exists $general_hash->{databases_host} and
+        exists $general_hash->{databases_port} and
+        exists $general_hash->{pipe_db_host} and
+        exists $general_hash->{pipe_db_port} and
+        exists $general_hash->{dna_db_host} and
+        exists $general_hash->{dna_db_port}
+      );
+  }
+}
 
-  $general_hash->{databases_server} = $servers->{$server_set}->{'databases_server'};
-  $general_hash->{databases_port} = $servers->{$server_set}->{'databases_port'};
-  $general_hash->{pipe_db_server} = $servers->{$server_set}->{'pipe_db_server'};
-  $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
-  $general_hash->{dna_db_server} = $servers->{$server_set}->{'dna_db_server'};
-  $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
+=head2 copy_general_module
 
+ Arg [1]    : None
+ Description: Find the path to 'ensembl-analysis' in @INC, then copy Bio/EnsEMBL/Analysis/Config/General.pm.example
+              to Bio/EnsEMBL/Analysis/Config/General.pm to be able to run the projection pipeline and Compara parts
+ Returntype : None
+ Exceptions : Throws if it cannot find 'ensembl-analysis'
+
+=cut
+
+sub copy_general_module {
+  my ($analysis_path) = grep {/ensembl-analysis/} @INC;
+  throw("I cannot find ensembl-analysis in your PERL5LIB") unless($analysis_path);
+  my @dirs = splitdir($analysis_path);
+  while (my $dir = pop(@dirs)) {
+    if ($dir eq 'ensembl-analysis') {
+      my $file = catfile(@dirs, $dir, 'modules', 'Bio', 'EnsEMBL', 'Analysis', 'Config', 'General.pm');
+      if (! -e $file) {
+        copy("$file.example", $file) or warning("Could not copy $file.example to $file");
+      }
+      return;
+    }
+  }
+}
+
+
+=head2 check_compara_release_version
+
+ Arg [1]    : None
+ Description: Checks if the branch in ensembl-compara is set to the correct version
+              in order to run the projection part successfully.
+              If the branch is not the wanted version, it tries to switch to the wanted
+              version
+ Returntype : None
+ Exceptions : Throws if it fails to move to the ensembl-compara directory
+              Throws if it fails to move back to the current directory
+              Throws if it fails to run 'git branch'
+              Throws if it fails to close the git command pipe
+              Throws if it fails to run 'git fetch'
+              Throws if it fails to run 'git checkout <wanted version>'
+
+=cut
+
+sub check_compara_release_version {
+  my $wanted_branch = 'release/98';
+  foreach my $dir (@INC) {
+    if ($dir =~ /ensembl-compara/) {
+      my $current_dir = getcwd();
+      chdir($dir) or throw("Could not go to '$dir'");
+      open(CH, 'git branch |') or throw('Could not run "git branch"');
+      while(<CH>) {
+        my ($current, $branch) = $_ =~ /^(.)\s+(\S+)/;
+        if ($current eq '*') {
+          if ($branch ne $wanted_branch) {
+            if (system('git fetch > '.devnull().' 2>&1')) {
+              throw('Could not fetch branches with git');
+            }
+            elsif (system("git checkout $wanted_branch > ".devnull().' 2>&1')) {
+              throw("Could not checkout '$wanted_branch'");
+            }
+            else {
+              warning("Switched branch '$branch' to '$wanted_branch' in '$dir'");
+            }
+          }
+          last;
+        }
+      }
+      close(CH) or throw('Could not close the git command pipe');
+      chdir($current_dir) or throw("Could not move back to '$current_dir'");
+      last;
+    }
+  }
+}
+
+=head2
+
+ Arg [1]    : Species name, e.g. mus_musculus
+ Description: Looks for the most recent core on the mirror server for the given
+              species - to be used as reference for projection.
+ Returntype : String
+ Exceptions : Warning if no core exists on mirror for given species
+
+=cut
+sub current_projection_source_db{
+  my ($species) = @_;
+  my $current_db;
+
+  my @out= `mysql-ens-mirror-1 -NB -e "SHOW DATABASES LIKE '${species}_core%'"`;
+  if(!@out){
+    warning("No core database available on mirror for species +$species+ - will use latest homo_sapiens core.");
+    @out= `mysql-ens-mirror-1 -NB -e "SHOW DATABASES LIKE 'homo_sapiens_core%'"`;
+  }
+  chomp($out[-1]); #the 3 most recent versions of a core will be available on mirror
+  return $out[-1];
 }

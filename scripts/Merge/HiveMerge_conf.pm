@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ sub default_options {
     # to load the new patches and run the patches annotation pipeline on patches and set the patches_ftp_dir
     # to the corresponding ftp path on the NCBI FTP server where the PATCHES are located
     'patch_update' => 1,
-    'patches_ftp_dir' => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_00000XXXX.X_GRCXXX.pX/GCA_00000XXXX.X_GRCXXX.pX_assembly_structure/PATCHES/alt_scaffolds',
+    'patches_ftp_dir' => 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_00000XXXX.X_GRCXXX.pX/GCA_00000XXXX.X_GRCXXX.pX_assembly_structure/PATCHES/alt_scaffolds',
 
     # users and passwords for read-only and write access to the genebuild MySQL servers
     'pass_r' => '',

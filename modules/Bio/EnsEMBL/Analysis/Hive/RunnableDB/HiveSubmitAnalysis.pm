@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2020] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -711,10 +711,15 @@ sub feature_region {
 
  Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
  Description: Creates input ids based on features 'feature_type'
+              You can filter the set with multiple parameters:
+              * feature_logic_names: an array of logic_names
+              * exclude_biotype: an array of biotypes to exclude
+              * feature_restriction: biotype (needs biotypes param) or projection
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : Throws if 'feature_type' is not defined
               Throws if 'feature_type' is not supported
+              Throws if 'batch_size' is defined and less than 1
 
 =cut
 
@@ -750,24 +755,29 @@ sub feature_id {
   else {
     $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
   }
-  foreach my $slice (@$slices) {
-    foreach my $logic_name (@$logic_names) {
-        foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
-          if($self->param_is_defined('exclude_biotype')) {
-            foreach my $biotype (@{$self->param('exclude_biotype')}){
-               if ($feature->biotype eq $biotype) {
-                   $self->warning("You've defined a biotype that is not allowed to be copied. Something is wrong");
-               }
-               else{
-                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
-               }
+  if ($feature_restriction or $self->param_is_defined('exclude_biotype') or @$slices == 1) {
+    foreach my $slice (@$slices) {
+      foreach my $logic_name (@$logic_names) {
+          foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
+            if($self->param_is_defined('exclude_biotype')) {
+              foreach my $biotype (@{$self->param('exclude_biotype')}){
+                 if ($feature->biotype eq $biotype) {
+                     $self->warning("You've defined a biotype that is not allowed to be copied. Something is wrong");
+                 }
+                 else{
+                    push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+                 }
+             }
            }
-         }
-         else{
-                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
-               }
+           else{
+                    push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+                 }
+        }
       }
     }
+  }
+  else {
+    $output_id_array = $feature_adaptor->list_dbIDs(1);
   }
 
   if($self->param_is_defined('batch_size')) {

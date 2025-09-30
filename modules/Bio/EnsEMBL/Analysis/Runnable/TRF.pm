@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -225,8 +225,8 @@ sub run_analysis{
 	$self->options(join(' ', @arg_list));
   throw($program." is not executable TRF::run_analysis ") 
     unless($program && -x $program);
-  # Use this command if you are using TRF version 4.0.0
-  my $command = $program." ".$self->queryfile." ".$self->options." -d -h";
+  # Use this command if you are using TRF version 4.09
+  my $command = $program." ".$self->queryfile." ".$self->options." -d -h -l 10";#'-l' specifies that the longest TR array expected in the input (in millions)
 
   # Use this command if your TRF program is previous to the 4.0.0 version
   # my $command = $program." ".$self->queryfile." ".$self->options." -d";

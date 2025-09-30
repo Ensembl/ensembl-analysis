@@ -1,0 +1,3 @@
+6	toplevel	Top Level	Top Level Non-Redundant Sequence Region
+367	karyotype_rank	Rank in the karyotype	For a given seq_region, if it is part of the species karyotype, will indicate its rank
+554	is_canonical	Ensembl Canonical	This transcript is the chosen canonical for its gene. For protein-coding genes, this is the MANE_Select transcript if there is one. If not, the canonical transcript is chosen by a pipeline that takes into account several criteria including transcript support (TSL), functional importance (APPRIS), representation in RefSeq and UniProt databases, length and coverage of pathogenic variants, where available. For non protein-coding genes, it is usually the longest transcript with the same biotype as its parent gene.

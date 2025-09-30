@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -897,7 +897,6 @@ sub ungapped_features {
   my $string = $feat->[4];
   my $start = $feat->[2];
   my $end = $feat->[3];
- # print "THINGS $start $end $string\n";
   my @pieces = ( $string =~ /(\d*[MDI])/g );
   foreach my $piece (@pieces) {
     my ($length) = ( $piece =~ /^(\d*)/ );
@@ -918,8 +917,6 @@ sub ungapped_features {
       $ugf->[3] = $qend;
       $ugf->[4] = $length."M";
       push @ugfs, $ugf;
-#      print "UNGAPPED " .$ugf->[2] .
-	" " . $ugf->[3] . " " . $ugf->[4] ."\n";
     } elsif( $piece =~ /I$/ ) {
       #
       # INSERT

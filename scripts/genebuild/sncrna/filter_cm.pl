@@ -1,6 +1,6 @@
 #!/usr/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,11 +44,10 @@ sub filter_rfam {
 
 my $rfam_cm_file       = $ARGV[0]; #$self->param_required('rfam_cm_file');
 my $rfam_accessions   = $ARGV[1]; #$self->param_required('rfam_accessions');
-my $working_dir        = $ARGV[2]; #$self->param_required("working_dir");
 
 my $cm_path = path($rfam_cm_file);
 my $ra_path = path($rfam_accessions);
-my $output = path($working_dir . "/Rfam.cm");
+my $output = path($ARGV[2]);#path($working_dir . "/Rfam.cm");
 
 my $cm = $cm_path->slurp;
 my $ra = $ra_path->slurp;
