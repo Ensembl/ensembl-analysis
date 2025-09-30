@@ -49,7 +49,7 @@ sub default_options {
     'busco_protein_file'           => '', #optional, already defined in ProcessGCA
     'rfam_accessions_file'         => '', #optional, already defined in ProcessGCA
     'use_existing_short_read_dir'  => '', #path for esisting short read data
-    'registry_file'                => catfile( $self->o('enscode_root_dir'),'ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm' ), # This should be the path to the pipeline's copy of the Databases.pm registry file, core adaptors will be written to it
+    'registry_file'                => '', # This should be the path to the pipeline's copy of the Databases.pm registry file, core adaptors will be written to it
     'generic_registry_file'        => '',                                                                                                                # Could use this to hold the path to ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm to copy as a generic registry
     'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
     'validation_type'              => 'moderate',
@@ -248,10 +248,10 @@ sub default_options {
 ########################
 # db info
 ########################
-    'pipe_db_server'               => $ENV{GBS7},                                                                                                        # host for pipe db
-    'dna_db_server'                => $ENV{GBS6},                                                                                                        # host for dna db
-    'pipe_db_port'                 => $ENV{GBP7},                                                                                                        # port for pipeline host
-    'dna_db_port'                  => $ENV{GBP6},                                                                                                        # port for dna db host
+    'pipe_db_server'               => '',                                                                                                        # host for pipe db
+    'dna_db_server'                => '',                                                                                                        # host for dna db
+    'pipe_db_port'                 => '',                                                                                                        # port for pipeline host
+    'dna_db_port'                  => '',                                                                                                        # port for dna db host
     'registry_db_server'           => $ENV{GBS1},                                                                                                        # host for registry db
     'registry_db_port'             => $ENV{GBP1},                                                                                                        # port for registry db
     'registry_db_name'             => 'gb_assembly_registry',
@@ -1725,13 +1725,13 @@ sub resource_classes {
     'registry_2GB' => {
       SLURM =>  [
         $self->slurm_resource_builder(2000, '2-00:00:00',  $self->default_options->{'cores'} ),
-        ' -reg_conf ' . catfile( $self->o('base_output_dir'),"Databases.pm" )
+        ' -reg_conf ' . $self->o('registry_file')
       ],
     },
     'registry_32GB' => {
       SLURM =>  [
         $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
-        ' -reg_conf ' . catfile( $self->o('base_output_dir'),"Databases.pm" )
+        ' -reg_conf ' . $self->o('registry_file')
       ],
     },
   };
