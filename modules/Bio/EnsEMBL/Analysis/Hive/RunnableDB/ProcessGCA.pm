@@ -624,7 +624,7 @@ sub get_clade_params {
       $clade_params->{'busco_group'}          = 'nematoda_odb12',;
   }elsif ( $clade eq 'ascomycota' ) {
       $clade_params->{'max_intron_length'}    =1000;
-      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/fungi_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/ascomycota_fungidb_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/ascomycota_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblFungi',
@@ -633,7 +633,7 @@ sub get_clade_params {
       $clade_params->{'helixer_param'}        = '--subsequence-length 21384 --overlap-offset 10692 --overlap-core-length 16038',;
   }elsif ( $clade eq 'basidiomycota' ) {
       $clade_params->{'max_intron_length'}    =1000;
-      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/fungi_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/basidiomycota_fungidb_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/basidiomycota_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblFungi',
@@ -642,7 +642,7 @@ sub get_clade_params {
       $clade_params->{'helixer_param'}        = '--subsequence-length 21384 --overlap-offset 10692 --overlap-core-length 16038',;
   }elsif ( $clade eq 'mucoromycota' ) {
       $clade_params->{'max_intron_length'}    =1000;
-      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/fungi_uniprot_proteins.fa',
+      $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mucoromycota_fungidb_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mucoromycota_orthodb_proteins.fa',
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_fungi_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblFungi',
