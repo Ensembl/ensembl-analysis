@@ -684,6 +684,7 @@ sub pipeline_analyses {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl','genes', 'transcriptomic_data', 'get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') . ' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250',
       },
       -flow_into => {
+/transcriptomic_data
         1 => ['download_genus_rnaseq_csv'],
       },
       -input_ids => [
