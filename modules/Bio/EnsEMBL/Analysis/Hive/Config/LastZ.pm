@@ -26,9 +26,19 @@ use File::Spec::Functions;
 
 use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
+
 
 sub default_options {
   my ($self) = @_;
+  ## Build software path based on new software type
+  my $software_type = $ENV{SOFTWARE_TYPE};
+  my $pair_aligner_exe = get_software_path($software_type, 'pair_aligner_exe');
+  my $axtChain_exe = get_software_path($software_type, 'axtChain_exe');
+  my $chainNet_exe = get_software_path($software_type, 'chainNet_exe');
+  my $faToNib_exe = get_software_path($software_type, 'faToNib_exe');
+  my $lavToAxt_exe = get_software_path($software_type, 'lavToAxt_exe');
+
   return {
 
     # inherit other stuff from the base class
@@ -39,6 +49,8 @@ sub default_options {
     # Variable settings- You change these!!!
     #
 ######################################################
+    software_type             => $software_type,
+
 ########################
     # Misc setup info
 ########################
@@ -77,6 +89,15 @@ sub default_options {
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release' => $ENV{ENSEMBL_RELEASE},    # this is the current release version on staging to be able to get the correct database
+
+########################
+    # Executable paths
+########################
+    pair_aligner_exe          => $pair_aligner_exe,
+    axtChain_exe              => $axtChain_exe,
+    chainNet_exe              => $chainNet_exe,
+    faToNib_exe               => $faToNib_exe,
+    lavToAxt_exe              => $lavToAxt_exe,
 
 ########################
     # Extra db settings
@@ -215,12 +236,6 @@ sub default_options {
     'filter_duplicates_batch_size'    => 10,
 
     # LastZ is used to align the genomes
-    opt_dir                      => catdir($self->o('linuxbrew_home_path'), 'opt'),
-    pair_aligner_exe             => catfile( $self->o('opt_dir'), 'lastz', 'bin', 'lastz' ),
-    axtChain_exe                 => catfile( $self->o('opt_dir'), 'kent', 'bin', 'axtChain' ),
-    chainNet_exe                 => catfile( $self->o('opt_dir'), 'kent', 'bin', 'chainNet' ),
-    faToNib_exe                  => catfile( $self->o('opt_dir'), 'kent', 'bin', 'faToNib' ),
-    lavToAxt_exe                 => catfile( $self->o('opt_dir'), 'kent', 'bin', 'lavToAxt' ),
     compara_scripts              => catdir($self->o('enscode_root_dir'), 'ensembl-compara', 'scripts'),
     compare_beds_exe             => catfile( $self->o('enscode_root_dir'), 'pipeline', 'compare_beds.pl' ),
     create_pair_aligner_page_exe => catfile( $self->o('enscode_root_dir'), 'report', 'create_pair_aligner_page.pl' ),

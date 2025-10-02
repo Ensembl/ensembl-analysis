@@ -114,6 +114,8 @@ sub default_options {
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
 
+        software_type => $ENV{SOFTWARE_TYPE},
+
         ensembl_release => $ENV{ENSEMBL_RELEASE},
         genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
         email_address => $ENV{HIVE_EMAIL},
