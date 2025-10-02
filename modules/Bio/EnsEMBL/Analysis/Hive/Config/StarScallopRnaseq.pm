@@ -27,6 +27,7 @@ use File::Spec::Functions;
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
 
 # this is required for eHive's WHEN ELSE
 use  Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
@@ -34,6 +35,15 @@ use parent ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
 
 sub default_options {
   my ($self) = @_;
+  my $software_type = $ENV{SOFTWARE_TYPE};
+  my $star_path = get_software_path($software_type, 'star');
+  my $samtools_path = get_software_path($software_type, 'samtools');
+  my $scallop_path = get_software_path($software_type, 'scallop');
+  my $stringtie2_path = get_software_path($software_type, 'stringtie');
+  my $picard_lib_jar = get_software_path($software_type, 'picard_lib_jar');
+  my $rnasamba = get_software_path($software_type, 'rnasamba');
+  my $cpc2 = get_software_path($software_type, 'cpc2');
+  my $uniprot_blast_exe_path = get_software_path($software_type, 'blastp');
 
   return {
     # inherit other stuff from the base class
@@ -46,6 +56,7 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
+    software_type             => $software_type,
     'dbowner' => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name' => '' || $self->o('production_name') . '_' . $self->o('ensembl_release'),
     'user_r'                    => '',                                                                                # read only db user
@@ -151,18 +162,19 @@ sub default_options {
 ########################
 # Executable paths
 ########################
-    star_path       => catfile($self->o('binary_base'), 'STAR'),
-    scallop_path    => catfile($self->o('binary_base'), 'scallop'),
-    stringtie2_path => catfile($self->o('binary_base'), 'stringtie'),
-    samtools_path   => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
-    picard_lib_jar  => catfile($self->o('linuxbrew_home_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
-    rnasamba => '/hps/software/users/ensembl/genebuild/singularity/rnasamba_latest.sif',
-    cpc2 => '/hps/software/users/ensembl/genebuild/singularity/test_cpc2.sif',
+    star_path                => $star_path,
+    scallop_path             => $scallop_path,
+    stringtie2_path          => $stringtie2_path,
+    samtools_path            => $samtools_path,
+    picard_lib_jar           => $picard_lib_jar,
+    rnasamba                 => $rnasamba,
+    cpc2                     => $cpc2,
+
     ensembl_analysis_scripts   => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     pcp_get_transcripts_script => catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'get_transcripts.pl'),
 
     'blast_type'             => 'ncbi',                                                                         # It can be 'ncbi', 'wu', or 'legacy_ncbi'
-    'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
+    uniprot_blast_exe_path             => $uniprot_blast_exe_path,
 
     'summary_file_delimiter' => '\t',            # Use this option to change the delimiter for your summary data file
     'summary_csv_table'      => 'csv_data',

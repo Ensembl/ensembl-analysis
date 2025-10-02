@@ -24,10 +24,26 @@ use strict;
 use warnings;
 use File::Spec::Functions;
 
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 sub default_options {
   my ($self) = @_;
+
+  ## Build software path based on new software type variable
+    my $software_type = $ENV{SOFTWARE_TYPE};
+    my $dust_path =  get_software_path($software_type, 'dust');
+    my $trf_path =  get_software_path($software_type, 'trf');
+    my $repeatmasker_path = get_software_path($software_type, 'repeatmasker');
+    my $red_path =  get_software_path($software_type, 'red');
+    my $samtools_path =  get_software_path($software_type, 'samtools');
+    my $eponine_java_path =  get_software_path($software_type, 'java');
+    my $eponine_jar_path =  get_software_path($software_type, 'eponine_jar');
+    my $cpg_path =  get_software_path($software_type, 'cpg');
+    my $trnascan_path =  get_software_path($software_type, 'trnascan_path');
+    my $blast =  get_software_path($software_type, 'blast');
+
+
   return {
 
     # inherit other stuff from the base class
@@ -38,6 +54,8 @@ sub default_options {
     # Variable settings- You change these!!!
     #
 ######################################################
+    software_type             => $software_type,
+
 ########################
     # Misc setup info
 ########################
@@ -123,16 +141,16 @@ sub default_options {
 ########################
 
     'blast_type'        => 'ncbi',                                               # It can be 'ncbi', 'wu', or 'legacy_ncbi'
-    'dust_path'         => catfile( $self->o('binary_base'), 'dustmasker' ),
-    'trf_path'          => catfile( $self->o('binary_base'), 'trf' ),
-    'repeatmasker_path' => catfile( $self->o('binary_base'), 'RepeatMasker' ),
-    red_path            => catfile($self->o('binary_base'), 'Red'),
-    samtools_path       => catfile( $self->o('binary_base'), 'samtools' ),       #You may need to specify the full path to the samtools binary
-    'eponine_java_path' => catfile($self->o('binary_base'), 'java'),
-    'eponine_jar_path' => catfile($self->o('linuxbrew_home_path'), 'opt', 'eponine', 'libexec', 'eponine-scan.jar'),
-    'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
-    'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
-	
+	  dust_path                 => $dust_path,
+    trf_path                  => $trf_path,
+    repeatmasker_path         => $repeatmasker_path,
+    red_path                  => $red_path,
+    samtools_path             => $samtools_path,
+    eponine_java_path         => $eponine_java_path,
+    eponine_jar_path          => $eponine_jar_path,
+    cpg_path                  => $cpg_path,
+    trnascan_path             => $trnascan_path,
+    blast                     => $blast,
 ########################
     # Misc setup info
 ########################

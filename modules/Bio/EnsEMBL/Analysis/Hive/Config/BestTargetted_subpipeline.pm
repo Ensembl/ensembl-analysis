@@ -27,10 +27,20 @@ use File::Spec::Functions;
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
+
 
 
 sub default_options {
   my ($self) = @_;
+  ## Build software path based on new software type
+  my $software_type = $ENV{SOFTWARE_TYPE};
+  my $exonerate_path = get_software_path($software_type, 'exonerate');
+  my $genewise_path = get_software_path($software_type, 'genewise');
+  my $indicate_path = get_software_path($software_type, 'indicate');
+  my $pmatch_path = get_software_path($software_type, 'pmatch');
+  my $exonerate_annotation = get_software_path($software_type, 'exonerate');
+
   return {
 
     # inherit other stuff from the base class
@@ -44,6 +54,7 @@ sub default_options {
     ########################
     # Misc setup info
     ########################
+    software_type             => $software_type,
     'dbowner' => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name' => '' || $self->o('production_name') . '_' . $self->o('ensembl_release'),
     'user_r'           => '',    # read only db user
@@ -72,13 +83,6 @@ sub default_options {
     annotation_file => $self->o('cdna_file') . '.annotation',
 
     'uniprot_table_name' => 'uniprot_sequences',
-
-    # Best targetted related parameters:
-    genewise_path => catfile( $self->o('binary_base'), 'genewise' ),
-    exonerate_path => catfile( $self->o('linuxbrew_home_path'), 'opt', 'exonerate09', 'bin', 'exonerate' ),
-    indicate_path       => catfile( $self->o('binary_base'), 'indicate' ),
-    pmatch_path         => catfile( $self->o('binary_base'), 'pmatch' ),
-    exonerate_annotation => catfile( $self->o('binary_base'), 'exonerate' ),
 
     exonerate_logic_name => 'exonerate',
     ncbi_query           => '((txid' . $self->o('taxon_id') . '[Organism:noexp]+AND+biomol_mrna[PROP]))  NOT "tsa"[Properties] NOT EST[keyword]',
@@ -121,6 +125,16 @@ sub default_options {
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release' => $ENV{ENSEMBL_RELEASE},    # this is the current release version on staging to be able to get the correct database
 
+    
+    ########################
+    # Executable paths
+    ########################
+    genewise_path                    => $genewise_path,
+    exonerate_path                   => $exonerate_path,
+    indicate_path                    => $indicate_path,
+    pmatch_path                      => $pmatch_path,
+    exonerate_annotation             => $exonerate_annotation,
+    
     ######################################################
     #
     # Mostly constant settings

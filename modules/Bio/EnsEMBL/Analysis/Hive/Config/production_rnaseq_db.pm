@@ -26,10 +26,14 @@ use File::Spec::Functions;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
+
 
 
 sub default_options {
   my ($self) = @_;
+  my $software_type = $ENV{SOFTWARE_TYPE};
+  my $deeptools_bamcoverage_path = get_software_path($software_type, 'bamCoverage');
 
   return {
     # inherit other stuff from the base class
@@ -43,6 +47,7 @@ sub default_options {
     ########################
     # Misc setup info
     ########################
+    software_type             => $software_type,
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
     'user_r'                    => '', # read only db user
@@ -125,7 +130,7 @@ sub default_options {
     ########################
     # Executable paths
     ########################
-    deeptools_bamcoverage_path => catfile($self->o('software_base_path'), 'pyenv', 'versions', 'genebuild', 'bin', 'bamCoverage'),
+    deeptools_bamcoverage_path                 => $deeptools_bamcoverage_path,
 
     use_threads => 4,
 
