@@ -475,22 +475,23 @@ sub pipeline_analyses {
       -logic_name => 'filter_mirnas',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'PYENV_VERSION="#pyenv_virtualenv#" python '.catfile($self->o('sncrna_analysis_script'), 'FilterDafs.py')
+        cmd => 'source #venv_path#/bin/activate && python '.catfile($self->o('sncrna_analysis_script'), 'FilterDafs_json_models.py')
           .' '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_model'))
           .' '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_scaler'))
           .' '.$self->o('ncrna_dir')
           .' '.catfile($self->o('ncrna_dir'), 'annotated_dafs.tsv')
           .' '.catfile($self->o('ncrna_dir'), 'rna_fold_results.txt')
           .' '.catfile($self->o('ncrna_dir'), 'identified_mirnas.bed')
-          .' '.catfile($self->o('ncrna_dir'), 'mirnas_to_delete.txt'),
-        pyenv_virtualenv => 'genebuild-mirna',
+          .' '.catfile($self->o('ncrna_dir'), 'mirnas_to_delete.txt')
+          .' && deactivate',
+        venv_path => '/hps/software/users/ensembl/genebuild/shared_venvs/genebuild-mirna-venv',
       },
       -rc_name   => '5GB',
       -flow_into => {
         1 => 'delete_flagged_mirnas',
       },
     },
-
+    
     {
       -logic_name => 'delete_flagged_mirnas',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
