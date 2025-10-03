@@ -443,8 +443,8 @@ sub pipeline_analyses {
 
     {
       # Creates a reference db for each species
-      -logic_name => 'process_gca',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::ProcessGCA',
+      -logic_name => 'update_registry',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         'num_threads'                 => $self->o('num_threads'),
         'dbowner'                     => $self->o('dbowner'),
