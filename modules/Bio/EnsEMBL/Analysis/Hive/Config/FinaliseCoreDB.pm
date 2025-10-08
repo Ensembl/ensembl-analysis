@@ -54,7 +54,7 @@ sub default_options {
     'dna_db_port'        => '',                                                                                                # port for dna db host
     'registry_host'      => '',                                                                                                # host for registry db
     'registry_port'      => '',                                                                                                # port for registry db
-    'registry_db'        => '',                                                                                                # name for registry db
+    'registry_db'        => '',                                                                                                # registry DB (active annotation tracking registry)
     'species_name'       => '',                                                                                                # e.g. mus_musculus
     'production_name'    => '',                                                                                                # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
@@ -136,7 +136,7 @@ sub default_options {
     gst_load_symbols_script  => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
     busco_lineage_selector_script => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metrics', 'busco_lineage_selector.py'),
     busco_metakeys_patch_script   => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metrics', 'busco_metakeys_patch.py'),
-    registry_status_update_script => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),   
+    registry_status_update_python_script => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
     pre_release_ftp_script        => catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts','genebuild','pre_release_ftp.py' ),
  
 # Genes biotypes to ignore from the final db when copying to core
@@ -851,18 +851,21 @@ sub pipeline_analyses {
         }
     },
 
-{
+  {
       -logic_name => 'update_registry_as_check',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('registry_status_update_script') .
+          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+              ' --host ' . $self->o('registry_host') .
+              ' --port ' . $self->o('registry_port') .
               ' --user ' . $self->o('user') .
-              ' --pass ' . $self->o('password') .
-              ' --assembly_accession ' . $self->o('assembly_accession') .
-              ' --registry_host ' . $self->o('registry_host') .
-              ' --registry_port ' . $self->o('registry_port') .
-              ' --registry_db ' . $self->o('registry_db') .
-              ' --status "Check BUSCO"',
+              ' --password ' . $self->o('password') .
+              ' --database ' . $self->o('registry_db') .
+              ' --assembly ' . $self->o('assembly_accession') .
+              ' --status check_busco' .
+              ' --genebuilder $USER' .
+              ' --annotation_source ensembl' .
+              ' --annotation_method full_genebuild',
       },
       -rc_name => 'default',
   },
@@ -897,11 +900,9 @@ sub pipeline_analyses {
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
         cmd => 'gzip -c ' .
-            catfile( $self->o('output_path'). '/red_output'. '/mask_output/'. $self->o('species_name') . '_toplevel.msk')
-            . ' > '
-            . catfile(
-                $self->o('output_path') . $self->o('species_name') . '_softmasked_toplevel.fa.gz'
-            ),
+            catfile( $self->o('output_path'), 'red_output', 'mask_output', $self->o('species_name') . '_toplevel.msk')
+            . ' > ' .
+            catfile( $self->o('output_path'), $self->o('species_name') . '_softmasked_toplevel.fa.gz' ),
     },
     -hive_capacity => 10,
     -rc_name       => '2GB',
@@ -1038,18 +1039,21 @@ sub pipeline_analyses {
     },
   },
 
-{
+  {
       -logic_name => 'update_registry_pre_release',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('registry_status_update_script') .
+          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+              ' --host ' . $self->o('registry_host') .
+              ' --port ' . $self->o('registry_port') .
               ' --user ' . $self->o('user') .
-              ' --pass ' . $self->o('password') .
-              ' --assembly_accession ' . $self->o('assembly_accession') .
-              ' --registry_host ' . $self->o('registry_host') .
-              ' --registry_port ' . $self->o('registry_port') .
-              ' --registry_db ' . $self->o('registry_db') .
-              ' --status "Pre-Released"', 
+              ' --password ' . $self->o('password') .
+              ' --database ' . $self->o('registry_db') .
+              ' --assembly ' . $self->o('assembly_accession') .
+              ' --status pre_released' .
+              ' --genebuilder $USER' .
+              ' --annotation_source ensembl' .
+              ' --annotation_method full_genebuild',
       },
       -rc_name => '1GB',
       -flow_into => { 1 => ['create_target_db_gb1'], },
@@ -1098,18 +1102,21 @@ sub pipeline_analyses {
       },
   },
 
-{
+  {
       -logic_name => 'update_registry_final',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('registry_status_update_script') .
+          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+              ' --host ' . $self->o('registry_host') .
+              ' --port ' . $self->o('registry_port') .
               ' --user ' . $self->o('user') .
-              ' --pass ' . $self->o('password') .
-              ' --assembly_accession ' . $self->o('assembly_accession') .
-              ' --registry_host ' . $self->o('registry_host') .
-              ' --registry_port ' . $self->o('registry_port') .
-              ' --registry_db ' . $self->o('registry_db') .
-              ' --status "Completed"',
+              ' --password ' . $self->o('password') .
+              ' --database ' . $self->o('registry_db') .
+              ' --assembly ' . $self->o('assembly_accession') .
+              ' --status completed' .
+              ' --genebuilder $USER' .
+              ' --annotation_source ensembl' .
+              ' --annotation_method full_genebuild',
       },
       -rc_name => 'default',
   },
