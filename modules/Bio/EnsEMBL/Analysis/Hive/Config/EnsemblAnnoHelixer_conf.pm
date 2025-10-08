@@ -143,8 +143,8 @@ sub default_options {
     ensembl_gst_script                => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'pipelines' , 'gene_symbol_classifier'  ),
     gst_dump_proteins_script          => catfile( $self->o('ensembl_gst_script'), 'dump_protein_sequences.pl' ),
     gst_load_symbols_script           => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
-    registry_status_update_script     => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_registry.pl' ),
-    registry_status_update_python_script => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
+    pre_release_ftp_script            => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'automation', 'pre_release_ftp.py' ),
+    registry_status_update_script     => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
     core_metadata_script              => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
     core_stats_script                 => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),
 
@@ -468,12 +468,12 @@ sub pipeline_analyses {
         'repeatmodeler_library'       => $self->o('repeatmodeler_library'),
 
         # The actual registry update command
-        cmd => 'python ' . $self->o('registry_status_update_python_script') .
+        cmd => 'python ' . $self->o('registry_status_update_script') .
             ' --host ' . $self->o('registry_db_server') .
             ' --port ' . $self->o('registry_db_port') .
             ' --user ' . $self->o('user') .
             ' --password ' . $self->o('password') .
-            ' --database ' . $self->o('new_registry_db_name') .
+            ' --database ' . $self->o('registry_db_name') .
             ' --assembly #assembly_accession#' .
             ' --status in_progress' .
             ' --genebuilder ' . $ENV{USER} .
@@ -611,30 +611,12 @@ sub pipeline_analyses {
         -logic_name => 'update_registry_insufficient_data',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-            cmd => 'perl ' . $self->o('registry_status_update_script') .
-                ' --user ' . $self->o('user') .
-                ' --pass ' . $self->o('password') .
-                ' --assembly_accession ' . '#assembly_accession#' .
-                ' --registry_host ' . $self->o('registry_db_server') .
-                ' --registry_port ' . $self->o('registry_db_port') .
-                ' --registry_db ' . $self->o('registry_db_name') .
-                ' --status "Insufficient Data"' , 
-        },
-        -rc_name => '1GB',
-        -flow_into => {
-            1 => ['update_new_registry_insufficient_data'],
-        },
-    },
-    {
-        -logic_name => 'update_new_registry_insufficient_data',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-            cmd => 'python ' . $self->o('registry_status_update_python_script') .
+            cmd => 'python ' . $self->o('registry_status_update_script') .
                 ' --host ' . $self->o('registry_db_server') .
                 ' --port ' . $self->o('registry_db_port') .
                 ' --user ' . $self->o('user') .
                 ' --password ' . $self->o('password') .
-                ' --database ' . $self->o('new_registry_db_name') .
+                ' --database ' . $self->o('registry_db_name') .
                 ' --assembly #assembly_accession#' .
                 ' --status insufficient_data' .
                 ' --genebuilder $USER' .
@@ -855,18 +837,21 @@ sub pipeline_analyses {
       },
     },
     {
-        -logic_name => 'update_registry_anno_annotation_source',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-            cmd => 'perl ' . $self->o('registry_status_update_script') .
-                ' --user ' . $self->o('user') .
-                ' --pass ' . $self->o('password') .
-                ' --assembly_accession ' . '#assembly_accession#' .
-                ' --registry_host ' . $self->o('registry_db_server') .
-                ' --registry_port ' . $self->o('registry_db_port') .
-                ' --registry_db ' . $self->o('registry_db_name') .
-                ' --status "Insufficient Data"' , 
-        },
+      -logic_name => 'update_registry_anno_annotation_source',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'python ' . $self->o('registry_status_update_script') .
+              ' --host ' . $self->o('registry_db_server') .
+              ' --port ' . $self->o('registry_db_port') .
+              ' --user ' . $self->o('user') .
+              ' --password ' . $self->o('password') .
+              ' --database ' . $self->o('registry_db_name') .
+              ' --assembly #assembly_accession#' .
+              ' --status in_progress' .
+              ' --genebuilder $USER' .
+              ' --annotation_source ensembl' .
+              ' --annotation_method anno',
+      },
         -rc_name => '1GB',
         -flow_into => {
             1 => ['load_taxonomy_info'],
@@ -914,14 +899,17 @@ sub pipeline_analyses {
         -logic_name => 'update_registry_helixer_annotation_source',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-            cmd => 'perl ' . $self->o('registry_status_update_script') .
+            cmd => 'python ' . $self->o('registry_status_update_script') .
+                ' --host ' . $self->o('registry_db_server') .
+                ' --port ' . $self->o('registry_db_port') .
                 ' --user ' . $self->o('user') .
-                ' --pass ' . $self->o('password') .
-                ' --assembly_accession ' . '#assembly_accession#' .
-                ' --registry_host ' . $self->o('registry_db_server') .
-                ' --registry_port ' . $self->o('registry_db_port') .
-                ' --registry_db ' . $self->o('registry_db_name') .
-                ' --status "Insufficient Data"' , 
+                ' --password ' . $self->o('password') .
+                ' --database ' . $self->o('registry_db_name') .
+                ' --assembly #assembly_accession#' .
+                ' --status in_progress' .
+                ' --genebuilder $USER' .
+                ' --annotation_source ensembl' .
+                ' --annotation_method helixer',
         },
         -rc_name => '1GB',
         -flow_into => {
@@ -1570,35 +1558,16 @@ sub pipeline_analyses {
       -logic_name => 'update_registry_as_check',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('registry_status_update_script') .
-              ' --user ' . $self->o('user') .
-              ' --pass ' . $self->o('password') .
-              ' --assembly_accession ' . '#assembly_accession#' .
-              ' --registry_host ' . $self->o('registry_db_server') .
-              ' --registry_port ' . $self->o('registry_db_port') .
-              ' --registry_db ' . $self->o('registry_db_name') .
-              ' --status "Check BUSCO"',
-      },
-      -rc_name => 'default',
-      -flow_into => {
-          1 => ['update_new_registry_as_check'],
-      }
-  },
-  {
-      -logic_name => 'update_new_registry_as_check',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+          cmd => 'python ' . $self->o('registry_status_update_script') .
               ' --host ' . $self->o('registry_db_server') .
               ' --port ' . $self->o('registry_db_port') .
               ' --user ' . $self->o('user') .
               ' --password ' . $self->o('password') .
-              ' --database ' . $self->o('new_registry_db_name') .
+              ' --database ' . $self->o('registry_db_name') .
               ' --assembly #assembly_accession#' .
               ' --status check_busco' .
               ' --genebuilder $USER' .
-              ' --annotation_source ensembl' .
-              ' --annotation_method full_genebuild',
+              ' --annotation_source ensembl',
       },
       -rc_name => 'default',
   },
@@ -1606,35 +1575,16 @@ sub pipeline_analyses {
       -logic_name => 'update_registry_final',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('registry_status_update_script') .
-              ' --user ' . $self->o('user') .
-              ' --pass ' . $self->o('password') .
-              ' --assembly_accession ' . '#assembly_accession#' .
-              ' --registry_host ' . $self->o('registry_db_server') .
-              ' --registry_port ' . $self->o('registry_db_port') .
-              ' --registry_db ' . $self->o('registry_db_name') .
-              ' --status "Completed"',
-      },
-      -rc_name => 'default',
-      -flow_into => {
-          1 => ['update_new_registry_final'],
-      }
-  },
-  {
-      -logic_name => 'update_new_registry_final',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+          cmd => 'python ' . $self->o('registry_status_update_script') .
               ' --host ' . $self->o('registry_db_server') .
               ' --port ' . $self->o('registry_db_port') .
               ' --user ' . $self->o('user') .
               ' --password ' . $self->o('password') .
-              ' --database ' . $self->o('new_registry_db_name') .
+              ' --database ' . $self->o('registry_db_name') .
               ' --assembly #assembly_accession#' .
               ' --status completed' .
               ' --genebuilder $USER' .
-              ' --annotation_source ensembl' .
-              ' --annotation_method full_genebuild',
+              ' --annotation_source ensembl',
       },
       -rc_name => 'default',
       -flow_into => {
@@ -1654,7 +1604,7 @@ sub pipeline_analyses {
     -logic_name      => 'prepare_pre_release_ftp',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts','genebuild','pre_release_ftp.py' ) . ' -p "#output_path#"' . ' -g "#assembly_accession#"' . ' -s "#species_name#"',
+          cmd => 'python ' . $self->o('pre_release_ftp_script') . ' -p "#output_path#"' . ' -g "#assembly_accession#"' . ' -s "#species_name#"',
       },
     -hive_capacity => 10,
     -flow_into => {
@@ -1853,33 +1803,16 @@ sub pipeline_analyses {
       -logic_name => 'update_registry_pre_release',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('registry_status_update_script') .
-              ' --user ' . $self->o('user') .
-              ' --pass ' . $self->o('password') .
-              ' --assembly_accession ' . '#assembly_accession#' .
-              ' --registry_host ' . $self->o('registry_db_server') .
-              ' --registry_port ' . $self->o('registry_db_port') .
-              ' --registry_db ' . $self->o('registry_db_name') .
-              ' --status "Pre-Released"', 
-      },
-      -rc_name => '1GB',
-      -flow_into => { 1 => ['update_new_registry_pre_release'], },
-  },
-  {
-      -logic_name => 'update_new_registry_pre_release',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => 'python ' . $self->o('registry_status_update_python_script') .
+          cmd => 'python ' . $self->o('registry_status_update_script') .
               ' --host ' . $self->o('registry_db_server') .
               ' --port ' . $self->o('registry_db_port') .
               ' --user ' . $self->o('user') .
               ' --password ' . $self->o('password') .
-              ' --database ' . $self->o('new_registry_db_name') .
+              ' --database ' . $self->o('registry_db_name') .
               ' --assembly #assembly_accession#' .
               ' --status pre_released' .
               ' --genebuilder $USER' .
-              ' --annotation_source ensembl' .
-              ' --annotation_method full_genebuild',
+              ' --annotation_source ensembl',
       },
       -rc_name => '1GB',
   },
