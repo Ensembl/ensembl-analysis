@@ -180,14 +180,14 @@ sub _master_config {
           'genblast_not_best'   => 10000,
         }, # logic_names
         'biotypes' =>    {
-          'human_pe12_'         => 5000,
-          'mammals_pe12_'       => 5000,
-          'aves_pe12_'          => 5000,
+          'human_pe12_'         => 1000,
+          'mammals_pe12_'       => 400,
+          'aves_pe12_'          => 1000,
         }, # biotypes
       }, # genblast
      'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 20,
+          'ig_tr_gene'          => 1,
         }, # logic_names
         'biotypes' =>    {
           'IG_'                 => 10,
