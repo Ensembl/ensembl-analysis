@@ -76,7 +76,7 @@ $sth->bind_param(2,$registry_assembly_id);
 $sth->bind_param(3,1);
 $sth->bind_param(4,'pending');
 if ($sth->execute){
-say "Status updated to: $status";
+$self->throw("Status updated to: $status");	
 }
 else{
  $self->throw("Could not update annotation status");
