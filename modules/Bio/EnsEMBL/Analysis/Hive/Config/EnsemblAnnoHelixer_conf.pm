@@ -41,39 +41,39 @@ sub default_options {
     'cores'                        => 30,
     'num_threads'                  => 20,
     'gpu'                          => 'gpu:a100:2',
-    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'dbowner'                      => '',
     'base_output_dir'              => '',
     'init_config'                  => '', #path for configuration file (custom loading)
-    'override_clade'               => '', #optional, already defined in ProcessGCA
-    'protein_file'                 => '', #optional, already defined in ProcessGCA
-    'busco_protein_file'           => '', #optional, already defined in ProcessGCA
-    'rfam_accessions_file'         => '', #optional, already defined in ProcessGCA
+    'override_clade'               => '', #optional
+    'protein_file'                 => '', #optional
+    'busco_protein_file'           => '', #optional
+    'rfam_accessions_file'         => '', #optional
     'use_existing_short_read_dir'  => '', #path for esisting short read data
-    'registry_file'                => catfile( $self->o('enscode_root_dir'),'ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm' ), # This should be the path to the pipeline's copy of the Databases.pm registry file, core adaptors will be written to it
+    'registry_file'                => '', # This should be the path to the pipeline's copy of the Databases.pm registry file, core adaptors will be written to it
     'generic_registry_file'        => '',                                                                                                                # Could use this to hold the path to ensembl-analysis/scripts/genebuild/gbiab/support_files/Databases.pm to copy as a generic registry
-    'diamond_validation_db'        => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/uniprot_euk_diamond/uniprot_euk.fa.dmnd',
+    'diamond_validation_db'        => '',
     'validation_type'              => 'moderate',
-    'release_number'               => '' || $self->o('ensembl_release'),
-    'production_name'              => '' || $self->o('species_name'),
-    'pipeline_name'                => '' || $self->o('production_name') . $self->o('production_name_modifier'),
+    'release_number'               => '',
+    'production_name'              => '',
+    'pipeline_name'                => '',
     'user_r'                       => 'ensro',                                                                                                                # read only db user
     'user'                         => 'ensadmin',                                                                                                                # write db user
     'password'                     => '',                                                                                                                # password for write db user
     'server_set'                   => '',                                                                                                                # What server set to user, e.g. set1
     'busco_input_file_stid'        => 'stable_id_to_dump.txt',
-    'species_name'                 => '', #optional, already defined in ProcessGCA e.g. mus_musculus
-    'taxon_id'                     => '', #optional, already defined in ProcessGCA, should be in the assembly report file
-    'species_taxon_id'             => '' || $self->o('taxon_id'),                                                                                        # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
-    'genus_taxon_id'               => '' || $self->o('taxon_id'),                                                                                        # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
-    'uniprot_set'                  => '', #optional, already defined in ProcessGCA e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
-    'output_path'                  => '', #optional, already defined in ProcessGCA
+    'species_name'                 => '', #optional e.g. mus_musculus
+    'taxon_id'                     => '', #optional, should be in the assembly report file
+    'species_taxon_id'             => '', # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
+    'genus_taxon_id'               => '', # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
+    'uniprot_set'                  => '', #optional e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'output_path'                  => '', #optional
     'assembly_name'                => '', #optional aleady defined in the registry
     'assembly_accession'           => '', #the pipeline is initialed via standalone job  # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    'stable_id_prefix'             => '', #optional, already defined in ProcessGCA
+    'stable_id_prefix'             => '', #optional
     'use_genome_flatfile'          => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'species_url'                  => '' || $self->o('production_name') . $self->o('production_name_modifier'),                                          # sets species.url meta key
-    'species_division'             => '', #optional, already defined in ProcessGCA # sets species.division meta key
-    'stable_id_start'              => '', #optional, already defined in ProcessGCA When mapping is not required this is usually set to 0
+    'species_url'                  => '', # sets species.url meta key
+    'species_division'             => '', #optional # sets species.division meta key
+    'stable_id_start'              => '', #optional, When mapping is not required this is usually set to 0
     'mapping_required'             => '0',# If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'uniprot_version'              => 'uniprot_2021_04',                                                                                                 # What UniProt data dir to use for various analyses
     'production_name_modifier'     => '',                                                                                                                # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
@@ -88,14 +88,14 @@ sub default_options {
     'softmask_logic_names' => [],
 
     # RNA-seq file line count thresholds
-    'rnaseq_main_file_min_lines'  => 20,  # 10 runs (2 files per run)
-    'rnaseq_genus_file_min_lines' => 10,  # 5 runs (2 files per run)
+    'rnaseq_main_file_min_lines'  => '',  # 10 runs (2 files per run)
+    'rnaseq_genus_file_min_lines' => '',  # 5 runs (2 files per run)
         
     # busco threshold for the analysis that checks wether produce pre-release files or not!
-    'busco_threshold' => 70, # If the busco score is above this threshold, the pre-release files will be produced
+    'busco_threshold' => '', # If the busco score is above this threshold, the pre-release files will be produced
 
-    'busco_lower_threshold' => 50, # If the busco score is above this threshod and the difference less than 'busco_difference_threshold', the pre-release files will be produced
-    'busco_difference_threshold' => 10, # If the difference between the gene and protein busco score is less than this value, the pre-release files will be produced as long as the busco score is above 'busco_lower_threshold'
+    'busco_lower_threshold' => '', # If the busco score is above this threshod and the difference less than 'busco_difference_threshold', the pre-release files will be produced
+    'busco_difference_threshold' => '', # If the difference between the gene and protein busco score is less than this value, the pre-release files will be produced as long as the busco score is above 'busco_lower_threshold'
     
     # added to address issues with dumping larger genomes
     'mysql_dump_options' => '--max_allowed_packet=1000MB',
@@ -186,15 +186,16 @@ sub default_options {
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
-    'rnaseq_summary_file'          => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '.csv' ),                                     # Set this if you have a pre-existing cvs file with the expected columns
-    'rnaseq_summary_file_genus'    => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '_gen.csv' ),                                 # Set this if you have a pre-existing genus level cvs file with the expected columns
-    'long_read_dir'                => catdir( $self->o('output_path'),   'long_read' ),
-    'long_read_summary_file'       => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read.csv' ),                           # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_summary_file_genus' => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read_gen.csv' ),                       # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_fastq_dir'          => '' || catdir( $self->o('long_read_dir'), 'input' ),
+    'rnaseq_summary_file'          => '',                                     # Set this if you have a pre-existing cvs file with the expected columns
+    'rnaseq_summary_file_genus'    => '',                                 # Set this if you have a pre-existing genus level cvs file with the expected columns
+    'long_read_dir'                => '',
+    'long_read_summary_file'       => '',                           # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_summary_file_genus' => '',                       # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_fastq_dir'          => '',
 
-    'helixer_lineage' => '', # If set in clade settings in processGCA.pm helixer will run with this as the lineage.
-    
+    'helixer_lineage' => '', # If set in clade settings, helixer will run with this as the lineage.
+    'helixer_param'  => '', # If set in clade settings helixer will run with these parameters.
+
     # Please assign some or all columns from the summary file to the
     # some or all of the following categories.  Multiple values can be
     # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus,
@@ -494,7 +495,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '1GB',
       -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short -l 500' ,
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short -l 500' ,
         
       },
         -flow_into => {
@@ -507,7 +508,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '1GB',
       -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 250' ,
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #genus_taxon_id# ' .'-f #rnaseq_summary_file_genus# --read_type short --tree -l 250' ,
       },
       -flow_into => {
         '1->A' => ['check_rnaseq_files'],
@@ -580,7 +581,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '1GB',
       -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'scripts','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #long_read_summary_file# --read_type long' ,
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #long_read_summary_file# --read_type long' ,
       },
 
       -flow_into => {
@@ -1010,26 +1011,31 @@ sub pipeline_analyses {
         1 => ['run_helixer'],
       },
     },
-    # Helixer does not like the reheadered file and adds a leading underscore to the ID, so we use a sed to remove this prior to dumping the protien fasta
-    {
-      -logic_name => 'run_helixer',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'mkdir -p #output_path#/helixer;' .
-          'singularity exec --nv '.  $self->o ('helixer_singularity_image') .  ' bash -c "'. 
-          'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && '. 
-          'Helixer.py --fasta-path #reheadered_toplevel_genome_file# --lineage #helixer_lineage# --gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3";' .
-          'sed -E \'s/(ID|Parent)=_([^;]*)/\\1=\\2/g\' #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3 > #output_path#/helixer/#assembly_accession#_#species_name#.gff3;' .
-          'rm #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3;' .
-          $self->o('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
-          $self->o ('gffread_path').' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop -y #output_path#/helixer/helixer_proteins.fa;', 
-      },
-      -rc_name         => 'helixer',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['load_gtf_file'],
-      },
-    },
+
+{
+  -logic_name => 'run_helixer',
+  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+  -parameters => {
+    cmd => 'mkdir -p #output_path#/helixer;' .
+      'singularity exec --nv ' . $self->o('helixer_singularity_image') . ' bash -c "' .
+        'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && ' .
+          'Helixer.py ' .
+            '--fasta-path #reheadered_toplevel_genome_file# ' .
+            '--lineage #helixer_lineage# ' .
+            '--downloaded-model-path /hps/software/users/ensembl/genebuild/genebuild_virtual_user/Helixer/models ' .
+            '#helixer_param# ' .
+            '--gff-output-path #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3"; ' .
+            'sed -E \'s/(ID|Parent)=_([^;]*)/\\1=\\2/g\' #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3 > #output_path#/helixer/#assembly_accession#_#species_name#.gff3;' .
+            'rm #output_path#/helixer/#assembly_accession#_#species_name#_raw.gff3;' .
+            $self->o('gffread_path') . ' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -T -o #output_path#/helixer/helixer.gtf;' .
+            $self->o('gffread_path') . ' #output_path#/helixer/#assembly_accession#_#species_name#.gff3 -g #reheadered_toplevel_genome_file# --adj-stop -y #output_path#/helixer/helixer_proteins.fa;',
+  },
+  -rc_name         => 'helixer',
+  -max_retry_count => 0,
+  -flow_into       => {
+    1 => ['load_gtf_file'],
+  },
+},
     {		   
       -logic_name => 'load_gtf_file',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
