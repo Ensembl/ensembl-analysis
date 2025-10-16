@@ -27,11 +27,18 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
+use Bio::EnsEMBL::Analysis::Tools::SoftwareConfigLoad qw(get_software_path); #Software path config module
+
 
 sub default_options {
   my ($self) = @_;
-  return {
+  my $software_type = $ENV{SOFTWARE_TYPE};
+  my $minimap2_path = get_software_path($software_type, 'minimap2');
+  my $paftools_path = get_software_path($software_type, 'paftools');
+  my $uniprot_blast_exe_path = get_software_path($software_type, 'blastp');
+  my $samtools_path = get_software_path($software_type, 'samtools');
 
+  return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
 
@@ -43,6 +50,7 @@ sub default_options {
     ########################
     # Misc setup info
     ########################
+    software_type             => $software_type,
     'dbowner' => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name' => '' || $self->o('production_name') . '_' . $self->o('ensembl_release'),
     'user_r'           => '',    # read only db user
@@ -106,15 +114,15 @@ sub default_options {
     # Executable paths
     ########################
     'minimap2_genome_index' => $self->o('faidx_genome_file') . '.mmi',
-    'minimap2_path'         => catfile( $self->o('binary_base'), 'minimap2' ),
-    'paftools_path'         => catfile( $self->o('binary_base'), 'paftools.js' ),
+    minimap2_path         => $minimap2_path,
+    paftools_path         => $paftools_path,
     'minimap2_batch_size'   => '5000',
 
     'blast_type' => 'ncbi',    # It can be 'ncbi', 'wu', or 'legacy_ncbi'
 
-    'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
+    uniprot_blast_exe_path => $uniprot_blast_exe_path,
+    samtools_path => $samtools_path,
 
-    samtools_path => catfile( $self->o('binary_base'), 'samtools' ),    #You may need to specify the full path to the samtools binary
 
     'long_read_dir'       => catdir( $self->o('output_path'),   'long_read' ),
     'long_read_fastq_dir' => catdir( $self->o('long_read_dir'), 'input' ),
