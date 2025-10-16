@@ -1540,7 +1540,29 @@ sub pipeline_analyses {
 
     },
          -rc_name => 'default',
-         -flow_into       => { 1 => ['check_busco_score'], },
+         -flow_into       => { 1 => ['populate_registry_metrics'], },
+    },
+  {
+      -logic_name => 'populate_registry_metrics',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'python ' . $self->o('write_metrics_to_registry_script') .
+                ' --registry_host ' . $self->o('registry_db_server') .
+                ' --registry_port ' . $self->o('registry_db_port') .
+                ' --registry_user ' . $self->o('user') .
+                ' --registry_password ' . $self->o('password') .
+                ' --registry_db ' . $self->o('registry_db_name') .
+                ' --core_host ' . $self->o('dna_db_server') .
+                ' --core_port ' . $self->o('dna_db_port') .
+                ' --core_user ' . $self->o('user_r') .
+                ' --core_password ' . $self->o('password') .
+                ' --core_db ' . '#core_dbname#' .
+                ' --assembly ' . '#assembly_accession#',
+      },
+      -rc_name => '1GB',
+      -flow_into => {
+        1 => ['check_busco_score'],
+      },
     },
     {
         -logic_name => 'check_busco_score',
@@ -1578,28 +1600,6 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
   },
-  {
-      -logic_name => 'populate_registry_metrics',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => 'python ' . $self->o('write_metrics_to_registry_script') .
-                ' --registry_host ' . $self->o('registry_db_server') .
-                ' --registry_port ' . $self->o('registry_db_port') .
-                ' --registry_user ' . $self->o('user') .
-                ' --registry_password ' . $self->o('password') .
-                ' --registry_db ' . $self->o('registry_db_name') .
-                ' --core_host ' . $self->o('dna_db_server') .
-                ' --core_port ' . $self->o('dna_db_port') .
-                ' --core_user ' . $self->o('user_r') .
-                ' --core_password ' . $self->o('password') .
-                ' --core_db ' . '#core_dbname#' .
-                ' --assembly ' . '#assembly_accession#',
-      },
-      -rc_name => '1GB',
-      -flow_into => {
-        1 => ['update_registry_final'],
-      },
-    },
     {
       -logic_name => 'update_registry_final',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1825,7 +1825,7 @@ sub pipeline_analyses {
       },
       -rc_name => '10GB',
       -flow_into => {
-          1 => ['update_registry_final'],
+          1 => ['update_registry_pre_release'],
       },
   },
   {
