@@ -264,7 +264,7 @@ sub default_options {
     loading_report_script   => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
     ensembl_misc_script     => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script     => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
-    registry_status_update_script     => catfile($self->o('ensembl_analysis_script'), 'update_assembly_registry.pl'),
+    registry_status_update_script     => catfile($self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py'),
 
     hive_beekeeper_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'beekeeper.pl'),
 
@@ -682,6 +682,35 @@ sub pipeline_analyses {
 
   return [
     {
+      -logic_name => 'update_registry_in_progress',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'python ' . $self->o('registry_status_update_script') .
+            ' --host ' . $self->o('registry_host') .
+            ' --port ' . $self->o('registry_port') .
+            ' --user ' . $self->o('user') .
+            ' --password ' . $self->o('password') .
+            ' --database ' . $self->o('registry_db') .
+            ' --assembly #assembly_accession#' .
+            ' --status in_progress' .
+            ' --genebuilder $USER' .
+            ' --annotation_source ensembl' .
+            ' --annotation_method full_genebuild',
+      },
+      -rc_name => '1GB',
+      -flow_into => {
+        1 => ['download_rnaseq_csv'],
+      },
+      -input_ids  => [
+        {
+          assembly_name => $self->o('assembly_name'),
+          assembly_accession => $self->o('assembly_accession'),
+          assembly_refseq_accession => $self->o('assembly_refseq_accession'),
+        },
+      ],
+    },
+
+    {
       -logic_name => 'download_rnaseq_csv',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
@@ -691,13 +720,6 @@ sub pipeline_analyses {
       -flow_into => {
         1 => ['download_genus_rnaseq_csv'],
       },
-      -input_ids  => [
-        {
-          assembly_name => $self->o('assembly_name'),
-          assembly_accession => $self->o('assembly_accession'),
-          assembly_refseq_accession => $self->o('assembly_refseq_accession'),
-        },
-      ],
     },
 
     {
