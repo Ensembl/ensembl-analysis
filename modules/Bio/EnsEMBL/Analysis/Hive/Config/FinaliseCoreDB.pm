@@ -829,29 +829,8 @@ sub pipeline_analyses {
               ' -output_dir ' .  $self->o('busco_protein_dir') . ' -run_query true',
           },
          -rc_name         => 'default',
-         -flow_into       => { 1 => ['check_busco_score'], },
+         -flow_into       => { 1 => ['populate_registry_metrics'], },
     }, 
-
-{
-        -logic_name => 'check_busco_score',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-            cmd => 'if python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
-            ' --genome ' . $self->o('busco_genome_dir')  . '/' .  $self->o('reference_db_name').'*.json ' .
-            ' --protein '. $self->o('busco_protein_dir') . '/' .  $self->o('reference_db_name').'*.json'  .
-            ' --min_range_protein_score "' . $self->o('busco_lower_threshold') . '"' .
-            ' --max_range_protein_score "' . $self->o('busco_threshold') . '"' .
-            ' --diff_prot_gen_mode "' . $self->o('busco_difference_threshold') . '"' .
-            '; then exit 0; else exit 42; fi',
-          return_codes_2_branches => { '42' => 2 },
-        },
-        -rc_name => 'default',
-        -flow_into  => {
-            1 => 'populate_registry_metrics',
-            2 => 'update_registry_as_check',
-        }
-    },
-
   {
       -logic_name => 'populate_registry_metrics',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -871,9 +850,28 @@ sub pipeline_analyses {
       },
       -rc_name => '1GB',
       -flow_into => {
-          1 => ['update_registry_completed'],
+          1 => ['check_busco_score'],
       },
   },
+{
+        -logic_name => 'check_busco_score',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+            cmd => 'if python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
+            ' --genome ' . $self->o('busco_genome_dir')  . '/' .  $self->o('reference_db_name').'*.json ' .
+            ' --protein '. $self->o('busco_protein_dir') . '/' .  $self->o('reference_db_name').'*.json'  .
+            ' --min_range_protein_score "' . $self->o('busco_lower_threshold') . '"' .
+            ' --max_range_protein_score "' . $self->o('busco_threshold') . '"' .
+            ' --diff_prot_gen_mode "' . $self->o('busco_difference_threshold') . '"' .
+            '; then exit 0; else exit 42; fi',
+          return_codes_2_branches => { '42' => 2 },
+        },
+        -rc_name => 'default',
+        -flow_into  => {
+            1 => 'update_registry_completed',
+            2 => 'update_registry_as_check',
+        }
+    },
 
   {
       -logic_name => 'update_registry_completed',
