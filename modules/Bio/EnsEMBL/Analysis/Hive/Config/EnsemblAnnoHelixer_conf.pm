@@ -146,6 +146,7 @@ sub default_options {
     gst_load_symbols_script           => catfile( $self->o('ensembl_gst_script'), 'load_gene_symbols.pl' ),
     pre_release_ftp_script            => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'automation', 'pre_release_ftp.py' ),
     registry_status_update_script     => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
+    write_metrics_to_registry_script  => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'write_metrics_to_registry.py' ),
     core_metadata_script              => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
     core_stats_script                 => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),
 
@@ -1601,7 +1602,7 @@ sub pipeline_analyses {
     -logic_name => 'populate_registry_metrics',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'write_metrics_to_registry.py' ) .
+        cmd => 'python ' . $self->o('write_metrics_to_registry_script') .
                ' --registry_host ' . $self->o('registry_db_server') .
                ' --registry_port ' . $self->o('registry_db_port') .
                ' --registry_user ' . $self->o('user') .
