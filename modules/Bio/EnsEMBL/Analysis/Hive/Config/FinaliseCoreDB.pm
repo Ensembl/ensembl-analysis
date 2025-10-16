@@ -138,7 +138,7 @@ sub default_options {
     busco_metakeys_patch_script   => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metrics', 'busco_metakeys_patch.py'),
     registry_status_update_python_script => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
     write_metrics_to_registry_script     => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'write_metrics_to_registry.py' ),
-    pre_release_ftp_script        => catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts','genebuild','pre_release_ftp.py' ),
+    pre_release_ftp_script            => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'automation', 'pre_release_ftp.py' ),
  
 # Genes biotypes to ignore from the final db when copying to core
     copy_biotypes_to_ignore => {
@@ -851,7 +851,7 @@ sub pipeline_analyses {
             2 => 'update_registry_as_check',
         }
     },
-    
+
   {
       -logic_name => 'populate_registry_metrics',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
