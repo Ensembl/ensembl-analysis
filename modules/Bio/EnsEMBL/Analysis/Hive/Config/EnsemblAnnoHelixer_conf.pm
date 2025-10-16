@@ -1557,6 +1557,7 @@ sub pipeline_analyses {
                 ' --core_user ' . $self->o('user_r') .
                 ' --core_password ' . $self->o('password') .
                 ' --core_db ' . '#core_dbname#' .
+                ' --genebuilder $USER' .
                 ' --assembly ' . '#assembly_accession#',
       },
       -rc_name => '1GB',
