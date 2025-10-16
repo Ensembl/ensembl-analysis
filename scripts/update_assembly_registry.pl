@@ -83,7 +83,7 @@ else{
  $self->throw("Could not update annotation status");
 }
 
-if ($status eq 'Completed') {
+if ($status eq 'completed') {
     $sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set date_completed =? where assembly_id=? and is_current=? and annotation_source = ?");
     $sth->bind_param(1,$date);
   $sth->bind_param(2,$registry_assembly_id);
