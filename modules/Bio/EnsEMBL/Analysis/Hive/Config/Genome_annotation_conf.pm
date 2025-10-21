@@ -153,8 +153,8 @@ sub default_options {
     refseq_db_port => $self->o('databases_port'),
 
     projection_source_db_name    => '', # This is generally a pre-existing db, like the current human/mouse core for example
-    projection_source_db_host    => 'mysql-ens-mirror-1',
-    projection_source_db_port    => '4240',
+    projection_source_db_host    => '', 
+    projection_source_db_port    => '',
     projection_source_production_name => '',
 
     compara_db_name => 'gb_ensembl_compara_112',
