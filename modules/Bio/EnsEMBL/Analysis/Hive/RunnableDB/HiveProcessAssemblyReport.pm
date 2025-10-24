@@ -217,17 +217,32 @@ sub fetch_input {
 
   my $report_url = "$base_path/" . $self->param('_report_name');
   my $report_out = catfile($report_dir, $self->param('_report_name'));
-  download_file($report_url, $report_out);
+  unless (-e $report_out) {
+    $self->say_with_header("Downloading assembly report...");
+    download_file($report_url, $report_out);
+  } else {
+    $self->say_with_header("Using existing assembly report: $report_out");
+}
 
   my $md5_url = "$base_path/" . $self->param('_md5checksum_name');
   my $md5_out = catfile($report_dir, $self->param('_md5checksum_name'));
-  download_file($md5_url, $md5_out);
+  unless (-e $md5_out) {
+    $self->say_with_header("Downloading MD5 checksums...");
+    download_file($md5_url, $md5_out);
+  } else {
+    $self->say_with_header("Using existing MD5 file: $md5_out");
+}
 
   if ($self->param('toplevel_as_sequence_levels')) {
-      my $genome_url = "$base_path/" . $self->param('_genome_file_name') . $self->param('_genome_zip_ext');
-      my $genome_out = catfile($report_dir, $self->param('_genome_file_name') . $self->param('_genome_zip_ext'));
+    my $genome_url = "$base_path/" . $self->param('_genome_file_name') . $self->param('_genome_zip_ext');
+    my $genome_out = catfile($report_dir, $self->param('_genome_file_name') . $self->param('_genome_zip_ext'));
+    unless (-e $genome_out) {
+      $self->say_with_header("Downloading genome FASTA...");
       download_file($genome_url, $genome_out);
+    } else {
+      $self->say_with_header("Using existing genome FASTA: $genome_out");
   }
+}
 }
 
 
