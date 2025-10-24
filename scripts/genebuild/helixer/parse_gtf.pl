@@ -415,7 +415,7 @@ sub print_gene {
 
 =head2 retrieve_source
  Arg [1]    : String source of the data
- Description: Return the source with 'helixer_' prefixed
+ Description: Return the source with helixer
  Returntype : String
  Exceptions : None
 =cut
@@ -424,5 +424,5 @@ sub retrieve_source {
   my ($source) = @_;
 
   my ($data) = split('\.', $source);
-  return 'helixer_'.lc($data);
+  return lc($data);
 }
