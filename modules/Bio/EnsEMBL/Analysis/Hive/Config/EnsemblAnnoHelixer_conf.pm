@@ -524,8 +524,8 @@ sub pipeline_analyses {
           cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
                 'if [ "#override_evidence_threshold#" -eq 1 ]; then ' .
                 '  if [ $MAIN_LINES -ge 1 ]; then exit 1; else exit 2; fi; ' .
-                'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ]; then exit 1; ' .
-                'elif [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ]; then exit 2; ' .
+                'elif [ $MAIN_LINES -ge #rnaseq_main_file_min_lines# ]; then exit 1; ' .
+                'elif [ $MAIN_LINES -lt #rnaseq_main_file_min_lines# ] && [ $GENUS_LINES -ge #rnaseq_genus_file_min_lines# ]; then exit 2; ' .
                 'else exit 3; fi',
         return_codes_2_branches => { 
           '1' => 1,  # Use main file (species-level)
@@ -596,8 +596,8 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
               'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 0; ' .
-              'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
-              '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
+              'elif [ $MAIN_LINES -ge #rnaseq_main_file_min_lines# ] || ' .
+              '( [ $MAIN_LINES -lt #rnaseq_main_file_min_lines# ] && [ $GENUS_LINES -ge #rnaseq_genus_file_min_lines# ] ) || ' .
               '[ -s "#long_read_summary_file#" ] || ' .
               '[ -n "#helixer_lineage#" ]; then exit 0; ' .
               'else exit 42; fi',
@@ -785,8 +785,8 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
               'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 0; ' .
-              'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
-              '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
+              'elif [ $MAIN_LINES -ge #rnaseq_main_file_min_lines# ] || ' .
+              '( [ $MAIN_LINES -lt #rnaseq_main_file_min_lines# ] && [ $GENUS_LINES -ge #rnaseq_genus_file_min_lines# ] ) || ' .
               '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
               'else exit 2; fi',
         return_codes_2_branches => { 
@@ -972,8 +972,8 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'MAIN_LINES=$(wc -l < "#rnaseq_summary_file#"); GENUS_LINES=$(wc -l < "#rnaseq_summary_file_genus#"); ' .
               'if [ "#override_evidence_threshold#" -eq 1 ]; then exit 0; ' .
-                'elif [ $MAIN_LINES -ge ' . $self->o('rnaseq_main_file_min_lines') . ' ] || ' .
-                '( [ $MAIN_LINES -lt ' . $self->o('rnaseq_main_file_min_lines') . ' ] && [ $GENUS_LINES -ge ' . $self->o('rnaseq_genus_file_min_lines') . ' ] ) || ' .
+                'elif [ $MAIN_LINES -ge #rnaseq_main_file_min_lines# ] || ' .
+                '( [ $MAIN_LINES -lt #rnaseq_main_file_min_lines# ] && [ $GENUS_LINES -ge #rnaseq_genus_file_min_lines# ] ) || ' .
                 '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
                 'else exit 2; fi', 
         return_codes_2_branches => { 
@@ -1571,10 +1571,10 @@ sub pipeline_analyses {
         -parameters => {
             cmd => 'if python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
             ' --genome #output_path#/busco_core_genome_mode_output/#core_dbname#_busco_genome_metakey.json ' .
-            ' --protein #output_path#/busco_core_protein_mode_output/#core_dbname#_busco_protein_metakey.json' . 
-            ' --min_range_protein_score "' . $self->o('busco_lower_threshold') . '"' .
-            ' --max_range_protein_score "' . $self->o('busco_threshold') . '"' .
-            ' --diff_prot_gen_mode "' . $self->o('busco_difference_threshold') . '"' .
+            ' --protein #output_path#/busco_core_protein_mode_output/#core_dbname#_busco_protein_metakey.json' .
+            ' --min_range_protein_score "#busco_lower_threshold#"' .
+            ' --max_range_protein_score "#busco_threshold#"' .
+            ' --diff_prot_gen_mode "#busco_difference_threshold#"' .
             '; then exit 0; else exit 42; fi',
           return_codes_2_branches => { '42' => 2 },
         },
