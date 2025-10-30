@@ -818,8 +818,42 @@ sub process_cds {
       add_xrefs(\%xrefs, $attributes->{Dbxref}, $translation);
     }
     if (exists $attributes->{transl_except}) {
-      foreach my $attribute_string (split(',', $attributes->{transl_except})) {
-        my ($attribute_start, $attribute_end, $type) = $attribute_string =~ /(\d+)..(\d+)\)?[^:]+:(\w+)/;
+      # URL decode
+      my $transl_except = $attributes->{transl_except};
+      $transl_except =~ s/%2C/,/g;
+
+      my @entries;
+      if ($transl_except =~ /join\(/) {
+        # Skip join constructs - downstream cannot handle split codons
+        next;
+      } else {
+        # Split on ),( to separate complete entries
+        $transl_except =~ s/^\(|\)$//g;  # Remove outer parentheses
+        my @raw_entries = split /\),\(/, $transl_except;
+        @entries = map { "($_)" } @raw_entries;  # Add parentheses back
+      }
+
+      foreach my $attribute_string (@entries) {
+        my ($attribute_start, $attribute_end, $type);
+
+        if ($attribute_string =~ /\(pos:(\d+)\.\.(\d+),aa:(\w+)\)/) {
+          # Simple range: (pos:123..456,aa:Other)
+          ($attribute_start, $attribute_end, $type) = ($1, $2, $3);
+        }
+        elsif ($attribute_string =~ /\(pos:complement\((\d+)\.\.(\d+)\),aa:(\w+)\)/) {
+          # Complement range: (pos:complement(123..456),aa:Other)
+          ($attribute_start, $attribute_end, $type) = ($1, $2, $3);
+        }
+        elsif ($attribute_string =~ /\(pos:(\d+),aa:(\w+)\)/) {
+          # Single position: (pos:123,aa:TERM)
+          ($attribute_start, $attribute_end, $type) = ($1, $1, $2);
+        }
+
+        # Enhanced validation
+        unless (defined $attribute_start && defined $attribute_end && defined $type) {
+          next;
+        }
+
         my $attribute;
         if ($type eq 'Sec') {
           $attribute = Bio::EnsEMBL::Attribute->new(
