@@ -719,7 +719,7 @@ sub run {
     }
     $self->output(\@final_step);
   }
-  $self->dbc->disconnect_when_inactive(0);
+  $self->dbc->disconnect_when_inactive(0) if (defined $self->dbc);
   print_Gene_list($self->output);
 }
 
@@ -791,7 +791,7 @@ sub write_output {
 
   my $analysis = $self->analysis;
   my $ga = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
-  $ga->dbc->disconnect_when_inactive(0);
+  $ga->dbc->disconnect_when_inactive(0) if (defined $self->dbc);
   foreach my $gene (@{$self->output}) {
     empty_Gene($gene);
     attach_Analysis_to_Gene($gene, $analysis);

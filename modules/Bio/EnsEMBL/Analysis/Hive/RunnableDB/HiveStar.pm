@@ -73,7 +73,8 @@ sub param_defaults {
     threads => 1,
     samtools => 'samtools',
     samtools_use_threading => 1,
-	skip_analysis => 0,
+    skip_analysis => 0,
+    skip_completed => 0,
   }
 }
 
@@ -89,11 +90,33 @@ sub param_defaults {
 
 =cut
 
+sub check_if_done {
+  my ($self) = @_;
+
+  my $output_dir = $self->param('output_dir');
+  my $input_ids = $self->param('SM');
+
+  foreach my $input_id (@$input_ids) {
+    my $sample_id = $input_id->{'ID'};
+    my $output_file = "$output_dir/$sample_id.Aligned.sortedByCoord.out.bam.bam"; # Adjust the output file name as needed
+
+    if (!-e $output_file) {
+      return 0;  # Analysis is not done if any expected output file is missing
+    }
+  }
+
+  return 1;  # All expected output files are present, analysis is done
+}
+
 sub fetch_input {
   my ($self) = @_;
 
   if ($self->param('skip_analysis')) {
-	$self->complete_early('I was asked to skip this analysis');
+    $self->complete_early('I was asked to skip this analysis', 2);
+  }
+
+  if ($self->param('skip_completed') and $self->check_if_done) {
+    $self->complete_early('This analysis has already been done',2);
   }
 
   my $input_ids = $self->param('SM');
@@ -119,20 +142,26 @@ sub fetch_input {
     my $program = $self->param('short_read_aligner');
     $self->throw("Star program not defined in analysis\n") unless (defined $program);
 
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Star->new
-    (
-     -analysis       => $self->create_analysis,
-     -program        => $program,
-     -options        => $self->param('short_read_aligner_options'),
-     -outdir         => $self->param('output_dir'),
-     -genome_dir     => $self->param('genome_dir'),
-     -genome     => $self->param('genome_dir')."/Genome",
-     -sample_name    => $sample_id,
-     -fastq          => $filepath1,
-     -fastqpair      => $filepath2,
-     -threads        => $self->param('num_threads'),
-	 #-mem_request	 => $self->param('limitBAM'),
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Star->new(
+      -analysis       => $self->create_analysis,
+      -program        => $program,
+      -options        => $self->param('short_read_aligner_options'),
+      -outdir         => $self->param('output_dir'),
+      -genome_dir     => $self->param('genome_dir'),
+      -genome         => $self->param('genome_dir')."/Genome",
+      -sample_name    => $sample_id,
+      -fastq          => $filepath1,
+      -fastqpair      => $filepath2,
+      -threads        => $self->param('num_threads'),
     );
+
+      # if ($self->param_is_defined('mem_request')) {
+      #   $runnable->mem_request($self->param('mem_request'));
+      # }
+      # else {
+      #   $runnable->mem_request(4000000000);
+      # }
+
     if ($self->param_is_defined('rg_lines')) {
       $runnable->rg_lines($self->param('rg_lines'));
     }

@@ -114,6 +114,7 @@ sub run {
   }
   $options .= ' --outSAMattrRGline "'.$self->rg_lines.'"' if ($self->rg_lines);
   $options .= ' --outSAMattributes "'.$self->sam_attributes.'"' if ($self->sam_attributes);
+  # $options .= ' --limitBAMsortRAM "'.$self->mem_request.'"' if ($self->mem_request);
 
   # run STAR
   my $command = $self->program." --limitSjdbInsertNsj 2000000 --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $out_dir $options --outTmpDir $tmp_dir --outSAMtype BAM SortedByCoordinate";
