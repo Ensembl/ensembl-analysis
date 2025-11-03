@@ -76,10 +76,10 @@ $sth->bind_param(2,$registry_assembly_id);
 $sth->bind_param(3,1);
 $sth->bind_param(4,'pending');
 if ($sth->execute){
-$self->throw("Status updated to: $status");	
+say("Status updated to: $status");	
 }
 else{
- $self->throw("Could not update annotation status");
+ throw("Could not update annotation status");
 }
 
 if ($status eq 'completed') {
@@ -91,7 +91,7 @@ if ($status eq 'completed') {
   if ($sth->execute){
   }
   else{
-  $self->throw("Could not update genebuild status with date completed");
+  throw("Could not update genebuild status with date completed");
   }
 }
 
