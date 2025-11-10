@@ -1555,7 +1555,6 @@ sub pipeline_analyses {
                 ' --core_host ' . $self->o('dna_db_server') .
                 ' --core_port ' . $self->o('dna_db_port') .
                 ' --core_user ' . $self->o('user_r') .
-                ' --core_password ' . $self->o('password') .
                 ' --core_db ' . '#core_dbname#' .
                 ' --genebuilder $USER' .
                 ' --assembly ' . '#assembly_accession#',
