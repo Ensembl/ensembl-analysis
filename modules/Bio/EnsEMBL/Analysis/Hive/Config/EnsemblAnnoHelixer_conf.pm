@@ -192,7 +192,7 @@ sub default_options {
     'long_read_dir'                => '',
     'long_read_summary_file'       => '',                           # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_summary_file_genus' => '',                       # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_fastq_dir'          => '' || catdir( $self->o('long_read_dir'), 'input' ),
+    'long_read_fastq_dir'          => 'long_read/input',
 
     'helixer_lineage' => '', # If set in clade settings, helixer will run with this as the lineage.
     'helixer_param'  => '', # If set in clade settings helixer will run with these parameters.
