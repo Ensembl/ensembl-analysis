@@ -1870,13 +1870,13 @@ sub resource_classes {
     'registry_2GB' => {
       SLURM =>  [
         $self->slurm_resource_builder(2000, '2-00:00:00',  $self->default_options->{'cores'} ),
-        ' -reg_conf ' . catfile( $self->o('base_output_dir'),"Databases.pm" )
+        ' -reg_conf ' . $self->o('registry_file')
       ],
     },
     'registry_32GB' => {
       SLURM =>  [
         $self->slurm_resource_builder(32000, '2-00:00:00',  $self->default_options->{'cores'} ),
-        ' -reg_conf ' . catfile( $self->o('base_output_dir'),"Databases.pm" )
+        ' -reg_conf ' . $self->o('registry_file')
       ],
     },
   };
