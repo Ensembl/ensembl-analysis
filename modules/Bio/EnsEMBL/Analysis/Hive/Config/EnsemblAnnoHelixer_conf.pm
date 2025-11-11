@@ -161,7 +161,7 @@ sub default_options {
 # Executable paths
 ########################
 
-    samtools_path            => catfile( $self->o('binary_base'),        'samtools' ),                                                    #You may need to specify the full path to the samtools binary
+    samtools_path            => '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/samtools',   #This needs to go away.
 
     'uniprot_table_name'          => 'uniprot_sequences',
 
