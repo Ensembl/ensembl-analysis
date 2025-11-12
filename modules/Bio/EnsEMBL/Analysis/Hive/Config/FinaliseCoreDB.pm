@@ -844,7 +844,6 @@ sub pipeline_analyses {
                  ' --core_host ' . $self->o('reference_db', '-host') .
                  ' --core_port ' . $self->o('reference_db', '-port') .
                  ' --core_user ' . $self->o('user_r') .
-                 ' --core_password ' . $self->o('password_r') .
                  ' --core_db ' . $self->o('reference_db', '-dbname') .
                  ' --genebuilder $USER' .
                  ' --assembly ' . $self->o('assembly_accession'),
