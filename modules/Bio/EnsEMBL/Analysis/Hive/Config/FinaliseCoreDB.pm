@@ -1113,7 +1113,6 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
   },
-
   ];
 }
 

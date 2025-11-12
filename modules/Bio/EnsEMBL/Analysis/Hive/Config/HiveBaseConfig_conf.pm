@@ -502,6 +502,9 @@ sub resource_classes {
     'default_registry' => {
             SLURM => [ $self->slurm_resource_builder(900, '1-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
     },
+    '50GB_registry' => {
+            SLURM => [ $self->slurm_resource_builder(50000, '7-00:00:00', undef), ' -reg_conf ' . $self->default_options->{'registry_file'}]
+    },
   };
 }
 =head2 _is_second_pass

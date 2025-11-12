@@ -114,14 +114,31 @@ sub run {
   }
   $options .= ' --outSAMattrRGline "'.$self->rg_lines.'"' if ($self->rg_lines);
   $options .= ' --outSAMattributes "'.$self->sam_attributes.'"' if ($self->sam_attributes);
+  my $available_memory = 30_000_000_000;  # 50GB - check your SLURM allocation
+  my $genome_overhead = 5_000_000_000;    # ~5GB for genome + overhead
+  my $sort_ram = $available_memory - $genome_overhead - (2_000_000_000 * $self->threads / 10);
 
   # run STAR
-  my $command = $self->program." --limitSjdbInsertNsj 2000000 --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $out_dir $options --outTmpDir $tmp_dir --outSAMtype BAM SortedByCoordinate";
+  my $command = $self->program.
+      " --limitBAMsortRAM $sort_ram".
+      " --limitSjdbInsertNsj 2000000".
+      " --outFilterIntronMotifs RemoveNoncanonicalUnannotated".
+      " --outSAMstrandField intronMotif".
+      " --runThreadN ".$self->threads.
+      " --twopassMode Basic".
+      " --runMode alignReads".
+      " --genomeDir ".$self->genome.
+      " --readFilesIn $fastq $fastqpair".
+      " --outFileNamePrefix $out_dir".
+      " $options".
+      " --outTmpDir $tmp_dir".
+      " --outSAMtype BAM SortedByCoordinate";
+      # " --outBAMsortingThreadN ".$self->threads.
+      # " --outBAMsortingBinsN 1000";
   $self->warning("Command: $command\n");
   execute_with_wait($command);
   $self->output([$out_dir.'Aligned.sortedByCoord.out.bam']);
 }
-
 
 
 

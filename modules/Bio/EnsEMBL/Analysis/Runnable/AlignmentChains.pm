@@ -191,6 +191,23 @@ sub run {
     $target_nib_dir =  "$work_dir/target_nib";
     mkdir $target_nib_dir;
 
+    my $debug_dir = "/hps/nobackup/flicek/ensembl/genebuild/jackt/main/";  # Change this path
+    if (-d $debug_dir) {
+        my $timestamp = time();
+        my $debug_lav = "$debug_dir/debug_${query_name}_${timestamp}.lav";
+        system("cp '$lav_file' '$debug_lav'");
+        warn "DEBUG: Copied LAV file to $debug_lav\n";
+        
+        # Also copy some metadata for context
+        open my $meta_fh, ">$debug_lav.meta" or warn "Could not write metadata\n";
+        print $meta_fh "Query: $query_name\n";
+        print $meta_fh "Query length: " . $self->query_slice->length . "\n";
+        print $meta_fh "Work dir: $work_dir\n";
+        print $meta_fh "Features count: " . scalar(@{$self->features}) . "\n";
+        print $meta_fh "Target slices: " . join(", ", keys %{$self->target_slices}) . "\n";
+        close $meta_fh;
+    }
+
     foreach my $nm (keys %{$self->target_slices}) {
       my $target = $self->target_slices->{$nm};
       my $target_name = $target->seq_region_name;
