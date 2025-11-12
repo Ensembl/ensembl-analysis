@@ -182,6 +182,7 @@ sub write_output {
     }
 
     if (-e $output_file) {
+      system('sync && sleep 15');
       my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
                      -program => $self->param('samtools'),
                      -use_threading => $self->param('samtools_use_threading')

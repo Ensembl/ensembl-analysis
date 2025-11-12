@@ -354,6 +354,8 @@ foreach my $gene (@genes) {
     foreach my $transcript (@{$gene->get_all_Transcripts}) {
       my $phase = 0;
       if (exists $transcript->{exception}) {
+        info("Frameshift data for " . $transcript->stable_id . ": " . 
+            join(", ", @{$transcript->{exception}->{data}}));
         if ($transcript->{exception}->{type} eq 'ribosomal slippage') {
           my ($direction, $length) = $transcript->{exception}->{note} =~ /([-+])(\d+)/;
           if ($direction eq '-') {
