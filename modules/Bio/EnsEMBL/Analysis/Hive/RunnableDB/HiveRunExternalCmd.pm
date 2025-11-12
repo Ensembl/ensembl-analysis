@@ -1,4 +1,4 @@
-package Bio::EnsEMBL::Hive::RunnableDB::HiveRunExternalCmd;
+package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRunExternalCmd;
 
 use strict;
 use warnings;
