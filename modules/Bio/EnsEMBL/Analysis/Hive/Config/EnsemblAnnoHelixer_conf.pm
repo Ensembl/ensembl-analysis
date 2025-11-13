@@ -911,7 +911,7 @@ sub pipeline_analyses {
                 ' --assembly #assembly_accession#' .
                 ' --status in_progress' .
                 ' --genebuilder $USER' .
-                ' --genebuild_version ENS01' .
+                ' --genebuild_version HLX01' .
                 ' --annotation_source helixer' .
                 ' --annotation_method helixer',
         },
