@@ -852,6 +852,7 @@ sub pipeline_analyses {
               ' --status in_progress' .
               ' --genebuilder $USER' .
               ' --annotation_source ensembl' .
+              ' --genebuild_version ENS01' .
               ' --annotation_method anno',
       },
         -rc_name => '1GB',
@@ -910,7 +911,8 @@ sub pipeline_analyses {
                 ' --assembly #assembly_accession#' .
                 ' --status in_progress' .
                 ' --genebuilder $USER' .
-                ' --annotation_source ensembl' .
+                ' --genebuild_version ENS01' .
+                ' --annotation_source helixer' .
                 ' --annotation_method helixer',
         },
         -rc_name => '1GB',
@@ -1595,8 +1597,7 @@ sub pipeline_analyses {
               ' --database ' . $self->o('registry_db_name') .
               ' --assembly #assembly_accession#' .
               ' --status check_busco' .
-              ' --genebuilder $USER' .
-              ' --annotation_source ensembl',
+              ' --genebuilder $USER',
       },
       -rc_name => 'default',
   },
@@ -1612,8 +1613,7 @@ sub pipeline_analyses {
               ' --database ' . $self->o('registry_db_name') .
               ' --assembly #assembly_accession#' .
               ' --status completed' .
-              ' --genebuilder $USER' .
-              ' --annotation_source ensembl',
+              ' --genebuilder $USER',
       },
       -rc_name => 'default',
       -flow_into => {
@@ -1840,8 +1840,7 @@ sub pipeline_analyses {
               ' --database ' . $self->o('registry_db_name') .
               ' --assembly #assembly_accession#' .
               ' --status pre_released' .
-              ' --genebuilder $USER' .
-              ' --annotation_source ensembl',
+              ' --genebuilder $USER',
       },
       -rc_name => '1GB',
   },
