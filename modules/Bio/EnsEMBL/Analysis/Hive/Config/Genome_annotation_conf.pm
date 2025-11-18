@@ -1931,9 +1931,6 @@ sub pipeline_analyses {
       },
       -rc_name      => 'default',
       -max_retry_count => 1,
-      -flow_into  => {
-	              1 => ['update_assembly_registry_status'],
-      },
     },
   ];
 }
