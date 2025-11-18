@@ -1935,23 +1935,6 @@ sub pipeline_analyses {
 	              1 => ['update_assembly_registry_status'],
       },
     },
-
-
-    {
-      -logic_name => 'update_assembly_registry_status',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl '.$self->o('registry_status_update_script').
-          ' -user '.$self->o('user').
-          ' -pass '.$self->o('password').
-          ' -driver '.$self->o('hive_driver').
-          ' -assembly_accession '.$self->o('assembly_accession').
-          ' -registry_host '.$self->o('registry_host').
-          ' -registry_port '.$self->o('registry_port').
-          ' -registry_db '.$self->o('registry_db'),
-      },
-      -rc_name => 'default',
-    },
   ];
 }
 
