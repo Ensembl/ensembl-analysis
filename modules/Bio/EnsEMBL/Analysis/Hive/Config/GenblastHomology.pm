@@ -124,6 +124,10 @@ sub default_options {
     exonerate_path             => $exonerate_path,
     genewise_path             => $genewise_path,
     genblast_path             => $genblast_path,
+
+########################
+    # Genblast parameters
+########################
     'blast_type'                  => 'ncbi',                                                                                # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',

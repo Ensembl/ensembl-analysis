@@ -21,7 +21,6 @@ package Bio::EnsEMBL::Analysis::Hive::Config::LoadAssembly;
 
 use strict;
 use warnings;
-use Data::Dumper;
 use File::Spec::Functions;
 
 use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf; # Needed for the WHEN ELSE structure

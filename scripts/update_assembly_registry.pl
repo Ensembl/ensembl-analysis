@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2020] EMBL-European Bioinformatics Institute
+# Copyright [2016-2024] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,14 +70,13 @@ my $registry_dba = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdap
   -driver  => $driver,);
 
 my $registry_assembly_id = $registry_dba->fetch_assembly_id_by_gca($assembly_accession);
-#my $sth = $registry_dba->dbc->prepare("UPDATE assembly set annotated_status =? where assembly_id=?");
 my $sth = $registry_dba->dbc->prepare("UPDATE genebuild_status set progress_status =? where assembly_id=? and is_current=? and annotation_source = ?");
 $sth->bind_param(1,$status);
 $sth->bind_param(2,$registry_assembly_id);
 $sth->bind_param(3,1);
 $sth->bind_param(4,'pending');
 if ($sth->execute){
-say "Status updated to: $status";
+$self->throw("Status updated to: $status");	
 }
 else{
  $self->throw("Could not update annotation status");
