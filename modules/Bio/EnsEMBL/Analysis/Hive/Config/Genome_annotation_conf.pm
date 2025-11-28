@@ -699,7 +699,7 @@ sub pipeline_analyses {
       },
       -rc_name => '1GB',
       -flow_into => {
-        1 => ['download_rnaseq_csv'],
+        1 => ['download_rnaseq_csv_from_transcriptomic_registry'],
       },
       -input_ids  => [
         {
@@ -711,6 +711,31 @@ sub pipeline_analyses {
     },
 
     {
+      -logic_name => 'download_rnaseq_csv_from_transcriptomic_registry',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '1GB',
+      -parameters => {
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','select_transcriptomic_data.py' ) . ' --taxon_id  ' . $self->o('species_taxon_id') .' --file_name ' . $self->o('rnaseq_summary_file') . ' --csv_for_main --limit 200' ,
+      },
+      -flow_into => {
+        1 => ['check_rnaseq_summary_file'],
+      },
+    },
+    {
+      -logic_name => 'check_rnaseq_summary_file',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd                     => 'if [ -s "'.$self->o('rnaseq_summary_file').'" ] ; then exit 0; else  exit 42;fi',
+        return_codes_2_branches => { '42' => 2 },
+      },
+      -flow_into => {
+        1 => ['download_rnaseq_genus_csv_from_transcriptomic_registry'],
+        2 => ['download_rnaseq_csv'],
+      },
+      -rc_name => 'default',
+    },
+
+    {
       -logic_name => 'download_rnaseq_csv',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
@@ -718,16 +743,39 @@ sub pipeline_analyses {
 	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
       },
       -flow_into => {
-        1 => ['download_genus_rnaseq_csv'],
+        1 => ['download_rnaseq_genus_csv_from_transcriptomic_registry'],
       },
     },
-
+     {
+      -logic_name => 'download_rnaseq_genus_csv_from_transcriptomic_registry',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '1GB',
+      -parameters => {
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','select_transcriptomic_data.py' ) . ' --taxon_id  ' . $self->o('genus_taxon_id') .' --file_name ' . $self->o('rnaseq_summary_file_genus') . ' --csv_for_main --limit 200' ,
+      },
+      -flow_into => {
+        1 => ['check_rnaseq_genus_summary_file'],
+      },
+    },
+    {
+      -logic_name => 'check_rnaseq_genus_summary_file',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd                     => 'if [ -s "'.$self->o('rnaseq_summary_file_genus').'" ] ; then exit 0; else  exit 42;fi',
+        return_codes_2_branches => { '42' => 2 },
+      },
+      -flow_into => {
+        1 => ['download_long_read_csv'],
+        2 => ['download_genus_rnaseq_csv'],
+      },
+      -rc_name => 'default',
+    },
     {
       -logic_name => 'download_genus_rnaseq_csv',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('rnaseq_summary_file_genus') . ' --read_type short --tree -l 100' ,
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('rnaseq_summary_file_genus') . ' --read_type short --tree -l 100' . ' && if [ -s "'.$self->o('rnaseq_summary_file').'" ] ; then mv ' . $self->o('rnaseq_summary_file_genus') . ' '.$self->o('rnaseq_summary_file').' ; fi',
       },
       -flow_into => {
         1 => ['download_long_read_csv'],
@@ -751,7 +799,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('long_read_summary_file_genus') . ' --read_type long --tree -l 100' ,
+          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('long_read_summary_file_genus') . ' --read_type long --tree -l 100' . ' && if [ -s "'.$self->o('long_read_summary_file').'" ] ; then mv ' . $self->o('long_read_summary_file_genus') . ' '.$self->o('long_read_summary_file').' ; fi',
       },
       -flow_into => {
         1 => ['create_load_assembly_pipeline_job'],
