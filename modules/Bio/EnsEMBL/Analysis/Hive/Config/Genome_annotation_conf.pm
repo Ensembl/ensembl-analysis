@@ -116,7 +116,7 @@ sub default_options {
     load_toplevel_only               => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     custom_toplevel_file_path        => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
 
-	email_address					 => '' || $ENV{USER}.'@ebi.ac.uk',
+    email_address					 => '' || $ENV{USER}.'@ebi.ac.uk',
 
 ###############################
 # Sub pipeline configurations
@@ -524,7 +524,7 @@ sub pipeline_create_commands {
       @{$self->SUPER::pipeline_create_commands},
       'mkdir -p '.$self->o('rnaseq_dir'),
       'mkdir -p '.$self->o('long_read_fastq_dir'),
-      'mkdir -p '.$self->o('gst_dir'),	
+      'mkdir -p '.$self->o('gst_dir'),
     ];
 }
 
@@ -540,7 +540,7 @@ sub pipeline_wide_parameters {
     skip_long_read => $self->o('skip_long_read'),
     skip_lastz => $self->o('skip_lastz'),
     skip_repeatmodeler => $self->o('skip_repeatmodeler'),
-    skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
+    skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
   }
 }
 
@@ -682,30 +682,44 @@ sub pipeline_analyses {
 
   return [
     {
-      -logic_name => 'download_rnaseq_csv',
+      -logic_name => 'download_rnaseq_csv_from_transcriptomic_registry',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => '1GB',
+      -rc_name    => '1GB',
       -parameters => {
-	  cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','select_transcriptomic_data.py' ) . ' --taxon_id  ' . $self->o('species_taxon_id') .' --file_name ' . $self->o('rnaseq_summary_file') . ' --csv_for_main --limit 200' ,
       },
       -flow_into => {
-        1 => ['download_genus_rnaseq_csv'],
+        1 => ['check_rnaseq_summary_file'],
       },
       -input_ids  => [
         {
           assembly_name => $self->o('assembly_name'),
           assembly_accession => $self->o('assembly_accession'),
           assembly_refseq_accession => $self->o('assembly_refseq_accession'),
+          old_core_dbname => '',
         },
       ],
     },
+    {
+      -logic_name => 'check_rnaseq_summary_file',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd                     => 'if [ -s "'.$self->o('rnaseq_summary_file').'" ] ; then exit 0; else  exit 42;fi',
+        return_codes_2_branches => { '42' => 2 },
+      },
+      -flow_into => {
+        1 => ['create_load_assembly_pipeline_job'],
+        2 => ['download_rnaseq_csv'],
+      },
+      -rc_name => 'default',
+    },
 
     {
-      -logic_name => 'download_genus_rnaseq_csv',
+      -logic_name => 'download_rnaseq_csv',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-          cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('genus_taxon_id') .' -f ' . $self->o('rnaseq_summary_file_genus') . ' --read_type short --tree -l 100' . ' && if [ -s "'.$self->o('rnaseq_summary_file').'" ] ; then mv ' . $self->o('rnaseq_summary_file_genus') . ' '.$self->o('rnaseq_summary_file').' ; fi',
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','get_transcriptomic_data.py' ) . ' -t  ' . $self->o('species_taxon_id') .' -f ' . $self->o('rnaseq_summary_file') . ' --read_type short --tree -l 250' ,
       },
       -flow_into => {
         1 => ['create_load_assembly_pipeline_job'],
@@ -716,8 +730,8 @@ sub pipeline_analyses {
       -logic_name => 'create_load_assembly_pipeline_job',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
-        column_names => ['meta_pipeline_db', 'ehive_url', 'pipeline_name', 'external_link'],
-        inputlist => [[$load_assembly_pipe_db, $load_assembly_pipe_url, 'load_assembly_'.$self->o('production_name'), $load_assembly_guihive]],
+        column_names => ['meta_pipeline_db', 'ehive_url', 'pipeline_name', 'external_link', 'old_core_dbname'],
+        inputlist => [[$load_assembly_pipe_db, $load_assembly_pipe_url, 'load_assembly_'.$self->o('production_name'), $load_assembly_guihive, '#old_core_dbname#']],
         guihive_host => $self->o('guihive_host'),
         guihive_port => $self->o('guihive_port'),
       },
@@ -755,6 +769,7 @@ sub pipeline_analyses {
           species_url => $self->o('species_url'),
           load_toplevel_only => $self->o('load_toplevel_only'),
           custom_toplevel_file_path => $self->o('custom_toplevel_file_path'),
+          old_core_dbname => '#old_core_dbname#',
         },
       },
       -rc_name      => 'default',
@@ -787,7 +802,7 @@ sub pipeline_analyses {
       -max_retry_count => 0,
       -flow_into => {
         '2->A' => ['initialise_repeat_masking'],
-        'A->1' => ['genome_prep_sanity_checks'],
+        'A->1' => ['create_transcript_selection_pipeline_job'],
       }
     },
 
@@ -837,55 +852,6 @@ sub pipeline_analyses {
       -max_retry_count => 1,
     },
 
-
-    {
-      -logic_name => 'genome_prep_sanity_checks',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-      -parameters => {
-        target_db => $self->o('dna_db'),
-        sanity_check_type => 'genome_preparation_checks',
-        min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-            'genome_preparation_checks')->{$self->o('sanity_set')},
-      },
-
-      -flow_into =>  {
-        1 => ['set_repeat_types'],
-      },
-      -rc_name    => '15GB',
-    },
-
-
-    {
-      -logic_name => 'set_repeat_types',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl '.$self->o('repeat_types_script').
-          ' -user '.$self->o('reference_db', '-user').
-          ' -pass '.$self->o('reference_db', '-pass').
-          ' -host '.$self->o('reference_db','-host').
-          ' -port '.$self->o('reference_db','-port').
-          ' -dbpattern '.$self->o('reference_db','-dbname')
-      },
-      -rc_name => 'default',
-      -flow_into => { 1 => ['backup_core_db'] },
-    },
-
-
-    {
-      -logic_name => 'backup_core_db',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper',
-      -parameters => {
-        src_db_conn => $self->o('dna_db'),
-        output_file => catfile($self->o('output_path'), 'core_bak.sql.gz'),
-        dump_options => $self->o('mysql_dump_options'),
-      },
-      -rc_name    => '2GB',
-      -flow_into => {
-        1 => ['assembly_loading_report', 'create_transcript_selection_pipeline_job'],
-      },
-    },
-
-
     {
       -logic_name => 'create_transcript_selection_pipeline_job',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
@@ -898,157 +864,9 @@ sub pipeline_analyses {
       -rc_name => 'default',
       -max_retry_count => 0,
       -flow_into => {
-        '2->A' => ['initialise_transcript_finalisation'],
+        '2->A' => ['create_rnaseq_pipeline_job'],
         'A->1' => ['create_rnaseq_db_pipeline_job']
       }
-    },
-
-    {
-      -logic_name => 'initialise_transcript_finalisation',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineInit',
-      -parameters => {
-        hive_config => $self->o('hive_transcript_finalisation_config'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
-        databases => ['final_geneset_db', 'ncrna_db', 'dna_db'],
-        final_geneset_db => $self->o('final_geneset_db'),
-        ncrna_db => $self->o('ncrna_db'),
-        dna_db => $self->o('dna_db'),
-        extra_parameters => {
-          output_path => $self->o('output_path'),
-          user_r => $self->o('user_r'),
-          dna_db_host => $self->o('dna_db_host'),
-          dna_db_port => $self->o('dna_db_port'),
-          databases_host => $self->o('databases_host'),
-          databases_port => $self->o('databases_port'),
-          release_number => $self->o('release_number'),
-          production_name => $self->o('production_name'),
-          dbname_accession => $self->o('dbname_accession'),
-          species_name => $self->o('species_name'),
-          use_genome_flatfile => $self->o('use_genome_flatfile'),
-          skip_projection => $self->o('skip_projection'),
-          skip_rnaseq => $self->o('skip_rnaseq'),
-          skip_cleaning => $self->o('skip_cleaning'),
-          uniprot_set => $self->o('uniprot_set'),
-          sanity_set => $self->o('sanity_set'),
-        },
-      },
-      -rc_name      => 'default',
-      -max_retry_count => 0,
-      -flow_into => {
-        1 => ['reset_transcript_selection_db_arrays'],
-      },
-    },
-
-    {
-      -logic_name => 'reset_transcript_selection_db_arrays',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
-      -parameters => {
-        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
-        messages   => [
-        {
-          url => $transcript_selection_pipe_url,
-          logic_name => 'create_toplevel_slices',
-          param => 'feature_dbs',
-          data => [],
-        },
-        {
-          url => $transcript_selection_pipe_url,
-          logic_name => 'split_slices_on_intergenic',
-          param => 'input_gene_dbs',
-          data => [],
-        },
-        {
-          url => $transcript_selection_pipe_url,
-          logic_name => 'layer_annotation',
-          param => 'SOURCEDB_REFS',
-          data => [],
-        },
-        {
-          url => $transcript_selection_pipe_url,
-          logic_name => 'run_utr_addition',
-          param => 'donor_dbs',
-          data => [],
-        },
-        {
-          url => $transcript_selection_pipe_url,
-          logic_name => 'run_utr_addition_10GB',
-          param => 'donor_dbs',
-          data => [],
-        },
-        {
-          url => $transcript_selection_pipe_url,
-          logic_name => 'run_utr_addition_30GB',
-          param => 'donor_dbs',
-          data => [],
-        },
-        {
-          url => $transcript_selection_pipe_url,
-          logic_name => 'utr_memory_failover',
-          param => 'donor_dbs',
-          data => [],
-        }],
-      },
-      -rc_name    => 'default',
-      -flow_into => {
-        '1' => ['create_rnaseq_pipeline_job'],
-      },
-    },
-
-    {
-      -logic_name => 'assembly_loading_report',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl '.$self->o('loading_report_script').
-          ' -user '.$self->o('user_r').
-          ' -host '.$self->o('dna_db','-host').
-          ' -port '.$self->o('dna_db','-port').
-          ' -dbname '.$self->o('dna_db','-dbname').
-          ' -report_type assembly_loading'.
-          ' > '.catfile($self->o('output_path'), 'loading_report.txt'),
-      },
-      -rc_name => 'default',
-      -flow_into => { 1 => ['email_loading_report'] },
-    },
-
-    {
-      -logic_name => 'email_loading_report',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::TextfileByEmail',
-      -parameters => {
-        email => $self->o('email_address'),
-        subject => 'AUTOMATED REPORT: assembly loading and feature annotation for '.$self->o('dna_db','-dbname').' completed',
-        text => 'Assembly loading and feature annotation have completed for '.$self->o('dna_db','-dbname').". Basic stats can be found below",
-        file => catfile($self->o('output_path'), 'loading_report.txt'),
-      },
-      -rc_name => 'default',
-      -flow_into => {
-        1 =>['create_repeatmasking_coverage_jobs'],
-      },
-    },
-
-    {
-      -logic_name => 'create_repeatmasking_coverage_jobs',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -parameters => {
-        column_names => ['repeat_logic_name', 'assembly_name'],
-        inputlist => [[$self->o('first_choice_repeat'), '#assembly_name#'], [$self->o('second_choice_repeat'), '#assembly_name#'], [$self->o('third_choice_repeat'), '#assembly_name#']],
-      },
-      -rc_name => 'default',
-      -max_retry_count => 0,
-      -flow_into => {
-        2 => ['repeatmasking_coverage'],
-      }
-    },
-
-    {
-      -logic_name => 'repeatmasking_coverage',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
-      -parameters => {
-        source_db => $self->o('reference_db'),
-        repeat_logic_names => ['#repeat_logic_name#', 'dust'],
-        coord_system_version => '#assembly_name#',
-        email => $self->o('email_address'),
-      },
-      -rc_name => '10GB',
     },
 
     {

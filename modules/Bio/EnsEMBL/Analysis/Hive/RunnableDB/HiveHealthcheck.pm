@@ -63,6 +63,16 @@ sub param_defaults {
   }
 }
 
+sub add_error_message {
+  my ($self, $test_name, $message) = @_;
+  
+  if (!$self->param_is_defined('error_messages')) {
+    $self->param('error_messages', {});
+  }
+  my $errors = $self->param('error_messages');
+  push(@{$errors->{$test_name}}, $message);
+}
+
 
 =head2 fetch_input
 
@@ -167,15 +177,29 @@ sub write_output {
 
   my $failed_analyses = $self->output;
   if (@$failed_analyses) {
-    my $html_msg;
+    my $html_msg = '<div style="padding:10px;">';
     my %failed;
     foreach my $test (@{$self->output}) {
       $failed{$test} = 1;
     }
+    
+    my $error_messages = $self->param('error_messages') || {};
+    
     foreach my $test (@{$self->param('methods_list')}) {
-      my $color = exists $failed{$test} ? 'style="background-color:red";' : 'style="background-color:green";';
-      $html_msg .= "<div $color><p>$test</p></div>";
+      my $color = exists $failed{$test} ? 'red' : 'green';
+      $html_msg .= "<div style=\"background-color:$color; padding:5px; margin:3px;\"><b>$test</b>";
+      
+      # Add error details if test failed
+      if (exists $failed{$test} && exists $error_messages->{$test}) {
+        $html_msg .= "<ul style=\"margin:5px; color:white;\">";
+        foreach my $msg (@{$error_messages->{$test}}) {
+          $html_msg .= "<li>$msg</li>";
+        }
+        $html_msg .= "</ul>";
+      }
+      $html_msg .= "</div>";
     }
+    $html_msg .= '</div>';
     $self->throw($html_msg);
   }
 }
@@ -503,27 +527,36 @@ sub dna_align_feature_sanity {
   my ($self) = @_;
 
   my @sql_queries = (
-    'SELECT DISTINCT a.logic_name FROM analysis a RIGHT JOIN dna_align_feature daf ON a.analysis_id=daf.analysis_id WHERE a.logic_name NOT LIKE "%_daf" OR a.logic_name IS NULL', # check 1 (see description)
-    'SELECT logic_name FROM analysis a LEFT JOIN dna_align_feature daf ON a.analysis_id=daf.analysis_id WHERE a.logic_name LIKE "%_daf" AND dna_align_feature_id IS NULL', # check 2 (see description)
+    {
+      sql => 'SELECT DISTINCT a.logic_name FROM analysis a RIGHT JOIN dna_align_feature daf ON a.analysis_id=daf.analysis_id WHERE a.logic_name NOT LIKE "%_daf" OR a.logic_name IS NULL',
+      desc => 'dna_align_features linked to non-*_daf analyses'
+    },
+    {
+      sql => 'SELECT logic_name FROM analysis a LEFT JOIN dna_align_feature daf ON a.analysis_id=daf.analysis_id WHERE a.logic_name LIKE "%_daf" AND dna_align_feature_id IS NULL',
+      desc => '*_daf analyses with no dna_align_features'
+    }
   );
 
   my $hc_db = $self->hrdb_get_con('hc_db');
   my $dbc = $hc_db->dbc();
   my $failed = 0;
 
-  foreach my $query (@sql_queries) {
-    my $sth = $dbc->prepare($query);
+  foreach my $query_info (@sql_queries) {
+    my $sth = $dbc->prepare($query_info->{sql});
     $sth->execute();
     foreach my $row (@{$sth->fetchall_arrayref()}) {
       $row->[0] = "NULL" if (!($row->[0]));
-      my $error_msg = "Analysis whose logic_name is ".$row->[0]." is not linked to the right set of dna_align_feature rows or viceversa.\n";
-      $self->say_with_header($error_msg);
+      my $msg = $query_info->{desc}.": ".$row->[0];
+      $self->say_with_header($msg);
+      $self->add_error_message('dna_align_feature_sanity', $msg);
       $failed++;
     }
   }
 
   if ($failed) {
     $self->output(['dna_align_feature_sanity']);
+  } else {
+    $self->say_with_header('dna_align_feature_sanity: PASSED');
   }
 }
 
@@ -596,49 +629,82 @@ sub rnaseq_analysis_sanity {
   my $analysis_adaptor = $hc_db->get_AnalysisAdaptor;
   my %bases;
   my %types;
-  my $failed = 1;
+  my $failed = 0;  # Fixed: was starting as 1
   my $total = 0;
   my $lc_count = 0;
+  my $other_protein_found = 0;
+  
   foreach my $analysis (@{$analysis_adaptor->fetch_all}) {
     ++$total;
     my $ln = $analysis->logic_name;
+    
     if ($ln eq 'other_protein') {
-      $failed = 0;
+      $other_protein_found = 1;
     }
     elsif ($ln =~ /rnaseq/) {
       my ($base, $type) = $ln =~ /^(\w+)_([^_]+)$/;
-      ++$bases{$base};
-      ++$types{$type};
+      if (!defined $base || !defined $type) {
+        $failed = 1;
+        my $msg = "Failed to parse logic_name: $ln";
+        $self->say_with_header($msg);
+        $self->add_error_message('rnaseq_analysis_sanity', $msg);
+      } else {
+        ++$bases{$base};
+        ++$types{$type};
+      }
     }
     else {
       $failed = 1;
-      $self->say_with_header('You should not have this analysis: '.$ln);
+      my $msg = "Non-rnaseq analysis found: $ln";
+      $self->say_with_header($msg);
+      $self->add_error_message('rnaseq_analysis_sanity', $msg);
     }
+    
     if ($ln eq lc($ln)) {
       ++$lc_count;
     }
     else {
-      $self->say_with_header("$ln has uppercase letters");
+      my $msg = "$ln has uppercase letters";
+      $self->say_with_header($msg);
+      $self->add_error_message('rnaseq_analysis_sanity', $msg);
     }
   }
+  
+  if (!$other_protein_found) {
+    $failed = 1;
+    my $msg = "Missing required 'other_protein' analysis";
+    $self->say_with_header($msg);
+    $self->add_error_message('rnaseq_analysis_sanity', $msg);
+  }
+  
   if ($total != $lc_count) {
     $failed = 1;
-    $self->say_with_header('Some of your analyses have uppercase characters');
+    my $msg = 'Some analyses have uppercase characters';
+    $self->say_with_header($msg);
+    $self->add_error_message('rnaseq_analysis_sanity', $msg);
   }
-  if (3 != keys %types) {
+  
+  my $type_count = keys %types;
+  if (3 != $type_count) {
     $failed = 1;
-    $self->say_with_header('Some of your analyses are missing either gene, daf or bam');
+    my $msg = "Expected 3 types (bam/daf/gene), found $type_count: ".join(', ', sort keys %types);
+    $self->say_with_header($msg);
+    $self->add_error_message('rnaseq_analysis_sanity', $msg);
   }
-  foreach my $base (keys %bases) {
+  
+  foreach my $base (sort keys %bases) {
     if ($bases{$base} != 3) {
       $failed = 1;
-      $self->say_with_header('There is a problem with your analysis '.$base);
-      $self->say_with_header('Check if gene, daf and bam analyses are present.');
-      $self->say_with_header('Total number of analyses in the database: '.$total);
+      my $msg = "Base '$base' has ".$bases{$base}." analyses (expected 3)";
+      $self->say_with_header($msg);
+      $self->add_error_message('rnaseq_analysis_sanity', $msg);
     }
   }
+  
   if ($failed) {
     $self->output(['rnaseq_analysis_sanity']);
+  } else {
+    $self->say_with_header('rnaseq_analysis_sanity: PASSED');
   }
 }
 
@@ -659,29 +725,43 @@ sub data_file_sanity {
   my $hc_db = $self->hrdb_get_con('hc_db');
   my $datafile_adaptor = $hc_db->get_DataFileAdaptor;
   my $analysis_adaptor = $hc_db->get_AnalysisAdaptor;
-  my %bases;
-  my %types;
   my $failed = 0;
   my $count = 0;
+  
   foreach my $analysis (@{$analysis_adaptor->fetch_all}) {
     if ($analysis->logic_name =~ /_rnaseq_bam$/) {
       my $df = $datafile_adaptor->fetch_all_by_logic_name($analysis->logic_name);
-      if (@$df == 0) {
+      my $df_count = scalar(@$df);
+      
+      if ($df_count == 0) {
         $failed = 1;
-        $self->say_with_header('You are missing data_file for '.$analysis->logic_name);
+        my $msg = "Missing data_file for: ".$analysis->logic_name;
+        $self->say_with_header($msg);
+        $self->add_error_message('data_file_sanity', $msg);
       }
-      elsif (@$df == 1) {
+      elsif ($df_count == 1) {
         ++$count;
       }
       else {
         $failed = 1;
-        $self->say_with_header('You have more than 1 data_file for '.$analysis->logic_name);
+        my $msg = "Multiple data_files ($df_count) for: ".$analysis->logic_name;
+        $self->say_with_header($msg);
+        $self->add_error_message('data_file_sanity', $msg);
       }
     }
   }
-  $failed = 1 unless ($count);
+  
+  if (!$count) {
+    $failed = 1;
+    my $msg = "No *_rnaseq_bam analyses found with data_files";
+    $self->say_with_header($msg);
+    $self->add_error_message('data_file_sanity', $msg);
+  }
+  
   if ($failed) {
     $self->output(['data_file_sanity']);
+  } else {
+    $self->say_with_header("data_file_sanity: PASSED ($count bam analyses verified)");
   }
 }
 

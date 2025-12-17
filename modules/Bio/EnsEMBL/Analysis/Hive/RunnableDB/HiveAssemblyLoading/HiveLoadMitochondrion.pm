@@ -182,6 +182,7 @@ sub run {
              " -source RefSeq".
              " -accession ".$mt_accession.
              " -genbank_file ".$mt_filename.
+             " -codon_table 2".
              " -non_interactive".
              " -download";
 

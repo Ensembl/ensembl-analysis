@@ -1242,33 +1242,6 @@ sub pipeline_analyses {
       -rc_name    => 'default',
     },
 
-    {
-      -logic_name => 'notification_pipeline_is_done_pcp',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
-      -parameters => {
-        messages   => [
-        {
-          url => $self->o('transcript_selection_url'),
-          logic_name => 'split_slices_on_intergenic',
-          param => 'input_gene_dbs',
-          data => $self->o('pcp_nr_db'),
-          update => 1,
-        },
-        {
-          url => $self->o('transcript_selection_url'),
-          logic_name => 'layer_annotation',
-          param => 'SOURCEDB_REFS',
-          data => $self->o('pcp_nr_db'),
-          update => 1,
-        },
-        ],
-        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        '1' => ['delete_short_reads'],
-      }
-    }
   ];
 }
 

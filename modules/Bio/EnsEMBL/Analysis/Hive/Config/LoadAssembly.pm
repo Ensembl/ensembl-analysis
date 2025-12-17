@@ -69,6 +69,7 @@ sub default_options {
     stable_id_prefix          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     species_url               => '', # sets species.url meta key
     species_division          => 'EnsemblVertebrates', # sets species.division meta key
+    old_core_dbname           => '',
 
     # Keys for custom loading, only set/modify if that's what you're doing
     load_toplevel_only        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
@@ -197,312 +198,318 @@ sub pipeline_analyses {
 
   return [
     {
-      -logic_name => 'create_core_db',
+      -logic_name => 'clone_core_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
-        'target_db'        => $self->o('reference_db'),
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'create_type'      => 'core_only',
+        'target_db'   => $self->o('reference_db'),
+        'source_db'   => {
+          '-dbname' => '#old_core_dbname#',
+          '-driver' => 'mysql',
+          '-host' => 'mysql-ens-sta-1',
+          '-port' => 4519,
+          '-user' => 'ensro',
+        },
+        'create_type' => 'copy',
       },
       -rc_name    => 'default',
       -input_ids  => [
         {
           assembly_name => $self->o('assembly_name'),
           assembly_accession => $self->o('assembly_accession'),
+          old_core_dbname => $self->o('old_core_dbname'),
         },
       ],
-      -flow_into  => {
-        1 => ['populate_production_tables'],
-      },
-    },
-
-    {
-      -logic_name => 'populate_production_tables',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
-      -parameters => {
-        'target_db'        => $self->o('reference_db'),
-        'output_path'      => $self->o('output_path'),
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'production_db'    => $self->o('production_db'),
-      },
-      -rc_name    => 'default',
-      -flow_into  => {
-        1 => WHEN ('#load_toplevel_only# == 1' => ['process_assembly_info'],
-              '#load_toplevel_only# == 2' => ['custom_load_toplevel'],
-            ELSE ['download_assembly_info']),
-      },
-    },
-
-
-    ####
-    # Loading custom assembly where the user provide a FASTA file, probably a repeat library
-    ####
-    {
-      -logic_name => 'custom_load_toplevel',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'load_seq_region.pl').
-          ' -dbhost '.$self->o('reference_db_host').
-          ' -dbuser '.$self->o('user').
-          ' -dbpass '.$self->o('password').
-          ' -dbport '.$self->o('reference_db_port').
-          ' -dbname '.$self->o('reference_db_name').
-          ' -coord_system_version '.$self->o('assembly_name').
-          ' -default_version'.
-          ' -coord_system_name primary_assembly'.
-          ' -rank 1'.
-          ' -fasta_file '. $self->o('custom_toplevel_file_path').
-          ' -sequence_level'.
-          ' -noverbose',
-      },
-      -rc_name => '4GB',
-      -flow_into => {
-        1 => ['custom_set_toplevel'],
-      },
-    },
-
-    {
-      -logic_name => 'custom_set_toplevel',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'set_toplevel.pl').
-          ' -dbhost '.$self->o('reference_db_host').
-          ' -dbuser '.$self->o('user').
-          ' -dbpass '.$self->o('password').
-          ' -dbport '.$self->o('reference_db_port').
-          ' -dbname '.$self->o('reference_db_name'),
-      },
-      -rc_name => 'default',
-      -flow_into  => {
-        1 => ['custom_add_meta_keys'],
-      },
-    },
-
-    {
-      -logic_name => 'custom_add_meta_keys',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('reference_db'),
-        sql => [
-          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.default","'.$self->o('assembly_name').'")',
-          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.name","'.$self->o('assembly_name').'")',
-          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"species.taxonomy_id","'.$self->o('taxon_id').'")',
-        ],
-      },
-      -rc_name    => 'default',
-      -flow_into => {
-        1 => ['load_meta_info'],
-      },
-    },
-
-
-    ####
-    # Loading assembly with only the toplevel sequences loaded, it fetches the data from INSDC databases
-    ####
-    # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
-    {
-      -logic_name => 'process_assembly_info',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessAssemblyReport',
-      -parameters => {
-        full_ftp_path => $self->o('assembly_ftp_path'),
-        output_path   => $self->o('output_path'),
-        target_db     => $self->o('reference_db'),
-      },
-      -rc_name    => '8GB',
-      -max_retry_count => 0,
-      -flow_into  => {
-        1 => ['load_meta_info'],
-      },
-    },
-
-    # Load some meta info and seq_region_synonyms
-    {
-      -logic_name => 'load_meta_info',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('reference_db'),
-        sql => [
-          'INSERT INTO meta (species_id, meta_key, meta_value) VALUES '.
-          '(1, "species.stable_id_prefix", "'.$self->o('stable_id_prefix').'"),'.
-          '(1, "species.url", "'.ucfirst($self->o('species_url')).'"),'.
-          '(1, "species.division", "'.$self->o('species_division').'"),'.
-          '(1, "genebuild.initial_release_date", NULL),'.
-          '(1, "assembly.coverage_depth", "high"),'.
-          '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
-          '(1, "assembly.provider_name", "'.$self->o('assembly_provider_name').'"),'.
-          '(1, "assembly.provider_url", "'.$self->o('assembly_provider_url').'"),'.
-          '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
-          '(1, "annotation.provider_url", "'.$self->o('annotation_provider_url').'"),'.
-          '(1, "species.production_name", "'.$self->o('production_name').'")',
-        ],
-      },
-      -rc_name    => 'default',
-      -flow_into  => {
-        1 => ['load_taxonomy_info'],
-      },
-    },
-
-
-    ####
-    # Loading assembly with the full assembly representation, it fetches data from INSDC databases
-    ####
-    # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
-    {
-      -logic_name => 'download_assembly_info',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadNCBIFtpFiles',
-      -parameters => {
-        'full_ftp_path'             => $self->o('assembly_ftp_path'),
-        'output_path'               => $self->o('output_path'),
-        'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-      },
-      -rc_name    => 'default',
-      -flow_into  => {
-        1 => ['find_contig_accessions'],
-      },
-    },
-
-    # Get the prefixes for all contigs from the AGP files
-    {
-      -logic_name => 'find_contig_accessions',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveFindContigAccessions',
-      -parameters => {
-        'contigs_source'            => $self->o('contigs_source'),
-        'wgs_id'                    => $self->o('wgs_id'),
-        'output_path'               => $self->o('output_path'),
-        'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-      },
-      -rc_name => 'default',
-      -flow_into => {
-        1 => ['download_contigs'],
-      },
-    },
-
-    # Download contig from NCBI
-    {
-      -logic_name => 'download_contigs',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadContigs',
-      -parameters => {
-        'contigs_source' => $self->o('contigs_source'),
-        'wgs_id' => $self->o('wgs_id'),
-        'output_path' => $self->o('output_path'),
-        'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-      },
-      -rc_name => 'default',
-      -flow_into => {
-        1 => ['load_contigs'],
-      },
-    },
-
-
-    # Load the contigs into each reference db
-    {
-      -logic_name => 'load_contigs',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadSeqRegions',
-      -parameters => {
-        'coord_system_version' => $self->o('assembly_name'),
-        'target_db' => $self->o('reference_db'),
-        'output_path' => $self->o('output_path'),
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-      },
-      -rc_name => '4GB',
-      -flow_into => {
-        1 => ['load_assembly_info'],
-      },
-    },
-
-    # Load the AGP files
-    {
-      -logic_name => 'load_assembly_info',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadAssembly',
-      -parameters => {
-        'target_db' => $self->o('reference_db'),
-        'output_path' => $self->o('output_path'),
-        'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-      },
-      -rc_name => 'default',
-      -flow_into => {
-        1 => ['set_toplevel'],
-      },
-    },
-
-    # Set the toplevel
-    {
-      -logic_name => 'set_toplevel',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetAndCheckToplevel',
-      -parameters => {
-        'target_db' => $self->o('reference_db'),
-        'output_path' => $self->o('output_path'),
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-      },
-      -rc_name => '2GB',
-      -flow_into => {
-        1 => ['load_meta_info_full'],
-      },
-    },
-
-    # Load some meta info and seq_region_synonyms
-    {
-      -logic_name => 'load_meta_info_full',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetMetaAndSeqRegionSynonym',
-      -parameters => {
-        'target_db' => $self->o('reference_db'),
-        'output_path' => $self->o('output_path'),
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-        'meta_key_list' => {
-          'assembly.accession' => $self->o('assembly_accession'),
-          'assembly.coverage_depth' => 'high',
-          'assembly.default' => $self->o('assembly_name'),
-          'assembly.name' => $self->o('assembly_name'),
-          'assembly.web_accession_source' => 'NCBI',
-          'assembly.web_accession_type' => 'GenBank Assembly ID',
-          'genebuild.id' => $self->o('genebuilder_id'),
-	  'genebuild.method' => 'full_genebuild',
-	  'genebuild.method_display' => 'Ensembl Genebuild', 
-          'assembly.provider_name' => $self->o('assembly_provider_name'),
-          'assembly.provider_url' => $self->o('assembly_provider_url'),
-          'annotation.provider_name' => $self->o('annotation_provider_name'),
-          'annotation.provider_url' => $self->o('annotation_provider_url'),
-          'species.production_name' => $self->o('production_name'),
-          'species.taxonomy_id' => $self->o('taxon_id'),
-        }
-      },
-      -rc_name => 'default',
-      -flow_into => {
-        1 => ['load_taxonomy_info'],
-      },
-    },
-
-
-    {
-      -logic_name => 'load_taxonomy_info',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadTaxonomyInfo',
-      -parameters => {
-        'target_db'        => $self->o('reference_db'),
-        'taxonomy_db'      => $self->o('taxonomy_db'),
-      },
-      -rc_name    => 'default',
-      -flow_into  => {
-        1 => ['load_mitochondrion'],
-      },
-    },
-
-    {
-      -logic_name => 'load_mitochondrion',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
-      -parameters => {
-        'target_db'        => $self->o('reference_db'),
-        'output_path'      => $self->o('output_path'),
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'species_name'     => $self->o('species_name'),
-      },
-      -rc_name    => 'default',
       -flow_into  => {
         1 => ['create_faidx_genome_file'],
       },
     },
+
+    # {
+    #   -logic_name => 'populate_production_tables',
+    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
+    #   -parameters => {
+    #     'target_db'        => $self->o('reference_db'),
+    #     'output_path'      => $self->o('output_path'),
+    #     'enscode_root_dir' => $self->o('enscode_root_dir'),
+    #     'production_db'    => $self->o('production_db'),
+    #   },
+    #   -rc_name    => 'default',
+    #   -flow_into  => {
+    #     1 => WHEN ('#load_toplevel_only# == 1' => ['process_assembly_info'],
+    #           '#load_toplevel_only# == 2' => ['custom_load_toplevel'],
+    #         ELSE ['download_assembly_info']),
+    #   },
+    # },
+
+    ####
+    # Loading custom assembly where the user provide a FASTA file, probably a repeat library
+    ####
+    # {
+    #   -logic_name => 'custom_load_toplevel',
+    #   -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    #   -parameters => {
+    #     cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'load_seq_region.pl').
+    #       ' -dbhost '.$self->o('reference_db_host').
+    #       ' -dbuser '.$self->o('user').
+    #       ' -dbpass '.$self->o('password').
+    #       ' -dbport '.$self->o('reference_db_port').
+    #       ' -dbname '.$self->o('reference_db_name').
+    #       ' -coord_system_version '.$self->o('assembly_name').
+    #       ' -default_version'.
+    #       ' -coord_system_name primary_assembly'.
+    #       ' -rank 1'.
+    #       ' -fasta_file '. $self->o('custom_toplevel_file_path').
+    #       ' -sequence_level'.
+    #       ' -noverbose',
+    #   },
+    #   -rc_name => '4GB',
+    #   -flow_into => {
+    #     1 => ['custom_set_toplevel'],
+    #   },
+    # },
+
+    # {
+    #   -logic_name => 'custom_set_toplevel',
+    #   -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    #   -parameters => {
+    #     cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'set_toplevel.pl').
+    #       ' -dbhost '.$self->o('reference_db_host').
+    #       ' -dbuser '.$self->o('user').
+    #       ' -dbpass '.$self->o('password').
+    #       ' -dbport '.$self->o('reference_db_port').
+    #       ' -dbname '.$self->o('reference_db_name'),
+    #   },
+    #   -rc_name => 'default',
+    #   -flow_into  => {
+    #     1 => ['custom_add_meta_keys'],
+    #   },
+    # },
+
+    # {
+    #   -logic_name => 'custom_add_meta_keys',
+    #   -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+    #   -parameters => {
+    #     db_conn => $self->o('reference_db'),
+    #     sql => [
+    #       'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.default","'.$self->o('assembly_name').'")',
+    #       'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.name","'.$self->o('assembly_name').'")',
+    #       'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"species.taxonomy_id","'.$self->o('taxon_id').'")',
+    #     ],
+    #   },
+    #   -rc_name    => 'default',
+    #   -flow_into => {
+    #     1 => ['load_meta_info'],
+    #   },
+    # },
+
+
+    # ####
+    # # Loading assembly with only the toplevel sequences loaded, it fetches the data from INSDC databases
+    # ####
+    # # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
+    # {
+    #   -logic_name => 'process_assembly_info',
+    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessAssemblyReport',
+    #   -parameters => {
+    #     full_ftp_path => $self->o('assembly_ftp_path'),
+    #     output_path   => $self->o('output_path'),
+    #     target_db     => $self->o('reference_db'),
+    #   },
+    #   -rc_name    => '8GB',
+    #   -max_retry_count => 0,
+    #   -flow_into  => {
+    #     1 => ['load_meta_info'],
+    #   },
+    # },
+
+    # # Load some meta info and seq_region_synonyms
+    # {
+    #   -logic_name => 'load_meta_info',
+    #   -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+    #   -parameters => {
+    #     db_conn => $self->o('reference_db'),
+    #     sql => [
+    #       'INSERT INTO meta (species_id, meta_key, meta_value) VALUES '.
+    #       '(1, "species.stable_id_prefix", "'.$self->o('stable_id_prefix').'"),'.
+    #       '(1, "species.url", "'.ucfirst($self->o('species_url')).'"),'.
+    #       '(1, "species.division", "'.$self->o('species_division').'"),'.
+    #       '(1, "genebuild.initial_release_date", NULL),'.
+    #       '(1, "assembly.coverage_depth", "high"),'.
+    #       '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
+    #       '(1, "assembly.provider_name", "'.$self->o('assembly_provider_name').'"),'.
+    #       '(1, "assembly.provider_url", "'.$self->o('assembly_provider_url').'"),'.
+    #       '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
+    #       '(1, "annotation.provider_url", "'.$self->o('annotation_provider_url').'"),'.
+    #       '(1, "species.production_name", "'.$self->o('production_name').'")',
+    #     ],
+    #   },
+    #   -rc_name    => 'default',
+    #   -flow_into  => {
+    #     1 => ['load_taxonomy_info'],
+    #   },
+    # },
+
+
+    # ####
+    # # Loading assembly with the full assembly representation, it fetches data from INSDC databases
+    # ####
+    # # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
+    # {
+    #   -logic_name => 'download_assembly_info',
+    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadNCBIFtpFiles',
+    #   -parameters => {
+    #     'full_ftp_path'             => $self->o('assembly_ftp_path'),
+    #     'output_path'               => $self->o('output_path'),
+    #     'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+    #   },
+    #   -rc_name    => 'default',
+    #   -flow_into  => {
+    #     1 => ['find_contig_accessions'],
+    #   },
+    # },
+
+    # # Get the prefixes for all contigs from the AGP files
+    # {
+    #   -logic_name => 'find_contig_accessions',
+    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveFindContigAccessions',
+    #   -parameters => {
+    #     'contigs_source'            => $self->o('contigs_source'),
+    #     'wgs_id'                    => $self->o('wgs_id'),
+    #     'output_path'               => $self->o('output_path'),
+    #     'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+    #   },
+    #   -rc_name => 'default',
+    #   -flow_into => {
+    #     1 => ['download_contigs'],
+    #   },
+    # },
+
+    # # Download contig from NCBI
+    # {
+    #   -logic_name => 'download_contigs',
+    #   -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadContigs',
+    #   -parameters => {
+    #     'contigs_source' => $self->o('contigs_source'),
+    #     'wgs_id' => $self->o('wgs_id'),
+    #     'output_path' => $self->o('output_path'),
+    #     'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+    #   },
+    #   -rc_name => 'default',
+    #   -flow_into => {
+    #     1 => ['load_contigs'],
+    #   },
+    # },
+
+
+    # # Load the contigs into each reference db
+    # {
+    #   -logic_name => 'load_contigs',
+    #   -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadSeqRegions',
+    #   -parameters => {
+    #     'coord_system_version' => $self->o('assembly_name'),
+    #     'target_db' => $self->o('reference_db'),
+    #     'output_path' => $self->o('output_path'),
+    #     'enscode_root_dir' => $self->o('enscode_root_dir'),
+    #     'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+    #   },
+    #   -rc_name => '4GB',
+    #   -flow_into => {
+    #     1 => ['load_assembly_info'],
+    #   },
+    # },
+
+    # # Load the AGP files
+    # {
+    #   -logic_name => 'load_assembly_info',
+    #   -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadAssembly',
+    #   -parameters => {
+    #     'target_db' => $self->o('reference_db'),
+    #     'output_path' => $self->o('output_path'),
+    #     'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+    #   },
+    #   -rc_name => 'default',
+    #   -flow_into => {
+    #     1 => ['set_toplevel'],
+    #   },
+    # },
+
+    # # Set the toplevel
+    # {
+    #   -logic_name => 'set_toplevel',
+    #   -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetAndCheckToplevel',
+    #   -parameters => {
+    #     'target_db' => $self->o('reference_db'),
+    #     'output_path' => $self->o('output_path'),
+    #     'enscode_root_dir' => $self->o('enscode_root_dir'),
+    #     'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+    #   },
+    #   -rc_name => '2GB',
+    #   -flow_into => {
+    #     1 => ['load_meta_info_full'],
+    #   },
+    # },
+
+    # # Load some meta info and seq_region_synonyms
+    # {
+    #   -logic_name => 'load_meta_info_full',
+    #   -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetMetaAndSeqRegionSynonym',
+    #   -parameters => {
+    #     'target_db' => $self->o('reference_db'),
+    #     'output_path' => $self->o('output_path'),
+    #     'enscode_root_dir' => $self->o('enscode_root_dir'),
+    #     'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+    #     'meta_key_list' => {
+    #       'assembly.accession' => $self->o('assembly_accession'),
+    #       'assembly.coverage_depth' => 'high',
+    #       'assembly.default' => $self->o('assembly_name'),
+    #       'assembly.name' => $self->o('assembly_name'),
+    #       'assembly.web_accession_source' => 'NCBI',
+    #       'assembly.web_accession_type' => 'GenBank Assembly ID',
+    #       'genebuild.id' => $self->o('genebuilder_id'),
+	  # 'genebuild.method' => 'full_genebuild',
+	  # 'genebuild.method_display' => 'Ensembl Genebuild', 
+    #       'assembly.provider_name' => $self->o('assembly_provider_name'),
+    #       'assembly.provider_url' => $self->o('assembly_provider_url'),
+    #       'annotation.provider_name' => $self->o('annotation_provider_name'),
+    #       'annotation.provider_url' => $self->o('annotation_provider_url'),
+    #       'species.production_name' => $self->o('production_name'),
+    #       'species.taxonomy_id' => $self->o('taxon_id'),
+    #     }
+    #   },
+    #   -rc_name => 'default',
+    #   -flow_into => {
+    #     1 => ['load_taxonomy_info'],
+    #   },
+    # },
+
+
+    # {
+    #   -logic_name => 'load_taxonomy_info',
+    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadTaxonomyInfo',
+    #   -parameters => {
+    #     'target_db'        => $self->o('reference_db'),
+    #     'taxonomy_db'      => $self->o('taxonomy_db'),
+    #   },
+    #   -rc_name    => 'default',
+    #   -flow_into  => {
+    #     1 => ['load_mitochondrion'],
+    #   },
+    # },
+
+    # {
+    #   -logic_name => 'load_mitochondrion',
+    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
+    #   -parameters => {
+    #     'target_db'        => $self->o('reference_db'),
+    #     'output_path'      => $self->o('output_path'),
+    #     'enscode_root_dir' => $self->o('enscode_root_dir'),
+    #     'species_name'     => $self->o('species_name'),
+    #   },
+    #   -rc_name    => 'default',
+    #   -flow_into  => {
+    #     1 => ['create_faidx_genome_file'],
+    #   },
+    # },
 
     {
       -logic_name => 'create_faidx_genome_file',

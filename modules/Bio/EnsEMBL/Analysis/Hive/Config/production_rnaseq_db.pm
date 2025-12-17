@@ -142,7 +142,7 @@ sub default_options {
     delete_genes_dir => catdir($self->o('rnaseq_dir'),'delete_merge_genes'),
     delete_genes_prefix => catfile($self->o('delete_genes_dir'), 'genes_to_delete.'),
     optimise_dir => catdir($self->o('rnaseq_dir'),'optimise_rnaseq'),
-    production_ftp_dir => '/nfs/production/flicek/ensembl/production/ensemblftp/rapid-release/',
+    production_ftp_dir => '/nfs/production/flicek/ensembl/production/ensemblftp/data_files/vertebrates/',
     species_list => '/nfs/production/flicek/ensembl/genebuild/do_not_delete/main_species.csv',
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -246,8 +246,8 @@ sub pipeline_analyses {
           'DELETE FROM supporting_feature WHERE feature_type = "dna_align_feature"',
           'DELETE FROM analysis WHERE logic_name NOT LIKE "%rnaseq%"',
           'DELETE FROM analysis WHERE logic_name LIKE "%merged%"',
-          'INSERT INTO analysis (logic_name, module, created, db_version) VALUES ("other_protein", "HiveBlastRNAseq", NOW(), "#uniprot_version#")',
-          'INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, "species.annotation_source", "ensembl")',
+          'INSERT IGNORE INTO analysis (logic_name, module, created, db_version) VALUES ("other_protein", "HiveBlastRNAseq", NOW(), "#uniprot_version#")',
+          'INSERT IGNORE INTO meta (species_id, meta_key, meta_value) VALUES (1, "species.annotation_source", "ensembl")',
           'UPDATE protein_align_feature paf, analysis a SET paf.analysis_id = a.analysis_id WHERE a.logic_name = "other_protein"',
           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
           'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag\.%"',
@@ -261,6 +261,7 @@ sub pipeline_analyses {
           'UPDATE transcript SET source = "ensembl", biotype = "protein_coding", stable_id = NULL',
           'UPDATE translation SET stable_id = NULL',
           'UPDATE exon SET stable_id = NULL',
+          'DELETE FROM analysis WHERE LOGIC_NAME = "rnaseq_intron_support"',
         ],
         uniprot_version => $self->o('uniprot_version'),
       },
@@ -292,7 +293,7 @@ sub pipeline_analyses {
       -logic_name => 'dump_daf_introns',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
       -parameters => {
-        db_conn => $self->o('rnaseq_refine_db'),
+        db_conn => $self->o('rnaseq_blast_db'),
         input_query => 'SELECT daf.* FROM dna_align_feature daf, analysis a'.
           ' WHERE daf.analysis_id = a.analysis_id AND a.logic_name != "rough_transcripts" AND a.logic_name NOT LIKE "%\_merged_rnaseq_daf"',
         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' > #daf_file#),
@@ -558,19 +559,19 @@ sub pipeline_analyses {
       -logic_name => 'create_species_ftp_dir',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	      cmd => 'sudo -u genebuild mkdir -p ' . catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq'),
-                     },
+        cmd => 'sudo -u genebuild mkdir -p ' . catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq'),
+      },
       -rc_name    => '2GB',
       -flow_into => {
-	1 => ['copy_bigwig_files'],
+	1 => ['copy_files'],
       }
     },
 
-   {
-    -logic_name => 'copy_bigwig_files',
+    {
+    -logic_name => 'copy_files',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.bw '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.bw '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq'),
+      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.bam '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.bw '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.csi '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq'),
      },
      -rc_name    => '2GB',
      -flow_into => {
@@ -582,7 +583,7 @@ sub pipeline_analyses {
     -logic_name => 'copy_readme_md5sum',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.1 '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.1 '.catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), $self->o('annotation_source'), 'rnaseq'),
+      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.1 '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.1 '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq'),
      },
     -rc_name    => '2GB',
     -flow_into => {
@@ -594,27 +595,11 @@ sub pipeline_analyses {
      -logic_name => 'set_dir_permission',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
      -parameters => {
-       cmd => "sudo -u genebuild find " .catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name'))). " -user genebuild -exec chmod g+w {} \\;"},
+       cmd => "sudo -u genebuild find " .catdir('#production_ftp_dir#', $self->o('production_name')). " -user genebuild -exec chmod g+w {} \\;"},
      -rc_name    => '2GB',
      -flow_into => {
-        1 => ['check_main'],
+        1 => ['delete_data_files'],
      },
-   },
-
-   {
-      -logic_name => 'check_main',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-         cmd => 'if [[ $(#search_query#) ]]; then exit 0; else exit 42;fi',
-         return_codes_2_branches => {'42' => 2},
-	 #note that this query will search for the first part of the binomial species name, i.e. the genus, but is safest for now
-	 search_query => 'search_name=`echo "${'.$self->o('species_name').'^}" | cut -d\'_\' -f1`; grep -w $search_name '.$self->o('species_list'),
-      },
-    -rc_name => '2GB',
-    -flow_into => {
-         1 => ['copy_to_main_ftp'],
-         2 => ['delete_data_files'],
-     }
    },
 
    {
@@ -624,12 +609,6 @@ sub pipeline_analyses {
         cmd => 'rm -r '. $self->o('merge_dir') . '/* ' .$self->o('output_dir') . '/* ',
      },
    },
-
-   { #for now we won't do anything with the file, need to get SOP for moving to the main FTP space
-      -logic_name => 'copy_to_main_ftp',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-      -rc_name => 'default',
-   }
 
   ];
 }
