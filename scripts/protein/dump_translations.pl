@@ -61,6 +61,7 @@ use warnings;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::SeqIO;
 use Getopt::Long qw(:config no_ignore_case);
+use Getopt::Long qw(GetOptions);
 
 my $dbname = '';
 my $dbhost = '';
@@ -81,6 +82,7 @@ my $slicename;
 my $verbose;
 my $biotypeToFetch; # dump translations of only this biotype 
 my $canonical_only = 0;
+my $species_id;      # NEW: optional species_id for multispecies cores
 
 GetOptions(
     'dbhost|host|h=s'    => \$dbhost,
@@ -99,6 +101,7 @@ GetOptions(
     'slicename=s' => \$slicename,
     'biotype=s'   => \$biotypeToFetch,
     'canonical_only!'   => \$canonical_only,
+    'species_id=i'      => \$species_id,   # NEW
     'verbose'     => \$verbose,
 ) or die("Couldn't get options");
 
@@ -125,16 +128,16 @@ if ($dnadbname) {
     if (not $dnadbhost or not $dnadbuser) {
         die "Fine. Your DNA is not in '$dbname' but in '$dnadbname'. But you must give a user and host for it\n";
     }
-
-    my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+    my %dnadb_args = (
         '-host'   => $dnadbhost,
         '-user'   => $dnadbuser,
         '-dbname' => $dnadbname,
         '-pass'   => $dnadbpass,
         '-port'   => $dnadbport,
     );
+    my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%dnadb_args);
 
-    $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+    my %core_args = (
         '-host'   => $dbhost,
         '-user'   => $dbuser,
         '-dbname' => $dbname,
@@ -142,15 +145,27 @@ if ($dnadbname) {
         '-port'   => $dbport,
         '-dnadb'  => $dnadb,
     );
+    if (defined $species_id) {
+        # Trigger multispecies behaviour and bind to the given species row
+        $core_args{'-multispecies_db'} = 1;   # sets is_multispecies on the DBA
+        $core_args{'-species_id'}      = $species_id;
+    }
+    $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(%core_args);
 }
 else {
-    $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+    my %core_args = (
         '-host'   => $dbhost,
         '-user'   => $dbuser,
         '-dbname' => $dbname,
         '-pass'   => $dbpass,
         '-port'   => $dbport,
     );
+    if (defined $species_id) {
+        # Trigger multispecies behaviour and bind to the given species row
+        $core_args{'-multispecies_db'} = 1;   # sets is_multispecies on the DBA
+        $core_args{'-species_id'}      = $species_id;
+    }
+    $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(%core_args);
 }
 
 my $fh;
