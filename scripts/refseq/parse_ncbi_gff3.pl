@@ -323,7 +323,7 @@ LINE: while ($gff_parser->next) {
           }
           $transcript->{gene_object} = $genes{$parent};
           $genes{$parent}->add_Transcript($transcript);
-          if (exists $attributes->{tag} and $attributes->{tag} eq 'refseq_select') {
+          if (exists $attributes->{tag} and ($attributes->{tag} eq 'refseq_select' or $attributes->{tag} eq 'RefSeq Select')) {
             $genes{$parent}->canonical_transcript($transcript);
           }
           if (exists $attributes->{tag} and $attributes->{tag} eq 'MANE Select') {
