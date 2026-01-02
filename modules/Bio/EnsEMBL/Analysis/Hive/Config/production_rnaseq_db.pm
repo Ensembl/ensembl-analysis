@@ -567,29 +567,25 @@ sub pipeline_analyses {
       }
     },
 
-    {
-    -logic_name => 'copy_files',
-    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.bam '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.bw '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.csi '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq'),
-     },
-     -rc_name    => '2GB',
-     -flow_into => {
-	1 => ['copy_readme_md5sum'],
-      },
-   },
-
-  {
-    -logic_name => 'copy_readme_md5sum',
-    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-      cmd => 'sudo -u genebuild rsync -ahvW '.$self->o('merge_dir').'/*.1 '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.1 '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq'),
-     },
-    -rc_name    => '2GB',
-    -flow_into => {
-      1 => ['set_dir_permission'],
-    },
-  },
+	{
+	  -logic_name => 'copy_files',
+	  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+	  -parameters => {
+	    cmd => 'sudo -u genebuild bash -c "rsync -ahvW '.$self->o('merge_dir').'/*.bam '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.bw '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.csi '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').'"',
+	  },
+	  -rc_name    => '2GB',
+	  -flow_into => { 1 => ['copy_readme_md5sum'] },
+	},
+	
+	{
+	  -logic_name => 'copy_readme_md5sum',
+	  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+	  -parameters => {
+	    cmd => 'sudo -u genebuild bash -c "rsync -ahvW '.$self->o('merge_dir').'/*.1 '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').' && rsync -avhc ' . $self->o('merge_dir') . '/*.1 '.catdir('#production_ftp_dir#', $self->o('production_name'), $self->o('assembly_accession'), 'rnaseq').'"',
+	  },
+	  -rc_name    => '2GB',
+	  -flow_into => { 1 => ['set_dir_permission'] },
+	},
 
    {
      -logic_name => 'set_dir_permission',
