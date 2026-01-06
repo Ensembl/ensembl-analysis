@@ -78,8 +78,8 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
   -host    => $registry_host,
   -port    => $registry_port,
   -user    => 'ensro',
-  -dbname  => 'gb_assembly_registry');
-
+  -dbname  => $registry_db,
+);
  my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -dbname => $dbname,
   -host   => $host,
