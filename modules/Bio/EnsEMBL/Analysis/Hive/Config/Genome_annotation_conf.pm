@@ -686,7 +686,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '1GB',
       -parameters => {
-        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','select_transcriptomic_data.py' ) . ' --taxon_id  ' . $self->o('species_taxon_id') .' --file_name ' . $self->o('rnaseq_summary_file') . ' --csv_for_main --limit 200' . ' --password ensembl',
+        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes','transcriptomic_data','select_transcriptomic_data.py' ) . ' --taxon_id  ' . $self->o('species_taxon_id') .' --file_name ' . $self->o('rnaseq_summary_file') . ' --csv_for_main --limit 200',
       },
       -flow_into => {
         1 => ['check_rnaseq_summary_file'],
