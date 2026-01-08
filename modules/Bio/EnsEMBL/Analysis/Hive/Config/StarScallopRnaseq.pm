@@ -979,7 +979,7 @@ sub pipeline_analyses {
      },
      -rc_name => 'default',
      -flow_into  => {
-        1 => ['notification_pipeline_is_done'],
+        1 => ['create_pcp_db'],
       },
      },
 
