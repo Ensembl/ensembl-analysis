@@ -875,7 +875,7 @@ sub pipeline_analyses {
             '(1, "assembly.provider_name", NULL),' .
             '(1, "assembly.provider_url", NULL),' .
             '(1, "assembly.ucsc_alias", NULL),' .
-            '(1, "species.stable_id_prefix", "HELIXER#species_prefix#"),' .
+            '(1, "species.stable_id_prefix", "HELIXER#stable_id_prefix#"),' .
             '(1, "species.url", "#species_url#"),' .
             '(1, "species.display_name", "#species_display_name#"),' .
             '(1, "species.division", "#species_division#"),' .
