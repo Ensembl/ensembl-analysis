@@ -889,7 +889,7 @@ sub pipeline_analyses {
             '(1, "genebuild.id", ' . $self->o('genebuilder_id') . '),' .
             '(1, "genebuild.method", "helixer"),'.
 	    '(1, "genebuild.method_display", "HELIXER"),'.
-	    '(1, "species.annotation_source", "helixer")'
+	    '(1, "species.annotation_source", "ensembl")'
         ],
       },
       -max_retry_count => 0,
@@ -912,7 +912,7 @@ sub pipeline_analyses {
                 ' --status in_progress' .
                 ' --genebuilder $USER' .
                 ' --genebuild_version HLX01' .
-                ' --annotation_source helixer' .
+                ' --annotation_source ensembl' .
                 ' --annotation_method helixer',
         },
         -rc_name => '1GB',
