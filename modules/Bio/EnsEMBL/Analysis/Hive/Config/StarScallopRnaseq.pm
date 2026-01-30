@@ -978,9 +978,6 @@ sub pipeline_analyses {
        cmd => 'rm '.$self->o('input_dir').'/*.gz',
      },
      -rc_name => 'default',
-     -flow_into  => {
-        1 => ['create_pcp_db'],
-      },
      },
 
     {
@@ -1156,6 +1153,9 @@ sub pipeline_analyses {
       },
       -hive_capacity => $self->o('hc_normal'),
       -rc_name => '5GB',
+	  -flow_into => {
+        '1' => ['delete_short_reads'],
+      },
     },
   ];
 }
