@@ -340,7 +340,7 @@ sub pipeline_analyses {
       -rc_name => '3GB',
       -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
-        -1 => ['targetted_exonerate_retry'],
+        2 => ['targetted_exonerate_retry'],
       },
     },
 
@@ -359,7 +359,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
         use_genome_flatfile => 0,
       },
-      -rc_name => '10GB',
+      -rc_name => '30GB',
       -hive_capacity => $self->o('hc_normal'),
     },
 
