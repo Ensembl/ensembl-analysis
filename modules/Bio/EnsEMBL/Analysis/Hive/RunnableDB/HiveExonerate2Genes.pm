@@ -275,12 +275,14 @@ sub run {
   foreach my $runnable (@{$self->runnable}){
     # This is to catch the closing exonerate errors, which we currently have no actual solution for
     # It seems to be more of a problem with the exonerate code itself
+    
     eval {
       $runnable->run;
-      push ( @results, @{runnable->output} );
-    }
-
+      push ( @results, @{$runnable->output} );
+    };
+    
     if ($@) {
+      # Check if it's the exit code 9 error from exonerate
       if ($@ =~ /Error closing exonerate command: 9/) {
         $self->warning("Exonerate subprocess killed with SIGKILL (exit 9), flowing to error handler");
         $self->dataflow_output_id($self->input_id, 2);  # Flow to branch 2
@@ -291,10 +293,9 @@ sub run {
       die $@;
     }
   }
-
+  
   if ($self->USE_KILL_LIST) {
     unlink $self->filtered_query_file;
-    # print "Removed temporary query file ".$self->filtered_query_file."\n";
   }
   if ($self->filter) {
     my $filtered_transcripts = $self->filter->filter_results(\@results);
