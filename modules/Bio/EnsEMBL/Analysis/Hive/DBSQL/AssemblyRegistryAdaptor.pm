@@ -383,23 +383,24 @@ sub fetch_assembly_name_by_gca {
 
   my ($chain,$version) = $self->split_gca($chain_version);
 
-  my $sql = "SELECT assembly_id FROM assembly WHERE chain=? and version=?";
+  my $sql = "SELECT asm_name FROM assembly WHERE gca_chain=? and gca_version=?";
   my $sth = $self->dbc->prepare($sql);
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
   $sth->execute();
 
-  my $assembly_id = $sth->fetchrow();
-  unless($assembly_id) {
-    $self->throw("Could not find assembly id for assembly with chain ".$chain." and version ".$version);
+  my $assembly_name = $sth->fetchrow();
+  unless($assembly_name) {
+    $self->throw("Could not find assembly name for assembly with chain ".$chain." and version ".$version);
   }
 
-  $sql = "SELECT assembly_name FROM meta WHERE assembly_id=?";
-  $sth = $self->dbc->prepare($sql);
-  $sth->bind_param(1,$assembly_id);
-  $sth->execute();
+  #$sql = "SELECT assembly_name FROM meta WHERE assembly_id=?";
+  #$sth = $self->dbc->prepare($sql);
+  #$sth->bind_param(1,$assembly_id);
+  #$sth->execute();
 
-  my ($assembly_name) = $sth->fetchrow();
+
+  #my ($assembly_name) = $sth->fetchrow();
 
   return($assembly_name);
 }

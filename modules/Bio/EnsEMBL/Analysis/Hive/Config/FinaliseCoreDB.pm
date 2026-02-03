@@ -75,7 +75,7 @@ sub default_options {
     'protein_entry_loc'  => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),    # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
     'registry_file'      => catfile($self->o('output_path'), 'Databases.pm'), # Path to databse registry for LastaZ and Production sync
     'gst_dir'            => catfile($self->o('output_path'), 'gst'),
-    'busco_singularity_image'      => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco_v5.8.2_cv1.sif',
+    'busco_singularity_image'      => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco_v6.0.0_cv1.sif',
     'busco_download_path'          => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
     'busco_genome_dir'   => catdir($self->o('output_path'), 'busco_genome'),
     'busco_protein_dir'   => catdir($self->o('output_path'), 'busco_protein'),
