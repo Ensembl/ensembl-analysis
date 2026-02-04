@@ -972,7 +972,7 @@ sub pipeline_analyses {
       -max_retry_count => 0,
       -flow_into => {
         '2->A' => ['initialise_repeat_masking'],
-        'A->1' => ['genome_prep_sanity_checks'],
+        'A->1' => ['set_repeat_types'],
       }
     },
 
@@ -1000,9 +1000,14 @@ sub pipeline_analyses {
           skip_repeatmodeler => $self->o('skip_repeatmodeler'),
           red_logic_name => $self->o('red_logic_name'),
           repeatmodeler_library => $self->o('repeatmodeler_library'),
-	  skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
-	  batch_target_size => $self->o('batch_target_size'),
-	  repeatmasker_slice_size => $self->o('repeatmasker_slice_size'),
+          skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
+          batch_target_size => $self->o('batch_target_size'),
+          repeatmasker_slice_size => $self->o('repeatmasker_slice_size'),
+          binary_base => $self->o('binary_base'),
+          hive_driver => $self->o('hive_driver'),
+          hc_normal => $self->o('hc_normal'),
+          sanity_set => $self->o('sanity_set'),
+          linuxbrew_home_path => $self->o('linuxbrew_home_path'),
         },
       },
       -rc_name      => 'default',

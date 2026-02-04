@@ -228,7 +228,7 @@ sub pipeline_analyses {
       -input_ids  => [{}],
       -flow_into => {
         '2->A' => ['semaphore_10mb_slices'],
-        'A->1' => ['insert_fixed_repeat_analysis_meta_key_jobs'],
+        'A->1' => ['genome_prep_sanity_checks'],
         1 => ['repeatdetector'],
       },
     },
@@ -407,7 +407,21 @@ sub pipeline_analyses {
       -rc_name      => 'default',
       -can_be_empty => 1,
     },
+    {
+      -logic_name => 'genome_prep_sanity_checks',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+      -parameters => {
+        target_db => $self->o('dna_db'),
+        sanity_check_type => 'genome_preparation_checks',
+        min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+            'genome_preparation_checks')->{$self->o('sanity_set')},
+      },
 
+      -flow_into =>  {
+        1 => ['insert_fixed_repeat_analysis_meta_key_jobs'],
+      },
+      -rc_name    => '15GB',
+    },
     {
       -logic_name => 'insert_fixed_repeat_analysis_meta_key_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
