@@ -849,7 +849,7 @@ sub pipeline_analyses {
         genbank_file     => $self->o('cdna_file'),
         protein_files    => [ catfile( $self->o('targetted_path'), 'proteome.fa' ), catfile( $self->o('targetted_path'), $self->o('taxon_id') . '_seleno.fa' ) ],
       },
-      -rc_name   => 'default',
+      -rc_name   => '8GB',
       -flow_into => {
         1 => ['indicate_BT'],
       },
