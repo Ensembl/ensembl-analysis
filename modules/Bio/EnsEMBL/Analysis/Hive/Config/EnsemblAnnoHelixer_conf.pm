@@ -1223,7 +1223,7 @@ sub pipeline_analyses {
         enscode_root_dir => $self->o('enscode_root_dir'),
         mapping_required => 0,
         target_db        => '#core_db#',
-        id_start         => 'HELIXER#species_prefix#' . '#stable_id_start#',
+        id_start         => 'HELIXER#stable_id_prefix#' . '#stable_id_start#',
         output_path      => '#output_path#',
       },
       -rc_name   => 'default',
