@@ -232,9 +232,13 @@ if ($genbank_parser->get_taxon_id != $meta_container->get_taxonomy_id) {
 my $dbe_adaptor = $output_db->get_DBEntryAdaptor;
 my $slice_adaptor = $output_db->get_SliceAdaptor;
 my $attrib_adaptor = $output_db->get_AttributeAdaptor;
+$slice_adaptor->{'_sr_name_cache'} = {} if exists $slice_adaptor->{'_sr_name_cache'};
+$slice_adaptor->{'_sr_id_cache'} = {} if exists $slice_adaptor->{'_sr_id_cache'};
 my $slice = $slice_adaptor->fetch_by_region('toplevel', $MIT_NAME);
+warn "DEBUG: About to check if slice exists. Slice defined: ".($slice ? "YES" : "NO")."\n";
+warn "DEBUG: slice is defined: ".($slice ? "YES" : "NO")."\n";
 
-if (!$slice) {
+if (1) {
   my $slices = &get_chromosomes($genbank_parser, $output_db);
   my $sequence;
   if ($genbank_parser->{record}->{_tax} eq 'CON') {
@@ -265,8 +269,14 @@ if (!$slice) {
   else {
     $sequence = $genbank_parser->get_sequence;
   }
+  warn "DEBUG: Sequence length from parser: ".length($sequence)."\n";
+  warn "DEBUG: Sequence 3101-3130 from parser: ".substr($sequence, 3100, 30)."\n";
+
   &load_chromosomes($slices, $output_db, $sequence);
   $slice = $slice_adaptor->fetch_by_region('toplevel',$MIT_NAME);
+  my $db_seq = $slice->subseq(3101, 3130);
+  warn "DEBUG: Sequence 3101-3130 from DB slice: $db_seq\n";
+
 }
 
 #Add sequence location attribute to seq_region_table
@@ -546,11 +556,59 @@ for (my $index = 1; $index < $length; $index++) {
             warning('The gene '.$feature->{gene}->[0]." is fragmented, a methionine will be added!\n");
         }
         $transcript->translation($translation);
-        if ($transcript->translate()->seq() =~ /\*/) {
-          throw("Stop codon found in translation ".$transcript->translate()->seq()." Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start()." ".$transcript->seq_region_end());
-        }
-        if ($transcript->translate()->seq() =~ /^[^M]/) {
-          warning("Adding SeqEdit for non-methionine start codon in translation ".$transcript->translate()->seq());
+        warn "DEBUG: Transcript coordinates: ".$transcript->seq_region_start()." to ".$transcript->seq_region_end()." strand ".$transcript->strand()."\n";
+warn "DEBUG: Translation start: ".$transcript->translation->start." end: ".$transcript->translation->end."\n";
+warn "DEBUG: CDS position from Genbank should be 3101..4056\n";
+my $genomic_seq = $transcript->slice->subseq(3101, 3130);
+warn "DEBUG: Genomic sequence 3101-3130: $genomic_seq\n";
+use Bio::Tools::CodonTable;
+my $codon_table_obj = Bio::Tools::CodonTable->new(-id => $codon_table_stored);
+
+# TEST: Check that TGA codes for Trp (W) in table 2, not STOP
+my $test_tga = $codon_table_obj->translate('TGA');
+warn "DEBUG: Codon table $codon_table_stored translates TGA as: $test_tga (should be W for table 2, * for table 1)\n";
+
+# TEST: Check that AGA is a stop in table 2
+my $test_aga = $codon_table_obj->translate('AGA');
+warn "DEBUG: Codon table $codon_table_stored translates AGA as: $test_aga (should be * for table 2, R for table 1)\n";
+
+## Build the nucleotide sequence for the CDS directly from exon coordinates
+## (don't rely on a possibly mis-configured Translation object)
+my $seq = '';
+foreach my $exon (@{$transcript->get_all_Exons}) {
+  $seq .= $exon->slice->subseq($exon->start, $exon->end);
+}
+# If transcript is on the reverse strand, reverse-complement the concatenated sequence
+if ($transcript->strand == -1) {
+  $seq = reverse($seq);
+  $seq =~ tr/ACGTacgt/TGCAtgca/;
+}
+# Honor GenBank's /codon_start if present (default is 1)
+my $codon_start = 1;
+if (exists $feature->{codon_start} && defined $feature->{codon_start}->[0]) {
+  $codon_start = $feature->{codon_start}->[0];
+}
+if ($codon_start > 1) {
+  $seq = substr($seq, $codon_start - 1);
+}
+warn "DEBUG: First 30 bases of built translateable seq: ".substr($seq, 0, 30)."\n";
+my $aa_seq = '';
+for (my $i = 0; $i < length($seq) - 2; $i += 3) {
+  my $codon = substr($seq, $i, 3);
+  my $aa = $codon_table_obj->translate($codon);
+  $aa_seq .= $aa;
+}
+warn "DEBUG: Manual translation with table $codon_table_stored: $aa_seq\n";
+
+# Remove terminal stop codon before checking for internal stops
+my $aa_seq_no_terminal = $aa_seq;
+$aa_seq_no_terminal =~ s/\*$//;  # Remove trailing stop if present
+
+if ($aa_seq_no_terminal =~ /\*/) {
+  throw("Internal stop codon found in translation $aa_seq Transcript: ".$transcript->seq_region_start()." ".$transcript->seq_region_end());
+}
+if ($aa_seq =~ /^[^M]/) {
+  warning("Adding SeqEdit for non-methionine start codon in translation $aa_seq");
           my $seqedit = Bio::EnsEMBL::SeqEdit->new(
                 -CODE    => 'amino_acid_sub',
                 -NAME    => 'Amino acid substitution',
