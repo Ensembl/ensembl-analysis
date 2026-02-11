@@ -773,7 +773,7 @@ sub pipeline_analyses {
         target_db     => '#core_db#',
       },
       -rc_name         => '8GB',
-      -max_retry_count => 3,
+      -max_retry_count => 0,
       -flow_into       => {
         1 => ['check_load_meta_info'],
       },
