@@ -286,9 +286,9 @@ sub _master_config {
 	        'biotypes' =>    {
 	          'human_pe12_'         => 50000,
 	          'mammals_pe12_'       => 300000,
-			  'amphibians_pe12_'    => 50000,
+			  'amphibians_pe12_'    => 40000,
 			  'reptiles_pe12_'      => 1200,
-	          'aves_pe12_'          => 50000,
+	          'aves_pe12_'          => 40000,
 	        }, # biotypes
 	      }, # genblast
 
@@ -359,13 +359,13 @@ sub _master_config {
 	          'ncrna' => 700,
 	        }, # logic_names
 	        'biotypes' =>    {
-	          'miRNA'               => 100,
-			  'misc_RNA'			=> 10,
+	          'miRNA'               => 50,
+			  'misc_RNA'			=> 2,
 			  'ribozyme'            => 5,
 	          'rRNA'                => 20,
 			  'scaRNA'              => 15,
 	          'snoRNA'              => 200,
-	          'snRNA'               => 200,
+	          'snRNA'               => 150,
 	        }, # biotypes
 	      }, # ncrna
 
