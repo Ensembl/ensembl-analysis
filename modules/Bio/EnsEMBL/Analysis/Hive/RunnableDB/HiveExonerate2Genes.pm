@@ -275,13 +275,27 @@ sub run {
   foreach my $runnable (@{$self->runnable}){
     # This is to catch the closing exonerate errors, which we currently have no actual solution for
     # It seems to be more of a problem with the exonerate code itself
-    $runnable->run;
-
-    push ( @results, @{$runnable->output} );
+    
+    eval {
+      $runnable->run;
+      push ( @results, @{$runnable->output} );
+    };
+    
+    if ($@) {
+      # Check if it's the exit code 9 error from exonerate
+      if ($@ =~ /Error closing exonerate command: 9/) {
+        $self->warning("Exonerate subprocess killed with SIGKILL (exit 9), flowing to retry"); #Warning message to be displayed if running in a shell or as a runWorker or standalone job.
+        $self->param('_exit_code_9', 1); #Just asigning a parameter here to handleexception on the write_output method, otherwise beekeeper will keep worker alive and mess up the dataflow
+        $self->input_job->autoflow(0); #Prevents normal flow -> I think not needed for this specific case, might be useful in others.
+        return;
+      }
+      # Re-throw any other errors
+      die $@;
+    }
   }
+  
   if ($self->USE_KILL_LIST) {
     unlink $self->filtered_query_file;
-    # print "Removed temporary query file ".$self->filtered_query_file."\n";
   }
   if ($self->filter) {
     my $filtered_transcripts = $self->filter->filter_results(\@results);
@@ -295,6 +309,13 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
+
+  # Handle exit code 9 case FIRST, before normal output
+  # This has to be here for the pipeline to work as expected. Othjerwise the data flows but the original job remains alive.
+  if ($self->param_is_defined('_exit_code_9')) {
+    $self->dataflow_output_id({iid => $self->input_id}, 2);
+    return;  # Don't write genes to DB -> Mot sure if stricly needed but left as a safe measure.
+  }
 
   my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
