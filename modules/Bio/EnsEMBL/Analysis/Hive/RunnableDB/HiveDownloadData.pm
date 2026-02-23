@@ -249,9 +249,32 @@ sub pre_cleanup {
   my ($self) = @_;
 
   my $filepath = catfile($self->param_required('output_dir'), basename($self->param_required('url')));
+
   if (-e $filepath) {
-    unlink $filepath;
+    if ($self->param_is_defined('md5sum')) {
+      my $digest = Digest::MD5->new();
+      open(my $fh, $filepath) || $self->throw("Could not open '$filepath': $!");
+      binmode $fh;
+      my $md5sum = $digest->addfile($fh)->hexdigest;
+      close($fh) || $self->throw("Could not close '$filepath': $!");
+
+      if ($md5sum eq $self->param('md5sum')) {
+        $self->say_with_header("File '$filepath' already exists and md5sum matches ($md5sum), keeping it to skip download");
+      }
+      else {
+        $self->say_with_header("File '$filepath' exists but md5sum mismatch (expected: ".$self->param('md5sum').", got: $md5sum), removing for re-download");
+        unlink $filepath or $self->warning("Could not remove '$filepath': $!");
+      }
+    }
+    else {
+      $self->say_with_header("File '$filepath' already exists but no md5sum defined, removing it to force a clean download");
+      unlink $filepath or $self->warning("Could not remove '$filepath': $!");
+    }
+  }
+  else {
+    $self->say_with_header("File '$filepath' does not exist, nothing to clean up");
   }
 }
 
 1;
+
