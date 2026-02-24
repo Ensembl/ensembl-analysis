@@ -53,6 +53,31 @@ All configuration is done through MitConf.pm
 use warnings ;
 use strict;
 
+BEGIN {
+  if (!Bio::EnsEMBL::DBSQL::AttributeAdaptor->can("remove_on_Slice")) {
+    no strict "refs";
+    *{"Bio::EnsEMBL::DBSQL::AttributeAdaptor::remove_on_Slice"} = sub {
+      my ($self, $slice, $attrib) = @_;
+      die "remove_on_Slice: need slice + Bio::EnsEMBL::Attribute" unless $slice && $attrib;
+      my $code  = $attrib->code;
+      my $value = $attrib->value;
+      my $dbc = $self->dbc;
+      my $sql = q{
+        DELETE sra
+        FROM seq_region_attrib sra
+        JOIN attrib_type at ON at.attrib_type_id = sra.attrib_type_id
+        WHERE sra.seq_region_id = ?
+          AND at.code = ?
+          AND sra.value = ?
+      };
+      my $sth = $dbc->prepare($sql);
+      $sth->execute($slice->get_seq_region_id, $code, $value);
+      return 1;
+    };
+  }
+}
+
+
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Transcript;
@@ -545,12 +570,21 @@ for (my $index = 1; $index < $length; $index++) {
         if (exists $feature->{fragment}) {
             warning('The gene '.$feature->{gene}->[0]." is fragmented, a methionine will be added!\n");
         }
-        $transcript->translation($translation);
-        if ($transcript->translate()->seq() =~ /\*/) {
-          throw("Stop codon found in translation ".$transcript->translate()->seq()." Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start()." ".$transcript->seq_region_end());
-        }
-        if ($transcript->translate()->seq() =~ /^[^M]/) {
-          warning("Adding SeqEdit for non-methionine start codon in translation ".$transcript->translate()->seq());
+          if (exists $feature->{translation} && defined $feature->{translation}->[0]) {
+            (my $t = $feature->{translation}->[0]) =~ s/\s+//g;
+            $translation->seq($t);
+          }
+          $transcript->translation($translation);
+
+          # Use mitochondrial codon table (default 2), override from GenBank if present
+
+
+            my $pep = $translation->seq();
+          if ($pep =~ /\*/) {
+            throw("Stop codon found in translation $pep Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start()." ".$transcript->seq_region_end());
+          }
+          if ($pep !~ /^M/) {
+            warning("Adding SeqEdit for non-methionine start codon in translation $pep");
           my $seqedit = Bio::EnsEMBL::SeqEdit->new(
                 -CODE    => 'amino_acid_sub',
                 -NAME    => 'Amino acid substitution',
