@@ -73,6 +73,7 @@ sub param_defaults {
     threads => 1,
     samtools => 'samtools',
     samtools_use_threading => 1,
+    limitBAMsortRAM => 0,
 	skip_analysis => 0,
   }
 }
@@ -131,7 +132,7 @@ sub fetch_input {
      -fastq          => $filepath1,
      -fastqpair      => $filepath2,
      -threads        => $self->param('num_threads'),
-	 #-mem_request	 => $self->param('limitBAM'),
+	   -limitBAMsortRAM	 => $self->param('limitBAMsortRAM'),
     );
     if ($self->param_is_defined('rg_lines')) {
       $runnable->rg_lines($self->param('rg_lines'));

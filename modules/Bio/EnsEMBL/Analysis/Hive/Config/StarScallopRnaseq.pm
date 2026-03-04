@@ -206,6 +206,8 @@ sub default_options {
     star_threads    => 12,
     scallop_threads => 2,
     rnaseq_merge_threads => 12,
+
+    star_bam_sort_ram => 0,
     # Please assign some or all columns from the summary file to the
     # some or all of the following categories.  Multiple values can be
     # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus,
@@ -514,6 +516,7 @@ sub pipeline_analyses {
         short_read_aligner => $self->o('star_path'),
         genome_dir         => catfile( $self->o('output_path'), 'genome_dumps' ),
         num_threads        => $self->o('star_threads'),
+        limitBAMsortRAM    => $self->o('star_bam_sort_ram'),
       },
       -flow_into => {
         2 => ['scallop'],
@@ -532,6 +535,7 @@ sub pipeline_analyses {
         short_read_aligner => $self->o('star_path'),
         genome_dir         => catfile( $self->o('output_path'), 'genome_dumps' ),
         num_threads        => $self->o('star_threads'),
+        limitBAMsortRAM    => $self->o('star_bam_sort_ram'),
       },
       -flow_into => {
         2 => ['scallop'],
