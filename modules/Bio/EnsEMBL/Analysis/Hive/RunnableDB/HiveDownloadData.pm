@@ -260,6 +260,7 @@ sub pre_cleanup {
 
       if ($md5sum eq $self->param('md5sum')) {
         $self->say_with_header("File '$filepath' already exists and md5sum matches ($md5sum), keeping it to skip download");
+        $self->complete_early("File already present and verified");
       }
       else {
         $self->say_with_header("File '$filepath' exists but md5sum mismatch (expected: ".$self->param('md5sum').", got: $md5sum), removing for re-download");
