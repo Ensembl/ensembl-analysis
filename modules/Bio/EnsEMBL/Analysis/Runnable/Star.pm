@@ -78,12 +78,13 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($decompress, $sample_id, $genome_dir, $threads) = rearrange([qw (DECOMPRESS SAMPLE_NAME GENOME_DIR THREADS)],@args);
+  my ($decompress, $sample_id, $genome_dir, $threads, $limitbamsortram) = rearrange([qw (DECOMPRESS SAMPLE_NAME GENOME_DIR THREADS LIMITBAMSORTRAM)],@args);
   $self->throw("Genome file must be indexed, '$genome_dir/SA' does not exist\n") unless (-e $genome_dir.'/SA');
   $self->genome($genome_dir);
   $self->sample_id($sample_id);
   $self->threads($threads);
   $self->is_file_compressed($decompress);
+  $self->limitBAMsortRAM($limitbamsortram) if $limitbamsortram;
   return $self;
 }
 
@@ -114,6 +115,7 @@ sub run {
   }
   $options .= ' --outSAMattrRGline "'.$self->rg_lines.'"' if ($self->rg_lines);
   $options .= ' --outSAMattributes "'.$self->sam_attributes.'"' if ($self->sam_attributes);
+  $options .= ' --limitBAMsortRAM '.$self->limitBAMsortRAM if ($self->limitBAMsortRAM);
 
   # run STAR
   my $command = $self->program." --limitSjdbInsertNsj 2000000 --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $out_dir $options --outTmpDir $tmp_dir --outSAMtype BAM SortedByCoordinate";
@@ -230,6 +232,24 @@ sub threads {
     $self->{'_threads'} = $value;
   }
   return $self->{'_threads'};
+}
+
+
+=head2 limitBAMsortRAM
+
+ Arg [1]    : (optional) int
+ Description: Getter/setter for the maximum RAM available for BAM sorting in bytes
+ Returntype : Int
+ Exceptions : None
+
+=cut
+
+sub limitBAMsortRAM {
+  my ($self, $value) = @_;
+  if (defined $value) {
+    $self->{'_limitBAMsortRAM'} = $value;
+  }
+  return $self->{'_limitBAMsortRAM'};
 }
 
 
