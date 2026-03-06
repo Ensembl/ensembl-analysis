@@ -99,6 +99,35 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  # Early exit if file already present and verified
+  my $filepath = catfile($self->param_required('output_dir'), basename($self->param_required('url')));
+  if (-e $filepath && $self->param_is_defined('md5sum')) {
+    my $digest = Digest::MD5->new();
+    open(my $fh, $filepath) || $self->throw("Could not open '$filepath': $!");
+    binmode $fh;
+    my $md5sum = $digest->addfile($fh)->hexdigest;
+    close($fh) || $self->throw("Could not close '$filepath': $!");
+    if ($md5sum eq $self->param('md5sum')) {
+      $self->say_with_header("File '$filepath' already exists and md5sum matches, skipping download", 1);
+      my $final_file = $self->param('uncompress') ? ($filepath =~ /^(\S+)\.\w+$/)[0] : $filepath;
+
+      my $already_processed = 0;
+      eval {
+        my $sth = $self->db->dbc->prepare('SELECT read_length FROM '.$self->param('read_length_table').' WHERE fastq = ?');
+        $sth->execute(basename($final_file));
+        my $row = $sth->fetchrow_arrayref;
+        $already_processed = 1 if $row;
+        $sth->finish;
+      };
+
+      unless ($already_processed) {
+        $self->dataflow_output_id({filename => $final_file}, $self->param('_branch_to_flow_to'));
+      }
+      $self->input_job->autoflow(0);
+      $self->complete_early("File already present and verified");
+    }
+  }
+
   if ($] =~ '^5.024') {
     $self->throw("Perl 5.24 doesn't work with this module. If you manage to make it work, please submit a pull-request");
   }
@@ -258,14 +287,11 @@ sub pre_cleanup {
       my $md5sum = $digest->addfile($fh)->hexdigest;
       close($fh) || $self->throw("Could not close '$filepath': $!");
 
-      if ($md5sum eq $self->param('md5sum')) {
-        $self->say_with_header("File '$filepath' already exists and md5sum matches ($md5sum), keeping it to skip download");
-        $self->complete_early("File already present and verified");
-      }
-      else {
+      unless ($md5sum eq $self->param('md5sum')) {
         $self->say_with_header("File '$filepath' exists but md5sum mismatch (expected: ".$self->param('md5sum').", got: $md5sum), removing for re-download");
         unlink $filepath or $self->warning("Could not remove '$filepath': $!");
       }
+      # if md5 matches: do nothing here, fetch_input handles the early exit
     }
     else {
       $self->say_with_header("File '$filepath' already exists but no md5sum defined, removing it to force a clean download");
