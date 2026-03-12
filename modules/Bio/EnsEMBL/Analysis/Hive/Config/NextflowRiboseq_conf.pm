@@ -59,6 +59,13 @@ sub default_options {
     return {
         %{ $self->SUPER::default_options() },
 
+        # --- eHive DB credentials (pulled from standard genebuild env vars) ---
+        user       => $ENV{GBUSER},
+        password   => $ENV{GBPASS},
+        user_r     => $ENV{USER_R} || 'ensro',
+        password_r => undef,
+        dna_db_name => '',   # no Ensembl core DB needed; stub to satisfy base class
+
         # --- eHive pipeline identity ---
         pipeline_name          => 'nextflow_riboseq',
 
