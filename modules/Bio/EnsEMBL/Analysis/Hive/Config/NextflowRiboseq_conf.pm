@@ -77,6 +77,10 @@ sub default_options {
         # 'attempt' is the safe default: resume within an attempt, fresh on retry
         nextflow_resume_mode   => 'attempt',
 
+        # Override base default of 'slurm,singularity' -- the riboseq pipeline's
+        # slurm profile already enables Singularity; there is no separate profile for it
+        nextflow_profile       => 'slurm',
+
         # --- Directory roots (must be overridden on command line or here) ---
         nextflow_work_root     => undef,
         nextflow_output_root   => undef,
