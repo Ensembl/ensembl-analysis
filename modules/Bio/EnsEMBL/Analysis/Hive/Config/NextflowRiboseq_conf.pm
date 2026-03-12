@@ -100,11 +100,12 @@ sub default_options {
         riboseq_chrom_sizes_file        => undef,
         riboseq_ribometric_annotation   => undef,
 
-        # Optional with sensible defaults matching the Nextflow pipeline
-        riboseq_fetch                   => 0,
-        riboseq_force_fetch             => 0,
+        # Optional with sensible defaults matching the Nextflow pipeline.
+        # Booleans must be the strings 'true'/'false' -- nf-schema 2.x rejects 0/1.
+        riboseq_fetch                   => 'false',
+        riboseq_force_fetch             => 'false',
         riboseq_mismatches              => 3,
-        riboseq_allow_introns           => 1,
+        riboseq_allow_introns           => 'true',
         riboseq_max_multimappers        => 10,
         riboseq_alignment_type          => 'EndToEnd',
     };
