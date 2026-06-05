@@ -17,7 +17,7 @@
               "faToNib_exe" : "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/opt/kent/bin/faToNib",
               "lavToAxt_exe" : "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/opt/kent/bin/lavToAxt",
               "cesar" : "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/opt/cesar/bin",
-              "exonerate" : "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/opt/exonerate09/bin/exonerate",
+              "exonerate" : "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/opt/exonerate24/bin/exonerate",
               "genewise" : "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/genewise",
               "genblast" : "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/genblast",
               "indicate" : "/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/indicate",
