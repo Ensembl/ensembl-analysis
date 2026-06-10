@@ -438,6 +438,8 @@ sub pipeline_analyses {
       -parameters => {
         output_dir => $self->o('input_dir'),
         download_method => $self->o('download_method'),
+        read_length_table => $self->o('read_length_table'),
+
         uncompress => 0,
       },
       -flow_into => {
