@@ -292,7 +292,7 @@ sub get_best_transcript {
 	  my @sfs;
 	  foreach my $exon (@{$genewise_transcript->get_all_Exons}) {
   		foreach my $sf (@{$exon->get_all_supporting_features}) {
-    	  push(@sfs, $sf->ungapped_features);
+    	  push(@sfs, $sf->ungapped_features); # splits each feature into pieces that satisfy the 3:1 ratio
   		}
 	  }
       my $new_tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@sfs, -align_type => 'ensembl');
