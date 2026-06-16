@@ -262,7 +262,14 @@ if (!$slice) {
       else {
         my ($rev, $accession, $start, $end) = $fragment =~ /(complement\()?([^:]+):(\d+)\.\.(\d+)/;
         my $length = $end-$start+1;
-        open(my $fasta_file, sprintf($ftp_cmd, 'fasta', $accession).' -O - |') or throw("Could not fetch fasta for $accession");
+		# NOTE: This efetch call has no rate-limit handling, unlike the GenBank
+		# download above and the esearch/esummary calls in fetch_input (which were
+		# patched after hitting "Too Many Requests" failures in production). This
+		# call hasn't actually been observed to fail the same way, but it's the same
+		# kind of unauthenticated NCBI request, so it seems worth a look if it ever
+		# starts failing intermittently.
+		# If you are having this isse, replicate the behauviour of the previous blocvk here too.
+		open(my $fasta_file, sprintf($ftp_cmd, 'fasta', $accession).' -O - |') or throw("Could not fetch fasta for $accession");
         my $fasta_parser = Bio::EnsEMBL::IO::Parser::Fasta->open($fasta_file);
         $fasta_parser->next;
         my $tmp_sequence = substr($fasta_parser->getSequence, $start-1, $length);
@@ -299,7 +306,16 @@ foreach my $chromosome (@{$slice->adaptor->fetch_all_karyotype}) {
 if ($max_attrib) {
   my ($attrib) = @{$slice->get_all_Attributes('karyotype_rank')};
   if ($attrib and $attrib->value != $max_attrib) {
-    $attrib_adaptor->remove_on_Slice($slice, $attrib);
+		# NOTE: Can't find remove_on_Slice in repos or logs or "blame"
+		# (checked via grep across the full checked-out modenv) and throws "Can't
+		# locate object method" if this branch is reached, i.e. if MT already has a
+		# stale karyotype_rank attribute from a previous run. remove_from_Slice
+		# exists and is the closest match, but takes an attribute code rather than
+		# an object, and its exact delete semantics weren't checked closely enough
+		# to be confident it's a safe drop-in replacement. In case you have found an
+		# issue with this, the sugestion was to change line for:
+		# $attrib_adaptor->remove_from_Slice($slice, $attrib->code);
+		$attrib_adaptor->remove_on_Slice($slice, $attrib);
   }
   unless ($attrib and $attrib->value != $max_attrib) {
     $attrib = Bio::EnsEMBL::Attribute->new(
