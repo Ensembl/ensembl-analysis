@@ -72,6 +72,8 @@ sub param_defaults {
     filemode => 'text',
     batch_size => 5000,
     http_proxy => undef,
+	api_key => $ENV{NCBI_API_KEY} || '',
+	fetch_delay => 1,
     _input_id_name => 'query',
   }
 }
@@ -91,6 +93,7 @@ sub fetch_input {
 
   $self->param_required('output_file');
   my $url = $self->param('base_url').'/'.$self->param('search_url').'?db='.$self->param('ncbidb').'&term='.$self->input_id.'&usehistory=y';
+  $url .= '&api_key='.$self->param('api_key') if ($self->param('api_key') ne '');
 
   if (!-d dirname($self->param('output_file')) ) {
     make_path(dirname($self->param('output_file')));
@@ -108,7 +111,15 @@ sub fetch_input {
   }
   $self->warning($url);
   my $response = $ua->get($url);
+  my $retries = 0;
+  while (!$response->is_success && ($response->code == 502 || $response->code == 429)) {
+    $retries++;
+    $self->throw('Too many retries fetching '.$url."\n".$response->status_line) if ($retries > 5);
+    sleep($response->code == 429 ? (2 ** $retries) : 1);
+    $response = $ua->get($url);
+  }
   $self->throw('Could not retrieve data for '.$self->input_id."\n".$response->status_line) unless ($response->is_success);
+
 
   my $output = $response->decoded_content;
   $self->warning($output);
@@ -155,19 +166,25 @@ sub write_output {
   my $self = shift;
   my $ua = $self->param('connector');
   my $fetch_url = $self->param('base_url').'/'.$self->param('fetch_url').'?db='.$self->param('ncbidb').'&WebEnv='.$self->param('webenv').'&query_key='.$self->param('querykey');
+  $fetch_url .= '&api_key='.$self->param('api_key') if ($self->param('api_key') ne '');
   my $datatype = '&retmax='.$self->param('batch_size').'&rettype='.$self->param('filetype').'&retmode='.$self->param('filemode');
   open(WH, '>'.$self->param('output_file')) || $self->throw('Could not open '.$self->param('output_file'));
   for (my $start = 0; $start < $self->param('count'); $start += $self->param('batch_size')) {
     my $response = $ua->get($fetch_url.'&retstart='.$start.$datatype);
-    while($response->code == 502) {
-      $response = $ua->get($fetch_url.'&retstart='.$start.$datatype);
-    }
+	my $retries = 0;
+	while ($response->code == 502 || $response->code == 429) {
+		$retries++;
+		$self->throw('Too many retries fetching '.$fetch_url.'&retstart='.$start.$datatype."\n".$response->status_line) if ($retries > 5);
+		sleep($response->code == 429 ? (2 ** $retries) : 1);
+		$response = $ua->get($fetch_url.'&retstart='.$start.$datatype);
+	}
     if ($response->is_success) {
       print WH $response->decoded_content;
     }
     else {
       $self->throw('Could not retrieve data for '.$fetch_url.'&retstart='.$start.$datatype."\n".$response->status_line);
     }
+	sleep($self->param('fetch_delay')) if ($self->param('fetch_delay'));
   }
   close(WH) || $self->throw('Could not close '.$self->param('output_file'));
 
