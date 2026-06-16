@@ -194,11 +194,23 @@ if ($help) {
     exec('perldoc', $0);
 }
 
-my $ftp_cmd = 'wget -q "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&retmod=text&rettype=%s&id=%s"';
+my $ftp_cmd = 'wget -q "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&retmode=text&rettype=%s&id=%s"';
 if (exists $opt{download}) {
-  if (system(sprintf($ftp_cmd, 'gb', $MIT_DB_VERSION).' -O '.$MIT_GENBANK_FILE)) {
-    throw("Could not retrieve the genbank file");
+  my $max_attempts = 5;
+  my $attempt = 0;
+  my $delay = 1;
+  my $download_ok = 0;
+  while ($attempt < $max_attempts) {
+    if (!system(sprintf($ftp_cmd, 'gb', $MIT_DB_VERSION).' -O '.$MIT_GENBANK_FILE)) {
+      $download_ok = 1;
+      last;
+    }
+    $attempt++;
+    warning("Genbank download attempt $attempt failed, retrying in ${delay}s...");
+    sleep($delay);
+    $delay *= 2;
   }
+  throw("Could not retrieve the genbank file after $max_attempts attempts") unless $download_ok;
 }
 
 ############################
