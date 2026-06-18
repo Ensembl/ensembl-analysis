@@ -81,14 +81,22 @@ sub fetch_input {
     my $scientific_name = $target_db->get_MetaContainerAdaptor->get_scientific_name;
     my $taxon_id = $target_db->get_MetaContainerAdaptor->get_taxonomy_id;
     my $email = $ENV{HIVE_EMAIL} || 'genebuild@ebi.ac.uk';
+
+    # NCBI API key: raises rate limit from 3 req/sec to 10 req/sec.
+    # Set via NCBI_API_KEY env var (same convention as HiveDownloadNCBImRNA).
+    my %api_key_param;
+    $api_key_param{-api_key} = $ENV{NCBI_API_KEY} if $ENV{NCBI_API_KEY};
+
     my $factory = Bio::DB::EUtilities->new(
       -eutil => 'esearch',
       -db     => 'nuccore',
       -term   => '"'.$scientific_name.'"[Organism] AND biomol_genomic[PROP] AND refseq[filter] AND mitochondrion[filter]',
       -email  => $email,
       -retmax => 5,
+      %api_key_param,
     );
-    if ($factory->get_count) {
+
+    if ($self->_eutils_with_backoff(sub { $factory->get_count })) {
       $self->say_with_header(join(' ID: ', $factory->get_ids));
       my @uids = $factory->get_ids;
 
@@ -96,11 +104,12 @@ sub fetch_input {
         -eutil => 'esummary',
         -db    => 'nuccore',
         -email  => $email,
-        -id    => \@uids
+        -id    => \@uids,
+        %api_key_param,
       );
 
       my %mt_accessions;
-      while (my $ds = $factory->next_DocSum) {
+      while (my $ds = $self->_eutils_with_backoff(sub { $factory->next_DocSum })) {
         $self->say_with_header('ID: '.$ds->get_id.' ACCESSION: '.join(' ', $ds->get_contents_by_name('AccessionVersion')));
         my ($mt_accession) = $ds->get_contents_by_name('AccessionVersion');
         my ($tax_id) = $ds->get_contents_by_name('TaxId');
@@ -134,6 +143,45 @@ sub fetch_input {
   }
   else {
     $self->complete_early('No mitochondria for this species');
+  }
+}
+
+=head2 _eutils_with_backoff
+
+ Arg [1]    : Coderef wrapping a single Bio::DB::EUtilities call
+              (e.g. sub { $factory->get_count }, sub { $factory->next_DocSum })
+ Arg [2]    : Int max retry attempts (default 5)
+ Description: Calls the given coderef. If it dies with a "Too Many Requests"
+              Bio::Root::Exception (NCBI rate limiting), retries with
+              exponential backoff (1s, 2s, 4s, 8s, 16s). Any other exception
+              is rethrown immediately. After exhausting retries, the last
+              exception is rethrown.
+ Returntype : Whatever the coderef returns
+ Exceptions : Rethrows non-rate-limit exceptions, or the rate-limit exception
+              after max attempts are exhausted.
+
+=cut
+
+sub _eutils_with_backoff {
+  my ($self, $code, $max_attempts) = @_;
+  $max_attempts ||= 5;
+
+  my $attempt = 0;
+  my $delay = 1;
+  while (1) {
+    my $result = eval { $code->() };
+    if (!$@) {
+      return $result;
+    }
+    if ($@ =~ /Too Many Requests/ and $attempt < $max_attempts) {
+      $attempt++;
+      $self->say_with_header("NCBI rate limit hit, retrying in ${delay}s (attempt $attempt/$max_attempts)");
+      sleep($delay);
+      $delay *= 2;
+    }
+    else {
+      die $@;
+    }
   }
 }
 
