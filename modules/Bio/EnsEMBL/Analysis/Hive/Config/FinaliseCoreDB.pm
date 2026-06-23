@@ -1138,12 +1138,62 @@ sub pipeline_analyses {
               -pass   => $self->o('password'),
               -driver => $self->o('hive_driver'),
           },
-          'exclude_ehive' => 1,
-	  'dump_options' => $self->o('mysql_dump_options'),
-      },
-      -rc_name => '10GB',
+		  'dump_options' => $self->o('mysql_dump_options'),
+      	  'exclude_ehive' => 1,
+  	  },
+  	  -rc_name => '10GB',
+  	  -flow_into => { 1 => ['create_gb1_registry'] },   # ADD THIS LINE
   },
 
+  {
+      -logic_name => 'create_gb1_registry',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'cp ' . $self->o('registry_file') . ' ' . catfile($self->o('output_path'), 'Databases_gb1.pm') .
+                 ' && sed -i' .
+                 ' -e "s/' . $self->o('reference_db_host') . '/' . $ENV{GBS1} . '/g"' .
+                 ' -e "s/' . $self->o('reference_db_port') . '/' . $ENV{GBP1} . '/g"' .
+                 ' -e "s/' . $self->o('reference_db_name') . '/' .
+                     $self->o('production_name') . '_core_114_1/g"' .
+                 ' ' . catfile($self->o('output_path'), 'Databases_gb1.pm'),
+      },
+      -rc_name   => 'default',
+      -flow_into => { 1 => ['production_sync_placeholder'] },
+  },
+
+  {
+      -logic_name        => 'backup_controlled_tables_gb1',
+      -module            => 'Bio::EnsEMBL::Production::Pipeline::Common::DatabaseDumper',
+      -max_retry_count   => 1,
+      -parameters        => {
+          db_type    => 'core',
+          species    => $self->o('production_name'),
+          dbname     => $self->o('production_name') . '_core_' . $self->o('release_number') . '_1',
+          table_list => [
+              'attrib_type', 'biotype', 'external_db',
+              'misc_set', 'unmapped_reason', 'attrib', 'attrib_set',
+          ],
+          output_file => catfile($self->o('output_path'), 'production_sync',
+              $self->o('production_name') . '_controlled_tables_bkp.sql.gz'),
+          reg_conf   => catfile($self->o('output_path'), 'Databases_gb1.pm'),
+      },
+      -rc_name   => 'default_gb1_registry',
+      -flow_into => { 1 => ['populate_controlled_tables_gb1'] },
+  },
+
+  {
+      -logic_name        => 'populate_controlled_tables_gb1',
+      -module            => 'Bio::EnsEMBL::Production::Pipeline::ProductionDBSync::PopulateControlledTables',
+      -analysis_capacity => 10,
+      -max_retry_count   => 0,
+      -parameters        => {
+          species  => $self->o('production_name'),
+          group    => 'core',
+          dbname   => $self->o('production_name') . '_core_' . $self->o('release_number') . '_1',
+          reg_conf => catfile($self->o('output_path'), 'Databases_gb1.pm'),
+      },
+      -rc_name => 'default_gb1_registry',
+  },
   ];
 }
 
@@ -1151,9 +1201,12 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    #inherit other stuff from the base class
-     %{ $self->SUPER::resource_classes() },
-    }
+    %{ $self->SUPER::resource_classes() },
+    'default_gb1_registry' => {
+		SLURM => [ $self->slurm_resource_builder(900, '1-00:00:00', undef),
+		' -reg_conf ' . catfile($self->default_options->{'output_path'}, 'Databases_gb1.pm')]
+    },
+  };
 }
 
 1;
