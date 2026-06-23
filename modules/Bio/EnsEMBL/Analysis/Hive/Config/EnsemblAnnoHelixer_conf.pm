@@ -912,7 +912,7 @@ sub pipeline_analyses {
                 ' --status in_progress' .
                 ' --genebuilder $USER' .
                 ' --genebuild_version HLX01' .
-                ' --annotation_source ensembl' .
+                ' --annotation_source helixer' .
                 ' --annotation_method helixer',
         },
         -rc_name => '1GB',
