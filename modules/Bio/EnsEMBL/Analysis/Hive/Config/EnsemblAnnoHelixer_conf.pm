@@ -90,13 +90,13 @@ sub default_options {
     # RNA-seq file line count thresholds
     'rnaseq_main_file_min_lines'  => '',  # 10 runs (2 files per run)
     'rnaseq_genus_file_min_lines' => '',  # 5 runs (2 files per run)
-        
+
     # busco threshold for the analysis that checks wether produce pre-release files or not!
     'busco_threshold' => '', # If the busco score is above this threshold, the pre-release files will be produced
 
     'busco_lower_threshold' => '', # If the busco score is above this threshod and the difference less than 'busco_difference_threshold', the pre-release files will be produced
     'busco_difference_threshold' => '', # If the difference between the gene and protein busco score is less than this value, the pre-release files will be produced as long as the busco score is above 'busco_lower_threshold'
-    
+
     # added to address issues with dumping larger genomes
     'mysql_dump_options' => '--max_allowed_packet=1000MB',
 
@@ -217,7 +217,7 @@ sub default_options {
     'realign_table_name'               => 'projection_source_sequences',
 
 ########################
-# FTP Dump 
+# FTP Dump
 ########################
     ## gff3 & gtf parameter
     'abinitio'               => 1,
@@ -386,7 +386,7 @@ sub pipeline_wide_parameters {
     wide_ensembl_release => $self->o('ensembl_release'),
     load_toplevel_only => $self->o('load_toplevel_only'),
     skip_braker => 1, # default skip otherfeatures braker
-    override_evidence_threshold => 0, # default do not override evidence threshold
+    override_evidence_threshold => 1, # default override evidence threshold
   };
 }
 
@@ -446,7 +446,7 @@ sub pipeline_analyses {
 
 
     {
-      # Initial registry status update - first analysis in pipeline  
+      # Initial registry status update - first analysis in pipeline
       -logic_name => 'update_registry_in_progress',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -497,13 +497,13 @@ sub pipeline_analyses {
       -rc_name    => '1GB',
       -parameters => {
         cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'transcriptomic_data','get_transcriptomic_data.py' ) . ' -t #species_taxon_id# ' .'-f #rnaseq_summary_file# --read_type short -l 500' ,
-        
+
       },
         -flow_into => {
         1 => ['download_genus_rnaseq_csv'],
       },
     },
-  
+
     {
       -logic_name => 'download_genus_rnaseq_csv',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -515,7 +515,7 @@ sub pipeline_analyses {
         '1->A' => ['check_rnaseq_files'],
         'A->1' => ['download_long_read_csv'],
       },
-    },  
+    },
 
     {
       -logic_name => 'check_rnaseq_files',
@@ -527,7 +527,7 @@ sub pipeline_analyses {
                 'elif [ $MAIN_LINES -ge #rnaseq_main_file_min_lines# ]; then exit 1; ' .
                 'elif [ $MAIN_LINES -lt #rnaseq_main_file_min_lines# ] && [ $GENUS_LINES -ge #rnaseq_genus_file_min_lines# ]; then exit 2; ' .
                 'else exit 3; fi',
-        return_codes_2_branches => { 
+        return_codes_2_branches => {
           '1' => 1,  # Use main file (species-level)
           '2' => 2,  # Use genus file
           '3' => 3,  # No suitable RNA-seq data found
@@ -552,7 +552,7 @@ sub pipeline_analyses {
 	        1 => { 'create_sr_fastq_download_jobs' => { 'inputfile' => '#inputfile#', 'input_dir' => '#input_dir#' } },
       },
     },
-      
+
     {
       -logic_name => 'create_sr_fastq_download_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
@@ -561,7 +561,7 @@ sub pipeline_analyses {
         delimiter    => '\t',
       },
       -flow_into => {
-              2 => { 'download_short_read_fastqs' => { 'iid' => '#filename#', 'input_dir' => '#input_dir#' }}, 
+              2 => { 'download_short_read_fastqs' => { 'iid' => '#filename#', 'input_dir' => '#input_dir#' }},
          },
     },
 
@@ -605,7 +605,7 @@ sub pipeline_analyses {
       },
       -flow_into => {
         1 => ['create_core_db'],
-        2 => ['update_registry_insufficient_data'],  # Not enough RNA-Seq and not supported for helixer 
+        2 => ['update_registry_insufficient_data'],  # Not enough RNA-Seq and not supported for helixer
       },
       -rc_name => 'default',
     },
@@ -789,7 +789,7 @@ sub pipeline_analyses {
               '( [ $MAIN_LINES -lt #rnaseq_main_file_min_lines# ] && [ $GENUS_LINES -ge #rnaseq_genus_file_min_lines# ] ) || ' .
               '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
               'else exit 2; fi',
-        return_codes_2_branches => { 
+        return_codes_2_branches => {
           '1' => 1,  # Sufficient transcriptomic data - load anno meta info
           '2' => 2,  # Insufficient transcriptomic data - load helixir meta info
         },
@@ -977,8 +977,8 @@ sub pipeline_analyses {
                 'elif [ $MAIN_LINES -ge #rnaseq_main_file_min_lines# ] || ' .
                 '( [ $MAIN_LINES -lt #rnaseq_main_file_min_lines# ] && [ $GENUS_LINES -ge #rnaseq_genus_file_min_lines# ] ) || ' .
                 '[ -s "#long_read_summary_file#" ]; then exit 1; ' .
-                'else exit 2; fi', 
-        return_codes_2_branches => { 
+                'else exit 2; fi',
+        return_codes_2_branches => {
           '1' => 1,  # Sufficient transcriptomic data - use RNA-seq annotation
           '2' => 2,  # Insufficient transcriptomic data - use softmasking annotation
         },
@@ -1039,7 +1039,7 @@ sub pipeline_analyses {
     1 => ['load_gtf_file'],
   },
 },
-    {		   
+    {
       -logic_name => 'load_gtf_file',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -1190,7 +1190,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'if [ -f "#output_path#/helixer/helixer.gtf" ]; then exit 2; else exit 1; fi',
-        return_codes_2_branches => { 
+        return_codes_2_branches => {
           '1' => 1,  # No helixir GTF found - use anno stable IDs
           '2' => 2,  # Helixir GTF exists - use helixir stable IDs
         },
@@ -1321,7 +1321,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'if [ -f "#output_path#/helixer/helixer.gtf" ]; then exit 2; else exit 1; fi',
-        return_codes_2_branches => { 
+        return_codes_2_branches => {
           '1' => 1,  # No helixir GTF - run BUSCO on anno results
           '2' => 2,  # Helixir GTF exists - run BUSCO on helixir results
         },
@@ -1415,7 +1415,7 @@ sub pipeline_analyses {
       -rc_name   => '32GB',
       -flow_into => { 1 => ['gst_dump_protein_sequences'] },
     },
-    
+
      {
       -logic_name => 'gst_dump_protein_sequences',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1444,7 +1444,7 @@ sub pipeline_analyses {
 	 cmd => 'singularity run --bind #gst_dir#:/app/data /hps/software/users/ensembl/genebuild/gene_symbol_classifier/singularity/gene_symbol_classifier_filter_0.3.0.sif --symbol_assignments /app/data/#production_name#_protein_sequences_symbols.csv --threshold 0.7',
      },
 	 -rc_name => 'default_registry',
-	 -flow_into       => { 1 => ['gst_load_gene_symbols'], },	 
+	 -flow_into       => { 1 => ['gst_load_gene_symbols'], },
     },
 
     {
@@ -1480,7 +1480,7 @@ sub pipeline_analyses {
       -logic_name => 'run_core_stats',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname #core_dbname# -host ' .  $self->o('dna_db_server') . ' -port ' .$self->o('dna_db_port') . ' -production_name #production_name# -output_dir #output_path#', 
+          cmd => 'perl ' . $self->o('core_stats_script')  .  ' -dbname #core_dbname# -host ' .  $self->o('dna_db_server') . ' -port ' .$self->o('dna_db_port') . ' -production_name #production_name# -output_dir #output_path#',
       },
       -rc_name => '5GB',
       -flow_into       => { 1 => ['load_core_stats'], },
@@ -1516,17 +1516,17 @@ sub pipeline_analyses {
           -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
           -parameters => {
           cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics','busco_metakeys_patch.py' ) .
-              ' -db #core_dbname# -host ' .  $self->o('dna_db_server') . 
-              ' -port ' . $self->o('dna_db_port') . 
-              ' -user ' . $self->o('user') . 
-              ' -password ' . $self->o('password') . 
+              ' -db #core_dbname# -host ' .  $self->o('dna_db_server') .
+              ' -port ' . $self->o('dna_db_port') .
+              ' -user ' . $self->o('user') .
+              ' -password ' . $self->o('password') .
               # ' -assembly_id #assembly_id#' . # excluded until adoption of new registry - JT June 2025
               ' -file #output_path#/busco_core_genome_mode_output/#species_strain_group#_genome_busco_short_summary.txt ' .
               ' -output_dir #output_path#/busco_core_genome_mode_output/ -run_query true',
           },
          -rc_name         => 'default',
          -flow_into       => { 1 => ['load_protein_busco_into_core'], },
-    }, 
+    },
     {
         -logic_name => 'load_protein_busco_into_core',
           -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1640,7 +1640,7 @@ sub pipeline_analyses {
       '1' => ['rsync_ftp_release'],
     },
   },
-  
+
   {
     -logic_name => 'gzip_softmasked_fasta',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1655,7 +1655,7 @@ sub pipeline_analyses {
     -logic_name => 'prepare_twobit',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-          cmd => 'faToTwoBit ' . catfile( '#output_path#', 'red_output', 'mask_output', '#species_name#_reheadered_toplevel.msk')  . ' ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.2bit') 
+          cmd => 'faToTwoBit ' . catfile( '#output_path#', 'red_output', 'mask_output', '#species_name#_reheadered_toplevel.msk')  . ' ' . catfile( '#output_path#', '#species_name#_softmasked_toplevel.2bit')
       },
     -hive_capacity => 10,
     -rc_name       => '2GB',
@@ -1761,7 +1761,7 @@ sub pipeline_analyses {
     -logic_name => 'rsync_ftp_release',
     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-        cmd => 'sudo -u genebuild rsync -ahvW #output_path#/ftp_release/ ' . $self->o('production_ftp_dir') 
+        cmd => 'sudo -u genebuild rsync -ahvW #output_path#/ftp_release/ ' . $self->o('production_ftp_dir')
             },
     -rc_name => 'datamover',
     -flow_into => {
@@ -1808,7 +1808,7 @@ sub pipeline_analyses {
   },
 
   {
-      -logic_name => 'copy_core_db_to_gb1', 
+      -logic_name => 'copy_core_db_to_gb1',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper',
       -parameters => {
           'src_db_conn' => '#core_db#',
