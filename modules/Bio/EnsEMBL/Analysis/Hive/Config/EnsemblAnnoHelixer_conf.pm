@@ -147,7 +147,7 @@ sub default_options {
     pre_release_ftp_script            => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'automation', 'pre_release_ftp.py' ),
     registry_status_update_script     => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'update_assembly_registry.py' ),
     write_metrics_to_registry_script  => catfile( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'info_from_registry', 'write_metrics_to_registry.py' ),
-    core_metadata_script              => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'core_meta_data.py'),
+    core_metadata_script              => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python', 'ensembl', 'genes', 'metadata', 'truth_checker.py'),
     core_stats_script                 => catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'perl', 'ensembl', 'genes', 'generate_species_homepage_stats.pl'),
 
 
@@ -1460,7 +1460,7 @@ sub pipeline_analyses {
       -logic_name => 'run_meta_updates',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'python ' . $self->o('core_metadata_script')  .  ' -o #output_path# -d #core_dbname# --team genebuild -s ' . $self->o('dna_db_server') . ' -p ' .$self->o('dna_db_port'),
+          cmd => 'python ' . $self->o('core_metadata_script')  .  ' --work_dir #output_path# --keep_outputs -d #core_dbname# --team genebuild -s ' . $self->o('dna_db_server') . ' -p ' .$self->o('dna_db_port'),
       },
       -rc_name => '1GB',
       -flow_into       => { 1 => ['load_meta_updates'], },
