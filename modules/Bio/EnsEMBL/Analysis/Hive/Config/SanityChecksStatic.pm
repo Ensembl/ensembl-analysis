@@ -466,10 +466,10 @@ sub _master_config {
 	      'projection_coding' => {
 	        'logic_names' => {
 			  'cesar'               => 15000,
-	          'project_transcripts' => 20000,
+	          'project_transcripts' => 14000,
 	        }, # logic_names
 	        'biotypes' =>    {
-	          'projection'          => 40000,
+	          'projection'          => 30000,
 	        }, # biotypes
 	      }, # projection_coding
 
