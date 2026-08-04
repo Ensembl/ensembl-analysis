@@ -289,10 +289,12 @@ sub get_best_transcript {
 # We might need to chage it but there are some warning in the GeneWise module...
 # So let's change it to a DnaPepAlignFeature
       $genewise_transcript->flush_supporting_features;
-      my @sfs;
-      foreach my $exon (@{$genewise_transcript->get_all_Exons}) {
-        push(@sfs, @{$exon->get_all_supporting_features});
-      }
+	  my @sfs;
+	  foreach my $exon (@{$genewise_transcript->get_all_Exons}) {
+  		foreach my $sf (@{$exon->get_all_supporting_features}) {
+    	  push(@sfs, $sf->ungapped_features); # splits each feature into pieces that satisfy the 3:1 ratio
+  		}
+	  }
       my $new_tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@sfs, -align_type => 'ensembl');
       $genewise_transcript->add_supporting_features($new_tsf);
       $self->warning("GOOD MATCH!! The GeneWise protein match the original protein $accession");
