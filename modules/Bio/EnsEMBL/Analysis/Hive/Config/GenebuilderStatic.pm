@@ -75,6 +75,7 @@ package Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic;
 
 use strict;
 use warnings;
+use Storable qw(dclone);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::BaseStatic');
 
@@ -712,6 +713,13 @@ sub _master_config {
                 'self_frag_pe12_tr_80',
     ],
   );
+  my $zebrafish_input_genes = dclone($config{fish_basic});
+  push @{$zebrafish_input_genes}, qw(
+    projection_1 projection_2 projection_3 projection_4
+    projection_1_noncanon projection_2_noncanon projection_3_noncanon projection_4_noncanon
+    projection_1_pseudo projection_2_pseudo projection_3_pseudo projection_4_pseudo
+  );
+  $config{zebrafish_basic} = $zebrafish_input_genes;
   return $config{$key};
 }
 
