@@ -75,6 +75,7 @@ package Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic;
 
 use strict;
 use warnings;
+use Storable qw(dclone);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::BaseStatic');
 
@@ -1289,6 +1290,14 @@ sub _master_config {
 
     ],
   );
+  my $zebrafish_layers = dclone($config{fish_basic});
+  push @{$zebrafish_layers->[1]{BIOTYPES}}, qw(projection_1 projection_2 projection_3);
+  push @{$zebrafish_layers->[2]{BIOTYPES}}, 'projection_4';
+  push @{$zebrafish_layers->[5]{BIOTYPES}}, qw(
+    projection_1_noncanon projection_2_noncanon projection_3_noncanon projection_4_noncanon
+    projection_1_pseudo projection_2_pseudo projection_3_pseudo projection_4_pseudo
+  );
+  $config{zebrafish_basic} = $zebrafish_layers;
   return $config{$key};
 }
 

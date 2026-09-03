@@ -1275,6 +1275,8 @@ sub _master_config {
 
 
 );
+  $config{genome_preparation_checks}{zebrafish_basic} = $config{genome_preparation_checks}{fish_basic};
+  $config{gene_db_checks}{zebrafish_basic} = $config{gene_db_checks}{fish_basic};
   return $config{$key};
 }
 

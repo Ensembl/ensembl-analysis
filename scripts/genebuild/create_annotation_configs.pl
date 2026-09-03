@@ -676,6 +676,23 @@ sub clade_settings {
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
+    'zebrafish' => {
+      'repbase_library'     => 'Teleostei',
+      'repbase_logic_name'  => 'teleost',
+      'uniprot_set'         => 'zebrafish_basic',
+      'sanity_set'          => 'zebrafish_basic',
+      'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
+      'skip_projection'     => 0,
+      'skip_lastz'          => 0,
+      'projection_source_production_name' => 'danio_rerio_zebrafish',
+      'projection_source_db_name' => 'danio_rerio_core_80_10_curated',
+      'projection_source_db_host' => 'mysql-ens-genebuild-prod-1',
+      'projection_source_db_port' => 4527,
+      'repeatmasker_slice_size' => 500000,
+    },
+
     'teleostei' => {
       'repbase_library'     => 'Teleostei',
       'repbase_logic_name'  => 'teleost',

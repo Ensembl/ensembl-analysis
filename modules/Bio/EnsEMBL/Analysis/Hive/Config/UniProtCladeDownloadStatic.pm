@@ -831,6 +831,7 @@ sub _master_config {
      },
 
   );
+  $config{zebrafish_basic} = $config{fish_basic};
   return $config{$key};
 }
 
