@@ -297,7 +297,7 @@ sub build_query {
 
   # NOTE this bit of the code with taxonomy and exclude is shit and needs to be upgraded
   if($taxon_id) {
-    $taxonomy_string = '+AND+taxonomy_id%3A+'.$taxon_id;
+    $taxonomy_string = '+AND+taxonomy_id%3A'.$taxon_id;
   } elsif($taxon_group) {
     $taxonomy_string = '+AND+taxonomy_id%3A'.$taxon_group;
   }
@@ -306,7 +306,7 @@ sub build_query {
   if($exclude_id) {
     my @exclusion_array = @{$exclude_id};
     foreach my $id_to_exclude (@exclusion_array) {
-      $exclude_string .= '+NOT+taxonomy_id%3A+'.$id_to_exclude;
+      $exclude_string .= '+NOT+taxonomy_id%3A'.$id_to_exclude;
     }
   }
 
