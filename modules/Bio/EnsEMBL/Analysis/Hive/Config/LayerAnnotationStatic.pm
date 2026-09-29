@@ -75,8 +75,6 @@ package Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic;
 
 use strict;
 use warnings;
-use Storable qw(dclone);
-
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::BaseStatic');
 
 sub _master_config {
@@ -1290,14 +1288,104 @@ sub _master_config {
 
     ],
   );
-  my $zebrafish_layers = dclone($config{fish_basic});
-  push @{$zebrafish_layers->[1]{BIOTYPES}}, qw(projection_1 projection_2 projection_3);
-  push @{$zebrafish_layers->[2]{BIOTYPES}}, 'projection_4';
-  push @{$zebrafish_layers->[5]{BIOTYPES}}, qw(
-    projection_1_noncanon projection_2_noncanon projection_3_noncanon projection_4_noncanon
-    projection_1_pseudo projection_2_pseudo projection_3_pseudo projection_4_pseudo
-  );
-  $config{zebrafish_basic} = $zebrafish_layers;
+  $config{zebrafish_basic} = [
+    {
+      ID => 'LAYER1',
+      BIOTYPES => [qw(
+        IG_C_gene IG_J_gene IG_V_gene IG_D_gene
+        TR_C_gene TR_J_gene TR_V_gene TR_D_gene
+        seleno_self self_pe12_seleno_1 self_pe12_seleno_2
+        self_pe12_seleno_3 self_pe12_seleno_4
+      )],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER2',
+      BIOTYPES => [qw(cdna2genome edited gw_gtag gw_exo projection_1)],
+      FILTER_AGAINST => ['LAYER1'],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER3',
+      BIOTYPES => [qw(
+        rnaseq_tissue_1 rnaseq_tissue_2 rnaseq_tissue_3
+        cdna_1 cdna_2 cdna_3
+        self_pe12_sp_1 self_pe12_tr_1 self_pe12_sp_2 self_pe12_tr_2
+        human_pe12_sp_1 human_pe12_sp_2 human_pe12_tr_1 human_pe12_tr_2
+        genblast_rnaseq_top genblast_rnaseq_high
+        fish_pe12_sp_1 fish_pe12_tr_1 fish_pe12_sp_2 fish_pe12_tr_2
+        projection_2 projection_3
+      )],
+      FILTER_AGAINST => [qw(LAYER1 LAYER2)],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER4',
+      BIOTYPES => [qw(
+        self_pe3_sp_1 self_pe3_sp_2 self_pe3_sp_3
+        self_pe12_sp_3 self_pe12_sp_4 human_pe12_sp_3 human_pe12_sp_4
+        fish_pe12_sp_3 fish_pe12_sp_4 genblast_rnaseq_medium projection_4
+      )],
+      FILTER_AGAINST => [qw(LAYER1 LAYER2 LAYER3)],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER5',
+      BIOTYPES => [qw(
+        self_pe3_sp_4 rnaseq_tissue_4 rnaseq_tissue_5 cdna_4 cdna_5
+        self_pe12_sp_5 human_pe12_sp_5 fish_pe12_sp_5
+        mammals_pe12_sp_1 mammals_pe12_sp_2 mammals_pe12_sp_3
+        vert_pe12_sp_1 vert_pe12_sp_2 vert_pe12_sp_3
+      )],
+      FILTER_AGAINST => [qw(LAYER1 LAYER2 LAYER3 LAYER4)],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER6',
+      BIOTYPES => [qw(
+        rnaseq_tissue_6 cdna_6 self_pe12_tr_3 self_pe12_tr_4
+        fish_pe12_tr_3 fish_pe12_tr_4 human_pe12_tr_3 human_pe12_tr_4
+      )],
+      FILTER_AGAINST => [qw(LAYER1 LAYER2 LAYER3 LAYER4 LAYER5)],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER7',
+      BIOTYPES => [qw(
+        mammals_pe12_tr_1 mammals_pe12_tr_2 vert_pe12_tr_1 vert_pe12_tr_2
+        self_pe12_tr_5 self_pe12_tr_6 mammals_pe12_sp_4 vert_pe12_sp_4
+        projection_1_noncanon projection_2_noncanon projection_3_noncanon projection_4_noncanon
+        projection_1_pseudo projection_2_pseudo projection_3_pseudo projection_4_pseudo
+      )],
+      FILTER_AGAINST => [qw(LAYER1 LAYER2 LAYER3 LAYER4 LAYER5 LAYER6)],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER8',
+      BIOTYPES => [qw(
+        fish_pe12_sp_int_1 human_pe12_sp_int_1 mammals_pe12_sp_int_1 vert_pe12_sp_int_1
+        fish_pe12_sp_int_2 human_pe12_sp_int_2 mammals_pe12_sp_int_2 vert_pe12_sp_int_2
+      )],
+      FILTER_AGAINST => [qw(LAYER1 LAYER2 LAYER3 LAYER4 LAYER5 LAYER6 LAYER7)],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER9',
+      BIOTYPES => [qw(
+        fish_pe12_tr_5 human_pe12_tr_5 mammals_pe12_sp_5 vert_pe12_sp_5
+        mammals_pe12_tr_3 vert_pe12_tr_3 fish_pe12_sp_int_3 human_pe12_sp_int_3
+        mammals_pe12_sp_int_3 vert_pe12_sp_int_3
+      )],
+      FILTER_AGAINST => [qw(LAYER1 LAYER2 LAYER3 LAYER4 LAYER5 LAYER6 LAYER7 LAYER8)],
+      DISCARD => 0,
+    },
+    {
+      ID => 'LAYER10',
+      BIOTYPES => [qw(cdna rnaseq_tissue)],
+      FILTER_AGAINST => [qw(LAYER1 LAYER2 LAYER3 LAYER4 LAYER5 LAYER6 LAYER7 LAYER8 LAYER9)],
+      DISCARD => 0,
+    },
+  ];
   return $config{$key};
 }
 
