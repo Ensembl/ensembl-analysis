@@ -121,6 +121,13 @@ sub run {
     }
     # Only works on a one transcript per gene model
     my $transcript = ${$gene->get_all_Transcripts}[0];
+    unless ($transcript) {
+    $self->warning(
+        'Gene '.$gene->display_id.' has no transcripts; deleting it'
+        );
+    push(@genes_to_delete, $gene);
+    $self->say_with_header('Gene with no transcripts: '.$gene->display_id.' dbID='.$gene->dbID.' slice='.$gene->seq_region_name.':'.$gene->start.'-'.$gene->end);
+  next;}
     my $transcript_string;
     my $intron_string;
     if ($transcript) {
@@ -264,8 +271,8 @@ sub compare_biotype_priorities {
       # with the best combined score, or just transcript1 if the scores are identical
       my $hcoverage1 = ${$transcript1->get_all_supporting_features}[0]->hcoverage;
       my $perc_ident1 = ${$transcript1->get_all_supporting_features}[0]->percent_id;
-      my $hcoverage2 = ${$transcript1->get_all_supporting_features}[0]->hcoverage;
-      my $perc_ident2 = ${$transcript1->get_all_supporting_features}[0]->percent_id;
+      my $hcoverage2 = ${$transcript2->get_all_supporting_features}[0]->hcoverage;
+      my $perc_ident2 = ${$transcript2->get_all_supporting_features}[0]->percent_id;
       my $combined_score1 = $hcoverage1 + $perc_ident1;
       my $combined_score2 = $hcoverage2 + $perc_ident2;
       if($combined_score1 >= $combined_score2) {
