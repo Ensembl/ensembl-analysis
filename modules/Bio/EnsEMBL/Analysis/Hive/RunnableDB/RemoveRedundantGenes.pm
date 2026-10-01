@@ -267,12 +267,23 @@ sub compare_biotype_priorities {
     } elsif($transcript2_cds_length > $transcript1_cds_length) {
       return(1);
     } else {
-      # At this point the cds lengths are the same. Get the supporting feature info and pick the transcript
-      # with the best combined score, or just transcript1 if the scores are identical
-      my $hcoverage1 = ${$transcript1->get_all_supporting_features}[0]->hcoverage;
-      my $perc_ident1 = ${$transcript1->get_all_supporting_features}[0]->percent_id;
-      my $hcoverage2 = ${$transcript2->get_all_supporting_features}[0]->hcoverage;
-      my $perc_ident2 = ${$transcript2->get_all_supporting_features}[0]->percent_id;
+      # At this point the CDS lengths are the same. Use supporting features as the
+      # final tie-breaker, preferring a transcript with supporting evidence.
+      my $supporting_features1 = $transcript1->get_all_supporting_features;
+      my $supporting_features2 = $transcript2->get_all_supporting_features;
+      # If only one transcript has supporting features, prefer that transcript.
+      if (@$supporting_features1 && !@$supporting_features2) {
+	      return(0);
+      } elsif (!@$supporting_features1 && @$supporting_features2) {
+	      return(1);
+      } elsif (!@$supporting_features1 && !@$supporting_features2) {
+      # Neither transcript has supporting evidence, so retain transcript1.
+        return(0);
+      }
+      my $hcoverage1 = $supporting_features1->[0]->hcoverage;
+      my $perc_ident1 = $supporting_features1->[0]->percent_id;
+      my $hcoverage2 = $supporting_features2->[0]->hcoverage;
+      my $perc_ident2 = $supporting_features2->[0]->percent_id;
       my $combined_score1 = $hcoverage1 + $perc_ident1;
       my $combined_score2 = $hcoverage2 + $perc_ident2;
       if($combined_score1 >= $combined_score2) {
