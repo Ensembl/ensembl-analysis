@@ -23,6 +23,7 @@ use feature 'say';
 
 use File::Spec::Functions qw(catfile file_name_is_absolute);
 use File::Path qw(make_path);
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 use LWP::UserAgent;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -34,6 +35,11 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     base_url => 'https://rest.uniprot.org/uniprotkb/stream?query=',
     format => 'fasta',
+    max_attempts => 4,
+    retry_delay => 5,
+    timeout => 300,
+    min_total_sequences => 1,
+    min_expected_fraction => 0.95,
   }
 }
 
@@ -90,47 +96,130 @@ sub run {
     my $filename = $query->{file_name};
     say "Downloading:\n$query_url\n";
 
-    my $agent = LWP::UserAgent->new(agent => "libwww-perl");
-    my $response = $agent->get($query_url);
+    my $agent = LWP::UserAgent->new(
+      agent   => 'libwww-perl',
+      timeout => $self->param('timeout'),
+    );
+    $agent->env_proxy;
 
-    while (my $wait = $response->header('Retry-After')) {
-      print STDERR "Waiting ($wait)...\n";
-      sleep $wait;
-      $response = $agent->get($response->base());
+    my $expected_count = $self->_get_expected_count($agent, $query_url);
+    say "UniProt preflight count: $expected_count sequences" if defined $expected_count;
+
+    my ($response, $last_error);
+    ATTEMPT: for my $attempt (1 .. $self->param('max_attempts')) {
+      $response = eval { $agent->get($query_url) };
+      $last_error = $@;
+      last ATTEMPT if ($response && $response->is_success() &&
+                       ($filename =~ /\.gz$/ || $self->_fasta_sequence_count($response->content())));
+
+      if ($response && $response->status_line() =~ /^404\s/) {
+        last ATTEMPT;
+      }
+
+      my $retry_after = $response ? $response->header('Retry-After') : undef;
+      my $status = $response ? $response->status_line() : ($last_error || 'no response');
+      if ($attempt < $self->param('max_attempts')) {
+        my $delay = $retry_after && $retry_after =~ /^\d+$/
+          ? $retry_after
+          : $self->param('retry_delay') * (2 ** ($attempt - 1));
+        say STDERR "Download attempt $attempt failed ($status); retrying in ${delay}s";
+        sleep $delay;
+      }
     }
 
-    if ($response->is_success()) {
-      if (index($response->content(), '>') == 0) {
-        if (open(my $fh,'>',$filename)) {
-          print $fh $response->content();
-          close($fh) || $self->throw("Could not close the file '$filename'");
-        } else {
-          $self->throw("Could not open file $filename\n");
-        }
+    if ($response && $response->is_success()) {
+      my $content = $response->content();
+      my $sequence_count = $filename =~ /\.gz$/ ? 0 : $self->_fasta_sequence_count($content);
+      $self->throw("Downloaded response for '$filename' is not a non-empty FASTA file")
+        unless $filename =~ /\.gz$/ || $sequence_count;
+
+      my $tmp_filename = $filename . '.tmp.' . $$;
+      if ($filename =~ /\.gz$/) {
+        $tmp_filename .= '.gz';
       }
-      elsif ($response->content() eq ""){
-        $self->warning("File '$filename' contains no sequence");
+      open(my $fh, '>', $tmp_filename) || $self->throw("Could not open file $tmp_filename\n");
+      binmode $fh;
+      print $fh $content;
+      close($fh) || $self->throw("Could not close the file '$tmp_filename'");
+
+      if ($tmp_filename =~ s/\.gz$//) {
+        gunzip "$tmp_filename.gz" => $tmp_filename
+          or $self->throw("gunzip failed for '$filename': $GunzipError");
+        unlink "$tmp_filename.gz"
+          or $self->throw("Could not remove temporary compressed file '$tmp_filename.gz': $!");
+        $filename =~ s/\.gz$//;
+        $sequence_count = $self->_fasta_sequence_count_file($tmp_filename);
+        $self->throw("Downloaded response for '$filename' is not a non-empty FASTA file")
+          unless $sequence_count;
       }
-      else{
-      }
-      
-      if ($filename =~ s/\.gz$//) {
-        my $gunzip_command = "gunzip $filename.gz";
-        if (system($gunzip_command)) {
-          $self->throw("gunzip on file ended in an non-zero exit code:\n$gunzip_command\n");
-        }
-      }
+      rename($tmp_filename, $filename)
+        or $self->throw("Could not atomically move '$tmp_filename' to '$filename': $!");
       push(@iids, $filename);
-      
-    } elsif ($response->status_line() =~ /404 Not Found/) {
-        $self->warning('Failed, got '.$response->status_line().' for '.$response->request()->uri()." . It's likely that this sequence has been deleted. Fine. \n");
+      $self->param('_downloaded_sequence_count', ($self->param('_downloaded_sequence_count') || 0) + $sequence_count);
+      if (defined $expected_count && $sequence_count < $expected_count * $self->param('min_expected_fraction')) {
+        $self->throw("Downloaded $sequence_count protein sequences for '$filename'; UniProt preflight reported $expected_count (minimum allowed is ".int($expected_count * $self->param('min_expected_fraction')).")");
+      }
+    } elsif ($response && $response->status_line() =~ /404 Not Found/) {
+      $self->warning('Failed, got '.$response->status_line().' for '.$response->request()->uri()." . It's likely that this sequence has been deleted. Fine. \n");
     } else {
-      $self->throw('Failed, got '.$response->status_line().' for '.$response->request()->uri()."\n");
+      my $status = $response ? $response->status_line() : ($last_error || 'no response');
+      $self->throw("Failed to download '$query_url' after ".$self->param('max_attempts')." attempts: $status\n");
     }
+  }
+  my $min_total_sequences = $self->param('min_total_sequences');
+  if (defined $min_total_sequences && ($self->param('_downloaded_sequence_count') || 0) < $min_total_sequences) {
+    $self->throw("Downloaded only ".($self->param('_downloaded_sequence_count') || 0)." protein sequences; expected at least $min_total_sequences");
   }
   $self->output(\@iids);
   say "Finished downloading UniProt files";
   return 1;
+}
+
+sub _get_expected_count {
+  my ($self, $agent, $stream_url) = @_;
+
+  # The stream endpoint returns the FASTA body, whereas search with size=1
+  # returns the total matching-record count in X-Total-Results.
+  my $count_url = $stream_url;
+  $count_url =~ s{/uniprotkb/stream\?}{/uniprotkb/search?};
+  $count_url =~ s/&compress=[^&]+//;
+  $count_url =~ s/&format=[^&]+/&format=tsv&size=1/;
+  $count_url .= '&format=tsv&size=1' unless $count_url =~ /[&?]size=/;
+
+  my ($response, $last_error);
+  for my $attempt (1 .. $self->param('max_attempts')) {
+    $response = eval { $agent->get($count_url) };
+    $last_error = $@;
+    if ($response && $response->is_success()) {
+      my $count = $response->header('X-Total-Results');
+      return $count if defined $count && $count =~ /^\d+$/;
+    }
+    last if $response && $response->status_line() =~ /^404\s/;
+    if ($attempt < $self->param('max_attempts')) {
+      my $delay = $response && $response->header('Retry-After');
+      $delay = $self->param('retry_delay') * (2 ** ($attempt - 1))
+        unless defined $delay && $delay =~ /^\d+$/;
+      say STDERR "UniProt preflight attempt $attempt failed; retrying in ${delay}s";
+      sleep $delay;
+    }
+  }
+  my $status = $response ? $response->status_line() : ($last_error || 'no response');
+  $self->throw("UniProt preflight count failed for '$stream_url' after ".$self->param('max_attempts')." attempts: $status");
+}
+
+sub _fasta_sequence_count {
+  my ($self, $content) = @_;
+  return 0 unless defined $content && $content =~ /^\s*>/;
+  return scalar grep { /^>/ } split(/\n/, $content);
+}
+
+sub _fasta_sequence_count_file {
+  my ($self, $filename) = @_;
+  open(my $fh, '<', $filename) || $self->throw("Could not open downloaded FASTA '$filename'");
+  local $/;
+  my $content = <$fh>;
+  close($fh) || $self->throw("Could not close downloaded FASTA '$filename'");
+  return $self->_fasta_sequence_count($content);
 }
 
 sub write_output {
@@ -208,7 +297,7 @@ sub build_query {
 
   # NOTE this bit of the code with taxonomy and exclude is shit and needs to be upgraded
   if($taxon_id) {
-    $taxonomy_string = '+AND+taxonomy_id%3A+'.$taxon_id;
+    $taxonomy_string = '+AND+taxonomy_id%3A'.$taxon_id;
   } elsif($taxon_group) {
     $taxonomy_string = '+AND+taxonomy_id%3A'.$taxon_group;
   }
@@ -217,7 +306,7 @@ sub build_query {
   if($exclude_id) {
     my @exclusion_array = @{$exclude_id};
     foreach my $id_to_exclude (@exclusion_array) {
-      $exclude_string .= '+NOT+taxonomy_id%3A+'.$id_to_exclude;
+      $exclude_string .= '+NOT+taxonomy_id%3A'.$id_to_exclude;
     }
   }
 
