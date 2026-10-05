@@ -835,7 +835,7 @@ sub pipeline_analyses {
       -logic_name => 'populate_registry_metrics',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-          cmd => 'python ' . $self->o('write_metrics_to_registry_script') .
+          cmd => 'PYTHONPATH=' . catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python' ) . ':${PYTHONPATH:-} python ' . $self->o('write_metrics_to_registry_script') .
                  ' --registry_host ' . $self->o('registry_host') .
                  ' --registry_port ' . $self->o('registry_port') .
                  ' --registry_user ' . $self->o('user') .
@@ -857,7 +857,7 @@ sub pipeline_analyses {
         -logic_name => 'check_busco_score',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-            cmd => 'if python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
+            cmd => 'if PYTHONPATH=' . catdir( $self->o('enscode_root_dir'), 'ensembl-genes', 'src', 'python' ) . ':${PYTHONPATH:-} python ' .  catfile( $self->o('enscode_root_dir'), 'ensembl-genes','src','python','ensembl','genes','metrics', 'check_busco_score.py' ) .
             ' --genome ' . $self->o('busco_genome_dir')  . '/' .  $self->o('reference_db_name').'*.json ' .
             ' --protein '. $self->o('busco_protein_dir') . '/' .  $self->o('reference_db_name').'*.json'  .
             ' --min_range_protein_score "' . $self->o('busco_lower_threshold') . '"' .
@@ -1101,7 +1101,21 @@ sub pipeline_analyses {
               ' --annotation_method full_genebuild',
       },
       -rc_name => '1GB',
-      -flow_into => { 1 => ['create_target_db_gb1'], },
+      -flow_into => { 1 => ['fetch_last_geneset_update'], },
+  },
+
+  {
+      -logic_name => 'fetch_last_geneset_update',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+          db_conn      => $self->o('dna_db'),
+          inputquery   => 'SELECT TRIM(meta_value) FROM meta WHERE meta_key="genebuild.last_geneset_update" LIMIT 1',
+          column_names => ['last_geneset_update'],
+      },
+      -rc_name => 'default',
+      -flow_into => {
+          1 => ['create_target_db_gb1'],
+      },
   },
 
 {
@@ -1109,7 +1123,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
           'target_db' => {
-              -dbname => $self->o('production_name') . '_core_' . $self->o('release_number') . '_1',
+              -dbname => $self->o('production_name') . '_core_' . $self->o('release_number') . '_#last_geneset_update#',
               -host   => $ENV{GBS1},
               -port   => $ENV{GBP1},
               -user   => $self->o('user'),
@@ -1131,7 +1145,7 @@ sub pipeline_analyses {
       -parameters => {
           'src_db_conn' => $self->o('dna_db'),
           'output_db' => {
-              -dbname => $self->o('production_name') . '_core_' .  $self->o('release_number') . '_1',
+              -dbname => $self->o('production_name') . '_core_' .  $self->o('release_number') . '_#last_geneset_update#',
               -host   => $ENV{GBS1},
               -port   => $ENV{GBP1},
               -user   => $self->o('user'),
