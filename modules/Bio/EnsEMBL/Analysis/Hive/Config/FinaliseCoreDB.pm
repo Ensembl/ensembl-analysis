@@ -1109,7 +1109,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
           db_conn      => $self->o('dna_db'),
-          inputquery   => 'SELECT TRIM(meta_value) FROM meta WHERE meta_key="genebuild.last_geneset_update" LIMIT 1',
+          inputquery   => 'SELECT REPLACE(TRIM(meta_value), "-", "") AS last_geneset_update FROM meta WHERE meta_key="genebuild.last_geneset_update" LIMIT 1',
           column_names => ['last_geneset_update'],
       },
       -rc_name => 'default',
