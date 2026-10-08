@@ -1114,7 +1114,7 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -flow_into => {
-          1 => ['create_target_db_gb1'],
+          2 => ['create_target_db_gb1'],
       },
   },
 
