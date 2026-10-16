@@ -1306,8 +1306,11 @@ sub pipeline_analyses {
             -logic_name => 'run_gmb',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                    cmd => 'export VIRTUAL_ENV=#gmb_venv#; '
-                  . 'export PATH=#gmb_venv#/bin:$PATH; '
+                    cmd => 'export VIRTUAL_ENV='
+                  . $self->o('gmb_venv')
+                  . '; export PATH='
+                  . $self->o('gmb_venv')
+                  . '/bin:$PATH; '
                   . 'hash -r; '
                   . 'gmb-run '
                   . '--preset fungi_latest_settings '
