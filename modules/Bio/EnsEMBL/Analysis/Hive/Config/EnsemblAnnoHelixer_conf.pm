@@ -1779,9 +1779,25 @@ sub pipeline_analyses {
 },
 {
     -logic_name => 'delete_long_reads',
-    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    -parameters => {
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
         cmd => 'rm -f ' . '#long_read_dir#' . '/*',
+      },
+      -rc_name => 'default',
+      -flow_into       => { 1 => ['fetch_last_geneset_update'], },
+    },
+    {
+      -logic_name => 'fetch_last_geneset_update',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+          db_conn      => '#core_db#',
+          inputquery   => 'SELECT REPLACE(TRIM(meta_value), "-", "") AS last_geneset_update FROM meta WHERE meta_key="genebuild.last_geneset_update" LIMIT 1',
+          column_names => ['last_geneset_update'],
+      },
+      -rc_name => 'default',
+      -flow_into => {
+          2 => ['create_target_db_gb1'],
+      },
     },
     -rc_name   => 'default',
     -flow_into => { 1 => ['create_target_db_gb1'], },
@@ -1791,7 +1807,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
           'target_db' => {
-              -dbname => '#production_name#' . '_core_' . $self->o('ensembl_release') . '_1',
+              -dbname => '#production_name#' . '_core_' . $self->o('ensembl_release') . '_#last_geneset_update#',
               -host   => $ENV{GBS1},
               -port   => $ENV{GBP1},
               -user   => $self->o('user'),
@@ -1813,7 +1829,7 @@ sub pipeline_analyses {
       -parameters => {
           'src_db_conn' => '#core_db#',
           'output_db' => {
-              -dbname => '#production_name#' . '_core_' . $self->o('ensembl_release') . '_1',
+              -dbname => '#production_name#' . '_core_' . $self->o('ensembl_release') . '_#last_geneset_update#',
               -host   => $ENV{GBS1},
               -port   => $ENV{GBP1},
               -user   => $self->o('user'),
