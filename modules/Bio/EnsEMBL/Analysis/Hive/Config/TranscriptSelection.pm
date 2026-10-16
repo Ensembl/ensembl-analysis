@@ -803,7 +803,7 @@ sub pipeline_analyses {
           ' -orf_cutoff ' . $self->o('small_orf_cutoff') .
           ' -intron_cutoff ' . $self->o('intron_cutoff'),
       },
-      -rc_name   => 'default',
+      -rc_name   => '3GB',
       -flow_into => {
         1 => ['format_blast_db'],
       },
@@ -866,7 +866,7 @@ sub pipeline_analyses {
         logic_name    => 'filter_lncrnas',
         module        => 'HiveFilterlncRNAs',
       },
-      -rc_name   => '3GB',
+      -rc_name   => '5GB',
       -flow_into => {
         1 => ['change_biotype_for_weak_cds'],
       },
