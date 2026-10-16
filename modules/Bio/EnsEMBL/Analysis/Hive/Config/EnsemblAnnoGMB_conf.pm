@@ -40,7 +40,8 @@ sub default_options {
         'busco_download_path' =>
 '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
         'helixer_singularity_image' =>
-'/nfs/production/flicek/ensembl/shared_data/singularity_images/cache/helixer-docker_helixer_v0.3.5_cuda_12.2.2-cudnn8.sif',
+'/nfs/production/flicek/ensembl/shared_data/singularity_images/cache/helixer-docker_latest.sif',
+        'gmb_clades' => [qw(ascomycota basidiomycota oomycota mucoromycota)],
         'gffread_path' =>
 '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
         'current_genebuild' => 0,
@@ -234,6 +235,8 @@ sub default_options {
             'ensembl-genes', 'src', 'perl', 'ensembl', 'genes',
             'generate_species_homepage_stats.pl'
         ),
+
+        'gmb_venv' => '/hps/nobackup/flicek/ensembl/genebuild/lazar/gmb3/.venv',
 
 ########################
         # Extra db settings
@@ -1242,7 +1245,9 @@ sub pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
                 cmd =>
-'case "#clade#" in ascomycota|basidomycota|oomycota|mucoromycota) exit 2 ;; *) exit 1 ;; esac',
+                  'case "#clade#" in '
+                  . join('|', @{ $self->o('gmb_clades') })
+                  . ') exit 2 ;; *) exit 1 ;; esac',
                 return_codes_2_branches => {
                     '1' => 1,    # Run anno as normal
                     '2' => 2,    # Fungal clade detected - run GMB
@@ -1276,7 +1281,7 @@ sub pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
                     cmd => 'mkdir -p #output_path#/helixer;'
-                  . 'singularity exec --nv '
+                  . 'singularity exec --env PYTHONNOUSERSITE=1 --nv '
                   . $self->o('helixer_singularity_image')
                   . ' bash -c "'
                   . 'export PATH=\$PATH:/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/HelixerPost/target/release/ && '
@@ -1293,63 +1298,30 @@ sub pipeline_analyses {
             -rc_name         => 'helixer',
             -max_retry_count => 0,
             -flow_into       => {
-                1 => ['run_preflight'],
+                1 => ['run_gmb'],
             },
         },
+
         {
-            -logic_name => 'run_preflight',
+            -logic_name => 'run_gmb',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                    cmd => 'gmb-preflight '
-                  . '--preset fungi '
+                    cmd => 'export VIRTUAL_ENV=#gmb_venv#; '
+                  . 'export PATH=#gmb_venv#/bin:$PATH; '
+                  . 'hash -r; '
+                  . 'gmb-run '
+                  . '--preset fungi_latest_settings '
                   . '--genome #reheadered_toplevel_genome_file# '
                   . '--helixer #output_path#/helixer/#assembly_accession#_#species_name#.gff3 '
-                  . '--scallop #output_path#/scallop/annotation.gtf '
-                  . '--stringtie #output_path#/stringtie/annotation.gtf '
+                  . '--scallop #output_path#/scallop_output/annotation.gtf '
+                  . '--stringtie #output_path#/stringtie_output/annotation.gtf '
                   . '--orthodb #output_path#/genblast_orthodb_output/annotation.gtf '
                   . '--uniprot #output_path#/genblast_uniprot_output/annotation.gtf '
                   . '--minimap2 #output_path#/minimap2_output/annotation.gtf '
-                  . '--output-dir #output_path#/gmb/preflight',
-            },
-            -rc_name         => 'gmb_light',
-            -max_retry_count => 0,
-            -flow_into       => {
-                1 => ['run_build']
-            },
-        },
-        {
-            -logic_name => 'run_build',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -parameters => {
-                    cmd => 'gmb-build '
-                  . '--preset fungi '
-                  . '--genome #reheadered_toplevel_genome_file# '
-                  . '--helixer #output_path#/helixer/#assembly_accession#_#species_name#.gff3 '
-                  . '--scallop #output_path#/scallop/annotation.gtf '
-                  . '--stringtie #output_path#/stringtie/annotation.gtf '
-                  . '--orthodb #output_path#/genblast_orthodb_output/annotation.gtf '
-                  . '--uniprot #output_path#/genblast_uniprot_output/annotation.gtf '
-                  . '--minimap2 #output_path#/minimap2_output/annotation.gtf '
-                  . '--output-dir #output_path#/gmb/build '
-                  . '--gene-prefix GMB '
-                  . '--validate-fasta',
+                  . '--output-dir #output_path#/gmb '
+                  . '--gene-prefix GMB ',
             },
             -rc_name         => 'gmb_build',
-            -max_retry_count => 0,
-            -flow_into       => {
-                1 => ['run_finalise']
-            },
-        },
-        {
-            -logic_name => 'run_finalise',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -parameters => {
-                    cmd => 'gmb-finalise '
-                  . '--build-dir #output_path#/gmb/build '
-                  . '--genome #reheadered_toplevel_genome_file# '
-                  . '--output-dir #output_path#/gmb/finalise',
-            },
-            -rc_name         => 'gmb_light',
             -max_retry_count => 0,
             -flow_into       => {
                 1 => ['run_core_loading']
@@ -1376,7 +1348,7 @@ sub pipeline_analyses {
                   . '--coord-system-name primary_assembly',
 
             },
-            -rc_name         => 'anno',
+            -rc_name         => '10GB',
             -max_retry_count => 0,
             -flow_into       => {
                 1 => ['update_biotypes_and_analyses'],
@@ -1590,7 +1562,25 @@ sub pipeline_analyses {
                   . '#core_dbname#'
             },
             -rc_name   => '10GB',
-            -flow_into => { 1 => ['set_canonical_transcripts'] },
+            -flow_into => { 1 => ['check_if_gmb'] },
+        },
+
+        {
+            -logic_name => 'check_if_gmb',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                cmd =>
+'if [ -f "#output_path#/gmb/build/consensus.gff3" ]; then exit 2; else exit 1; fi',
+                return_codes_2_branches => {
+                    '1' => 1,    # Run anno as normal
+                    '2' => 2,    # GMB detected no need for canonical selection
+                },
+            },
+            -rc_name   => 'default',
+            -flow_into => {
+                1 => ['set_canonical_transcripts'],
+                2 => ['null_columns'],
+            },
         },
 
         {
@@ -2476,10 +2466,6 @@ sub resource_classes {
                 100000, '7-00:00:00',
                 undef,  $self->default_options->{'gpu'}
             ),
-        },
-        'gmb_light' => {
-            SLURM =>
-              $self->slurm_resource_builder( 2000, '2:00:00', 1, undef, ' ' ),
         },
         'gmb_build' => {
             SLURM => $self->slurm_resource_builder(
