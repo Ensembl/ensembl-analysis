@@ -41,7 +41,7 @@ sub default_options {
 '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
         'helixer_singularity_image' =>
 '/nfs/production/flicek/ensembl/shared_data/singularity_images/cache/helixer-docker_latest.sif',
-        'gmb_clades' => [qw(ascomycota basidiomycota oomycota mucoromycota)],
+        'gmb_clades' => 'ascomycota|basidiomycota|oomycota|mucoromycota',
         'gffread_path' =>
 '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
         'current_genebuild' => 0,
@@ -1246,7 +1246,7 @@ sub pipeline_analyses {
             -parameters => {
                 cmd =>
                   'case "#clade#" in '
-                  . join('|', @{ $self->o('gmb_clades') })
+                  . $self->o('gmb_clades')
                   . ') exit 2 ;; *) exit 1 ;; esac',
                 return_codes_2_branches => {
                     '1' => 1,    # Run anno as normal
