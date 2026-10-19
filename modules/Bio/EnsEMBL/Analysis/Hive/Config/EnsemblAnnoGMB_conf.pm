@@ -41,7 +41,7 @@ sub default_options {
 '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
         'helixer_singularity_image' =>
 '/nfs/production/flicek/ensembl/shared_data/singularity_images/cache/helixer-docker_latest.sif',
-        'gmb_clades' => 'ascomycota|basidiomycota|oomycota|mucoromycota',
+        'gmb_clades'   => 'ascomycota|basidiomycota|oomycota|mucoromycota',
         'gffread_path' =>
 '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
         'current_genebuild' => 0,
@@ -1244,8 +1244,7 @@ sub pipeline_analyses {
             -logic_name => 'check_clade',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                cmd =>
-                  'case "#clade#" in '
+                cmd => 'case "#clade#" in '
                   . $self->o('gmb_clades')
                   . ') exit 2 ;; *) exit 1 ;; esac',
                 return_codes_2_branches => {
@@ -1301,6 +1300,23 @@ sub pipeline_analyses {
                 1 => ['run_gmb'],
             },
         },
+        {
+            -logic_name => 'check_if_longread',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                cmd =>
+'if [ -f "#output_path#/minimap2_output/annotation.gtf" ]; then exit 2; else exit 1; fi',
+                return_codes_2_branches => {
+                    '1' => 1,    # Run without longread
+                    '2' => 2,    # Longread detected
+                },
+            },
+            -rc_name   => 'default',
+            -flow_into => {
+                1 => ['run_gmb'],
+                2 => ['run_gmb_longread'],
+            },
+        },
 
         {
             -logic_name => 'run_gmb',
@@ -1320,7 +1336,35 @@ sub pipeline_analyses {
                   . '--stringtie #output_path#/stringtie_output/annotation.gtf '
                   . '--orthodb #output_path#/genblast_orthodb_output/annotation.gtf '
                   . '--uniprot #output_path#/genblast_uniprot_output/annotation.gtf '
-                  . '--minimap2 #output_path#/minimap2_output/annotation.gtf '
+                  . '--output-dir #output_path#/gmb '
+                  . '--gene-prefix GMB ',
+            },
+            -rc_name         => 'gmb_build',
+            -max_retry_count => 0,
+            -flow_into       => {
+                1 => ['run_core_loading']
+            },
+        },
+
+        {
+            -logic_name => 'run_gmb_longread',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                    cmd => 'export VIRTUAL_ENV='
+                  . $self->o('gmb_venv')
+                  . '; export PATH='
+                  . $self->o('gmb_venv')
+                  . '/bin:$PATH; '
+                  . 'hash -r; '
+                  . 'gmb-run '
+                  . '--preset fungi_latest_settings '
+                  . '--genome #reheadered_toplevel_genome_file# '
+                  . '--helixer #output_path#/helixer/#assembly_accession#_#species_name#.gff3 '
+                  . '--scallop #output_path#/scallop_output/annotation.gtf '
+                  . '--stringtie #output_path#/stringtie_output/annotation.gtf '
+                  . '--orthodb #output_path#/genblast_orthodb_output/annotation.gtf '
+                  . '--uniprot #output_path#/genblast_uniprot_output/annotation.gtf '
+                  . '--long-read-alignments #output_path#/minimap2_output/annotation.gtf '
                   . '--output-dir #output_path#/gmb '
                   . '--gene-prefix GMB ',
             },
