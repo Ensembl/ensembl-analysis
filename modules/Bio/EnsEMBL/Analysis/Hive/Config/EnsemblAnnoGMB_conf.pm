@@ -1297,7 +1297,7 @@ sub pipeline_analyses {
             -rc_name         => 'helixer',
             -max_retry_count => 0,
             -flow_into       => {
-                1 => ['run_gmb'],
+                1 => ['check_if_longread'],
             },
         },
         {
@@ -1383,7 +1383,6 @@ sub pipeline_analyses {
                   . 'load-anno-output #output_path# '
                   . '--gmb-anno '
                   . '--db-name #core_dbname# '
-                  . $self->o('dna_db_name') . ' '
                   . '--db-host '
                   . $self->o('dna_db_server') . ' '
                   . '--db-port '
@@ -1984,19 +1983,6 @@ sub pipeline_analyses {
             -rc_name   => 'default_registry',
             -flow_into => { 1 => ['run_meta_updates'], },
         },
-        {
-            -logic_name => 'run_meta_updates',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -parameters => {
-                    cmd => 'python '
-                  . $self->o('core_metadata_script')
-                  . ' --work_dir #output_path# --keep_outputs -d #core_dbname# --team genebuild -s '
-                  . $self->o('dna_db_server') . ' -p '
-                  . $self->o('dna_db_port'),
-            },
-            -rc_name   => '1GB',
-            -flow_into => { 1 => ['load_meta_updates'], },
-        },
 
         {
             -logic_name => 'run_meta_updates',
@@ -2016,7 +2002,7 @@ sub pipeline_analyses {
             -rc_name   => '1GB',
             -flow_into => {
                 1 => ['load_meta_updates'],                 # clean → continue
-                2 => [ 'warn_meta_mismatch', 'load_meta_updates' ]
+                2 => [ 'meta_mismatch_warning', 'load_meta_updates' ]
                 ,    # mismatch → warn AND continue
             },
         },
