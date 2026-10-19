@@ -1382,7 +1382,7 @@ sub pipeline_analyses {
                   'gff-loader --log-file #output_path#/load-anno-output.log '
                   . 'load-anno-output #output_path# '
                   . '--gmb-anno '
-                  . '--db-name '
+                  . '--db-name #core_dbname# '
                   . $self->o('dna_db_name') . ' '
                   . '--db-host '
                   . $self->o('dna_db_server') . ' '
