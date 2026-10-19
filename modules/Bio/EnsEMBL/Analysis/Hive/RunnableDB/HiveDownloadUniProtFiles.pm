@@ -91,6 +91,7 @@ sub run {
   my $self = shift;
 
   my @iids;
+  my $downloaded_sequence_count = 0;
   foreach my $query (@{$self->param_required('query_url')}) {
     my $query_url = $query->{url};
     my $filename = $query->{file_name};
@@ -105,74 +106,110 @@ sub run {
     my $expected_count = $self->_get_expected_count($agent, $query_url);
     say "UniProt preflight count: $expected_count sequences" if defined $expected_count;
 
-    my ($response, $last_error);
-    ATTEMPT: for my $attempt (1 .. $self->param('max_attempts')) {
-      $response = eval { $agent->get($query_url) };
-      $last_error = $@;
-      last ATTEMPT if ($response && $response->is_success() &&
-                       ($filename =~ /\.gz$/ || $self->_fasta_sequence_count($response->content())));
+    my ($output_file, $sequence_count) = $self->download_file(
+      agent          => $agent,
+      url            => $query_url,
+      filename       => $filename,
+      expected_count => $expected_count,
+    );
 
-      if ($response && $response->status_line() =~ /^404\s/) {
-        last ATTEMPT;
-      }
+    next unless $output_file;
 
-      my $retry_after = $response ? $response->header('Retry-After') : undef;
-      my $status = $response ? $response->status_line() : ($last_error || 'no response');
-      if ($attempt < $self->param('max_attempts')) {
-        my $delay = $retry_after && $retry_after =~ /^\d+$/
-          ? $retry_after
-          : $self->param('retry_delay') * (2 ** ($attempt - 1));
-        say STDERR "Download attempt $attempt failed ($status); retrying in ${delay}s";
-        sleep $delay;
-      }
-    }
-
-    if ($response && $response->is_success()) {
-      my $content = $response->content();
-      my $sequence_count = $filename =~ /\.gz$/ ? 0 : $self->_fasta_sequence_count($content);
-      $self->throw("Downloaded response for '$filename' is not a non-empty FASTA file")
-        unless $filename =~ /\.gz$/ || $sequence_count;
-
-      my $tmp_filename = $filename . '.tmp.' . $$;
-      if ($filename =~ /\.gz$/) {
-        $tmp_filename .= '.gz';
-      }
-      open(my $fh, '>', $tmp_filename) || $self->throw("Could not open file $tmp_filename\n");
-      binmode $fh;
-      print $fh $content;
-      close($fh) || $self->throw("Could not close the file '$tmp_filename'");
-
-      if ($tmp_filename =~ s/\.gz$//) {
-        gunzip "$tmp_filename.gz" => $tmp_filename
-          or $self->throw("gunzip failed for '$filename': $GunzipError");
-        unlink "$tmp_filename.gz"
-          or $self->throw("Could not remove temporary compressed file '$tmp_filename.gz': $!");
-        $filename =~ s/\.gz$//;
-        $sequence_count = $self->_fasta_sequence_count_file($tmp_filename);
-        $self->throw("Downloaded response for '$filename' is not a non-empty FASTA file")
-          unless $sequence_count;
-      }
-      rename($tmp_filename, $filename)
-        or $self->throw("Could not atomically move '$tmp_filename' to '$filename': $!");
-      push(@iids, $filename);
-      $self->param('_downloaded_sequence_count', ($self->param('_downloaded_sequence_count') || 0) + $sequence_count);
-      if (defined $expected_count && $sequence_count < $expected_count * $self->param('min_expected_fraction')) {
-        $self->throw("Downloaded $sequence_count protein sequences for '$filename'; UniProt preflight reported $expected_count (minimum allowed is ".int($expected_count * $self->param('min_expected_fraction')).")");
-      }
-    } elsif ($response && $response->status_line() =~ /404 Not Found/) {
-      $self->warning('Failed, got '.$response->status_line().' for '.$response->request()->uri()." . It's likely that this sequence has been deleted. Fine. \n");
-    } else {
-      my $status = $response ? $response->status_line() : ($last_error || 'no response');
-      $self->throw("Failed to download '$query_url' after ".$self->param('max_attempts')." attempts: $status\n");
-    }
+    push @iids, $output_file;
+    $downloaded_sequence_count += $sequence_count;
   }
   my $min_total_sequences = $self->param('min_total_sequences');
-  if (defined $min_total_sequences && ($self->param('_downloaded_sequence_count') || 0) < $min_total_sequences) {
-    $self->throw("Downloaded only ".($self->param('_downloaded_sequence_count') || 0)." protein sequences; expected at least $min_total_sequences");
+  if (defined $min_total_sequences && $downloaded_sequence_count < $min_total_sequences) {
+    $self->throw("Downloaded only $downloaded_sequence_count protein sequences; expected at least $min_total_sequences");
   }
   $self->output(\@iids);
   say "Finished downloading UniProt files";
   return 1;
+}
+
+sub download_file {
+  my ($self, %args) = @_;
+
+  my $agent          = $args{agent};
+  my $url            = $args{url};
+  my $filename       = $args{filename};
+  my $expected_count = $args{expected_count};
+  my $is_gzipped     = $filename =~ /\.gz$/;
+  my $output_file    = $filename;
+
+  $output_file =~ s/\.gz$// if $is_gzipped;
+
+  for my $attempt (1 .. $self->param('max_attempts')) {
+    my $part_file = "$filename.part.$$";
+    my ($response, $last_error, $error);
+
+    unlink $part_file if -e $part_file;
+
+    eval {
+      $response = $agent->get($url, ':content_file' => $part_file);
+    };
+    $last_error = $@;
+
+    if ($response && $response->status_line() =~ /^404\s/) {
+      unlink $part_file if -e $part_file;
+      $self->warning('Failed, got '.$response->status_line().' for '.$response->request()->uri()." . It's likely that this sequence has been deleted. Fine. \n");
+      return;
+    }
+
+    if (!$response) {
+      $error = $last_error || 'no response';
+    } elsif (!$response->is_success()) {
+      $error = $response->status_line();
+    } elsif (my $aborted = $response->header('Client-Aborted')) {
+      $error = "Client-Aborted: $aborted";
+    } elsif (my $died = $response->header('X-Died')) {
+      $error = "X-Died: $died";
+    } elsif (!-s $part_file) {
+      $error = 'empty download';
+    }
+
+    my $validated_file = $part_file;
+    my $sequence_count = 0;
+
+    if (!$error && $is_gzipped) {
+      $validated_file = "$part_file.uncompressed";
+      unlink $validated_file if -e $validated_file;
+      gunzip $part_file => $validated_file
+        or $error = "gzip validation failed: $GunzipError";
+    }
+
+    if (!$error) {
+      ($sequence_count, $error) = $self->_validate_fasta_file($validated_file);
+    }
+
+    if (!$error && defined $expected_count) {
+      my $minimum_allowed = int($expected_count * $self->param('min_expected_fraction'));
+      if ($sequence_count < $minimum_allowed) {
+        $error = "downloaded $sequence_count sequences; UniProt preflight reported $expected_count (minimum allowed is $minimum_allowed)";
+      }
+    }
+
+    if (!$error) {
+      rename $validated_file, $output_file
+        or $self->throw("Could not atomically move '$validated_file' to '$output_file': $!");
+      unlink $part_file if -e $part_file;
+      return ($output_file, $sequence_count);
+    }
+
+    unlink $part_file if -e $part_file;
+    unlink $validated_file if $validated_file ne $part_file && -e $validated_file;
+
+    if ($attempt < $self->param('max_attempts')) {
+      my $retry_after = $response ? $response->header('Retry-After') : undef;
+      my $delay = $retry_after && $retry_after =~ /^\d+$/
+        ? $retry_after
+        : $self->param('retry_delay') * (2 ** ($attempt - 1));
+      say STDERR "Download attempt $attempt failed ($error); retrying in ${delay}s";
+      sleep $delay;
+    } else {
+      $self->throw("Failed to download '$url' after ".$self->param('max_attempts')." attempts: $error\n");
+    }
+  }
 }
 
 sub _get_expected_count {
@@ -207,19 +244,35 @@ sub _get_expected_count {
   $self->throw("UniProt preflight count failed for '$stream_url' after ".$self->param('max_attempts')." attempts: $status");
 }
 
-sub _fasta_sequence_count {
-  my ($self, $content) = @_;
-  return 0 unless defined $content && $content =~ /^\s*>/;
-  return scalar grep { /^>/ } split(/\n/, $content);
-}
-
-sub _fasta_sequence_count_file {
+sub _validate_fasta_file {
   my ($self, $filename) = @_;
-  open(my $fh, '<', $filename) || $self->throw("Could not open downloaded FASTA '$filename'");
-  local $/;
-  my $content = <$fh>;
-  close($fh) || $self->throw("Could not close downloaded FASTA '$filename'");
-  return $self->_fasta_sequence_count($content);
+
+  open(my $fh, '<', $filename)
+    or $self->throw("Could not open downloaded FASTA '$filename': $!");
+
+  my ($count, $seen_header, $has_sequence) = (0, 0, 0);
+
+  while (my $line = <$fh>) {
+    chomp $line;
+    if ($line =~ /^>/) {
+      if ($seen_header && !$has_sequence) {
+        close $fh;
+        return (0, 'FASTA contains a dangling header');
+      }
+      $count++;
+      $seen_header  = 1;
+      $has_sequence = 0;
+    } elsif ($seen_header && $line =~ /\S/) {
+      $has_sequence = 1;
+    }
+  }
+
+  close($fh) or $self->throw("Could not close downloaded FASTA '$filename': $!");
+
+  return (0, 'download is not a non-empty FASTA file') unless $count;
+  return (0, 'FASTA ends with a dangling header') if $seen_header && !$has_sequence;
+
+  return ($count, undef);
 }
 
 sub write_output {
@@ -322,3 +375,4 @@ sub build_query {
 }
 
 1;
+
