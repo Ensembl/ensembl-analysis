@@ -1995,7 +1995,7 @@ sub pipeline_analyses {
                   . $self->o('dna_db_port') . '; '
                   . 'EXIT=$?; '
                   . 'if [ $EXIT -eq 0 ]; then exit 0; '
-                  . 'elif [ $EXIT -eq 42 ]; then exit 42; ' # 42 == known registry mismatch
+                  . 'elif [ $EXIT -eq 1 ]; then exit 42; ' # truth-check mismatch -> warning branch
                   . 'else exit $EXIT; fi',                  # anything else stays fatal
                 return_codes_2_branches => { '42' => 2 },
             },
