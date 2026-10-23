@@ -131,6 +131,11 @@ sub default_options {
     'blast_type'                  => 'ncbi',                                                                                # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
+    # Protect against an empty/partial UniProt response. Increase or lower
+    # this for a species/configuration when needed.
+    'min_uniprot_sequences'       => 100,
+    # Allow for small changes between the preflight count and the stream.
+    'min_uniprot_expected_fraction' => 0.95,
     'genblast_eval' => $self->o('blast_type') eq 'wu' ? '1e-20' : '1e-1',
     'genblast_cov'  => '0.5',
     'genblast_pid'  => '30',
@@ -238,6 +243,8 @@ sub pipeline_analyses {
         multi_query_download => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', $self->o('uniprot_set') ),
         taxon_id             => $self->o('taxon_id'),
         output_path          => $self->o('homology_models_path'),
+        min_total_sequences   => $self->o('min_uniprot_sequences'),
+        min_expected_fraction => $self->o('min_uniprot_expected_fraction'),
       },
       -rc_name   => 'default',
       -flow_into => {
