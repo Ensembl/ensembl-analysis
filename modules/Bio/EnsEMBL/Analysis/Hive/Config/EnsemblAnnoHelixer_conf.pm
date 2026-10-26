@@ -1456,14 +1456,35 @@ sub pipeline_analyses {
 	 -rc_name => 'default_registry',
 	 -flow_into       => { 1 => ['run_meta_updates'], },
     },
-{
-      -logic_name => 'run_meta_updates',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-          cmd => 'python ' . $self->o('core_metadata_script')  .  ' --work_dir #output_path# --keep_outputs -d #core_dbname# --team genebuild -s ' . $self->o('dna_db_server') . ' -p ' .$self->o('dna_db_port'),
-      },
-      -rc_name => '1GB',
-      -flow_into       => { 1 => ['load_meta_updates'], },
+    {
+        -logic_name => 'run_meta_updates',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                cmd => 'python '
+              . $self->o('core_metadata_script')
+              . ' --work_dir #output_path# --keep_outputs -d #core_dbname# --team genebuild -s '
+              . $self->o('dna_db_server') . ' -p '
+              . $self->o('dna_db_port') . '; '
+              . 'EXIT=$?; '
+              . 'if [ $EXIT -eq 0 ]; then exit 0; '
+              . 'elif [ $EXIT -eq 1 ]; then exit 42; ' # truth-check mismatch -> warning branch
+              . 'else exit $EXIT; fi',                 # anything else stays fatal
+            return_codes_2_branches => { '42' => 2 },
+        },
+        -rc_name   => '1GB',
+        -flow_into => {
+            1 => ['load_meta_updates'],                # clean → continue
+            2 => [ 'meta_mismatch_warning', 'load_meta_updates' ]
+            ,    # mismatch → warn AND continue
+        },
+    },
+
+    {
+        -logic_name => 'meta_mismatch_warning',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -rc_name    => 'default',
+
+        # no -flow_into — it's a terminal marker
     },
 
     {
