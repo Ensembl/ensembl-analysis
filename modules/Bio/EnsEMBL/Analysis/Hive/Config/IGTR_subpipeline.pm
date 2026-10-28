@@ -274,7 +274,7 @@ sub pipeline_analyses {
         iid_type => 'db_seq',
         dna_db => $self->o('dna_db'),
         target_db => $self->o('ig_tr_db'),
-        logic_name => 'genblast',
+        logic_name => 'ig_tr_gene',
         module => 'HiveGenblast',
         genblast_path => $self->o('genblast_path'),
         genblast_db_path => $self->o('softmasked_genome_file'),
