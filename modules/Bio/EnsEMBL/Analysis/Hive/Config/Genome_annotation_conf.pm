@@ -699,7 +699,7 @@ sub pipeline_analyses {
       },
       -rc_name => '1GB',
       -flow_into => {
-        1 => ['download_rnaseq_csv_from_transcriptomic_registry'],
+        1 => ['override_rnaseq_summary_file'],
       },
       -input_ids  => [
         {
