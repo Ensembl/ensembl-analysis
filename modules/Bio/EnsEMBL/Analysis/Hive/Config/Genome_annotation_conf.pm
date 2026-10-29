@@ -711,6 +711,20 @@ sub pipeline_analyses {
     },
 
     {
+      -logic_name => 'override_rnaseq_summary_file',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd                     => 'if [ -s "'.$self->o('rnaseq_summary_file').'" ] ; then exit 0; else  exit 42;fi',
+        return_codes_2_branches => { '42' => 2 },
+      },
+      -flow_into => {
+        1 => ['download_rnaseq_genus_csv_from_transcriptomic_registry'],
+        2 => ['download_rnaseq_csv_from_transcriptomic_registry'],
+      },
+      -rc_name => 'default',
+    },
+
+    {
       -logic_name => 'download_rnaseq_csv_from_transcriptomic_registry',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '1GB',
