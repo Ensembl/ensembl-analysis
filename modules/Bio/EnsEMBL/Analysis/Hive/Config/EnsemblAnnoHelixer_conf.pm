@@ -1770,18 +1770,18 @@ sub pipeline_analyses {
   },
   {
     -logic_name => 'delete_short_reads',
-    -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
     -parameters => {
-      cmd => 'if [ -f ' . '#short_read_dir#' . '/*.gz ]; then rm ' . '#short_read_dir#' . '/*.gz; fi',
+        cmd => 'rm -f ' . '#short_read_dir#' . '/*.gz',
     },
-    -rc_name => 'default',
-    -flow_into       => { 1 => ['delete_long_reads'], },
-    },
-    {
+    -rc_name   => 'default',
+    -flow_into => { 1 => ['delete_long_reads'], },
+},
+{
     -logic_name => 'delete_long_reads',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
+        cmd => 'rm -f ' . '#long_read_dir#' . '/*',
       },
       -rc_name => 'default',
       -flow_into       => { 1 => ['fetch_last_geneset_update'], },
@@ -1799,6 +1799,9 @@ sub pipeline_analyses {
           2 => ['create_target_db_gb1'],
       },
     },
+    -rc_name   => 'default',
+    -flow_into => { 1 => ['create_target_db_gb1'], },
+},
     {
       -logic_name => 'create_target_db_gb1',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
