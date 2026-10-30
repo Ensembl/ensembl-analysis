@@ -821,7 +821,7 @@ sub pipeline_analyses {
         iid_type            => 'db_seq',
         sequence_table_name => $self->o('uniprot_table_name'),
       },
-      -rc_name => 'default',
+      -rc_name => '2GB',
     },
 
     {
