@@ -1785,8 +1785,8 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -flow_into       => { 1 => ['fetch_last_geneset_update'], },
-    },
-    {
+},
+{
       -logic_name => 'fetch_last_geneset_update',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
@@ -1796,13 +1796,16 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -flow_into => {
-          2 => ['create_target_db_gb1'],
+          2 => {
+              'create_target_db_gb1' => {
+                  'last_geneset_update' => '#last_geneset_update#',
+                  'production_name'     => '#production_name#',
+                  'core_db'             => '#core_db#',
+                },
+          },
       },
-    },
-    -rc_name   => 'default',
-    -flow_into => { 1 => ['create_target_db_gb1'], },
 },
-    {
+{
       -logic_name => 'create_target_db_gb1',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
