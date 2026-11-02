@@ -1801,6 +1801,7 @@ sub pipeline_analyses {
                   'last_geneset_update' => '#last_geneset_update#',
                   'production_name'     => '#production_name#',
                   'core_db'             => '#core_db#',
+                  'assembly_accession'  => '#assembly_accession#',  
                 },
           },
       },
