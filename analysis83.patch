@@ -1,0 +1,8 @@
+-          2 => ['create_target_db_gb1'],
++          2 => {
++              'create_target_db_gb1' => {
++                  'last_geneset_update' => '#last_geneset_update#',
++                  'production_name'     => '#production_name#',
++                  'core_db'             => '#core_db#',
++              },
++          },
