@@ -1420,7 +1420,7 @@ sub trim_3prime_utr_short_read {
         $self->say_with_header("Did not found $cleavage_signal after $polya_pos");
         $cleavage_pos = 15;
       }
-      my $new_end = $polya_pos+$cleavage_pos;
+      $new_end = $polya_pos+$cleavage_pos;
     }
     foreach my $exon (@$exons) {
       if ($exon == $stop_codon_exon) {
