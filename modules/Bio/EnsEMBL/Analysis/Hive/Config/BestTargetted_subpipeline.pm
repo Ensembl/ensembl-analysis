@@ -789,6 +789,7 @@ sub pipeline_analyses {
         taxon_id => $self->o('taxon_id'),
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', 'selenocysteine' ) },
         output_path => $self->o('targetted_path'),
+        min_total_sequences => 0,
       },
       -rc_name   => 'default',
       -flow_into => {
