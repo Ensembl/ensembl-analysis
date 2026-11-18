@@ -28,6 +28,32 @@ use Test::More;
 
 use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUTRAddition');
 
+subtest '_calculate_3prime_utr_end' => sub {
+  my $runnable = bless {}, 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUTRAddition';
+  my $pas = 'AATAAA';
+  my $cleavage = 'CA';
+
+  my $sequence = ('G' x 20) . $pas . ('T' x 18) . $cleavage . ('G' x 20);
+  my ($end, $pas_pos, $cleavage_pos) = $runnable->_calculate_3prime_utr_end(
+    $sequence, 20, $pas, $cleavage,
+  );
+  is($pas_pos, 20, 'reports the PAS position');
+  is($cleavage_pos, 4, 'reports cleavage position relative to the window');
+  is($end, 38, 'includes the cleavage-window offset in the endpoint');
+
+  ($end, $pas_pos, $cleavage_pos) = $runnable->_calculate_3prime_utr_end(
+    ('G' x 20) . $pas . ('T' x 40), 20, $pas, $cleavage,
+  );
+  is($cleavage_pos, 15, 'uses the full fallback window when cleavage is absent');
+  is($end, 49, 'fallback endpoint includes the cleavage-window offset');
+
+  ($end, $pas_pos, $cleavage_pos) = $runnable->_calculate_3prime_utr_end(
+    ('G' x 10) . $pas . ('T' x 40), 20, $pas, $cleavage,
+  );
+  is($end, 1000, 'uses the maximum endpoint when PAS is before the CDS end');
+  is($cleavage_pos, undef, 'does not search for cleavage before the CDS end');
+};
+
 TODO: {
   local $TODO = 'Proper tests needed';
   note($TODO);
