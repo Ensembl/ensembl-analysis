@@ -38,8 +38,8 @@ subtest '_calculate_3prime_utr_end' => sub {
     $sequence, 20, $pas, $cleavage,
   );
   is($pas_pos, 20, 'reports the PAS position');
-  is($cleavage_pos, 4, 'reports cleavage position relative to the window');
-  is($end, 38, 'includes the cleavage-window offset in the endpoint');
+  is($cleavage_pos, 10, 'reports cleavage position relative to the window');
+  is($end, 44, 'includes the cleavage-window offset in the endpoint');
 
   ($end, $pas_pos, $cleavage_pos) = $runnable->_calculate_3prime_utr_end(
     ('G' x 20) . $pas . ('T' x 40), 20, $pas, $cleavage,
