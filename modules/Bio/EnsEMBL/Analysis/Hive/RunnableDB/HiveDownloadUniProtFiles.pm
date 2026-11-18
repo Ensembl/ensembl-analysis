@@ -106,6 +106,11 @@ sub run {
     my $expected_count = $self->_get_expected_count($agent, $query_url);
     say "UniProt preflight count: $expected_count sequences" if defined $expected_count;
 
+    if (defined $expected_count && $expected_count == 0) {
+      $self->warning("UniProt reports 0 sequences for $query_url; skipping download\n");
+      next;
+    }
+
     my ($output_file, $sequence_count) = $self->download_file(
       agent          => $agent,
       url            => $query_url,
