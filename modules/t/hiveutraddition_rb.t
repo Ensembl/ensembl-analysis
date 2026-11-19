@@ -39,19 +39,34 @@ subtest '_calculate_3prime_utr_end' => sub {
   );
   is($pas_pos, 20, 'reports the PAS position');
   is($cleavage_pos, 10, 'reports cleavage position relative to the window');
-  is($end, 44, 'includes the cleavage-window offset in the endpoint');
+  is($end, 24, 'returns the UTR length after the CDS');
 
   ($end, $pas_pos, $cleavage_pos) = $runnable->_calculate_3prime_utr_end(
     ('G' x 20) . $pas . ('T' x 40), 20, $pas, $cleavage,
   );
-  is($cleavage_pos, 15, 'uses the full fallback window when cleavage is absent');
-  is($end, 49, 'fallback endpoint includes the cleavage-window offset');
+  is($cleavage_pos, -1, 'reports that cleavage is absent');
+  is($end, 29, 'fallback UTR length includes the cleavage-window offset');
 
   ($end, $pas_pos, $cleavage_pos) = $runnable->_calculate_3prime_utr_end(
     ('G' x 10) . $pas . ('T' x 40), 20, $pas, $cleavage,
   );
   is($end, 1000, 'uses the maximum endpoint when PAS is before the CDS end');
   is($cleavage_pos, undef, 'does not search for cleavage before the CDS end');
+
+  my ($start, $exon_end) = $runnable->_calculate_3prime_utr_exon_bounds(
+    100, 199, 1, 20, 24,
+  );
+  is_deeply([$start, $exon_end], [100, 144], 'trims the forward-strand exon at the calculated endpoint');
+
+  ($start, $exon_end) = $runnable->_calculate_3prime_utr_exon_bounds(
+    100, 199, -1, 20, 24,
+  );
+  is_deeply([$start, $exon_end], [155, 199], 'trims the reverse-strand exon at the calculated endpoint');
+
+  ($start, $exon_end) = $runnable->_calculate_3prime_utr_exon_bounds(
+    100, 199, 1, 20, 1000,
+  );
+  is_deeply([$start, $exon_end], [100, 199], 'does not extend beyond the existing exon');
 };
 
 TODO: {

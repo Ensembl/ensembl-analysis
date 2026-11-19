@@ -1424,26 +1424,15 @@ sub trim_3prime_utr_short_read {
     }
     foreach my $exon (@$exons) {
       if ($exon == $stop_codon_exon) {
-        if ($exon->length > $new_end) {
-          if ($exon->length-$translation_end > $new_end) {
-            if ($exon->strand == 1) {
-              $exon->end($exon->start+$translation_end+$new_end);
-            }
-            else {
-              $exon->start($exon->end-$translation_end-$new_end);
-            }
-          }
-        }
-        else {
-          if ($new_end < $exon->length) {
-            if ($exon->strand == 1) {
-              $exon->end($exon->start+$new_end);
-            }
-            else {
-              $exon->start($exon->end-$new_end);
-            }
-          }
-        }
+        my ($new_start, $new_exon_end) = $self->_calculate_3prime_utr_exon_bounds(
+          $exon->start,
+          $exon->end,
+          $exon->strand,
+          $translation_end,
+          $new_end,
+        );
+        $exon->start($new_start);
+        $exon->end($new_exon_end);
         $transcript->add_Exon($exon);
         last;
       }
@@ -1468,13 +1457,14 @@ sub trim_3prime_utr_short_read {
 =head2 _calculate_3prime_utr_end
 
  Arg [1]    : String, the sequence of the last coding exon
- Arg [2]    : Integer, the translation end relative to the transcript
+ Arg [2]    : Integer, the translation end within the terminal exon
  Arg [3]    : String, the polyadenylation signal
  Arg [4]    : String, the cleavage signal
- Returntype : List containing the UTR endpoint, PAS position, and cleavage position
+ Returntype : List containing the UTR length, PAS position, and cleavage position
  Description: Calculate the endpoint used when trimming a short-read 3' UTR.
               The cleavage position is relative to the search window, so the
-              window offset must be included in the final endpoint.
+              window offset must be included. The returned endpoint is the
+              number of UTR bases beyond the CDS, not an absolute exon position.
 
 =cut
 
@@ -1492,11 +1482,39 @@ sub _calculate_3prime_utr_end {
     substr($sequence, $polya_pos + $cleavage_window_offset, $cleavage_window_length),
     $cleavage_signal,
   );
-  $cleavage_pos = $cleavage_window_length if $cleavage_pos == -1;
+  my $cleavage_offset = $cleavage_pos == -1 ? $cleavage_window_length : $cleavage_pos;
 
-  # cleavage_pos is relative to the window, not to the PAS.
-  my $new_end = $polya_pos + $cleavage_window_offset + $cleavage_pos;
+  # cleavage_pos is relative to the window, not to the PAS. Convert the
+  # absolute exon position to a UTR length before returning it.
+  my $new_end = $polya_pos + $cleavage_window_offset + $cleavage_offset - $translation_end;
   return ($new_end, $polya_pos, $cleavage_pos);
+}
+
+=head2 _calculate_3prime_utr_exon_bounds
+
+ Arg [1]    : Integer, exon start
+ Arg [2]    : Integer, exon end
+ Arg [3]    : Integer, exon strand
+ Arg [4]    : Integer, translation end within the exon
+ Arg [5]    : Integer, desired UTR length beyond the CDS
+ Returntype : List containing the trimmed exon start and end
+ Description: Convert a CDS-relative 3' UTR length into exon coordinates.
+              Translation end and UTR length are deliberately kept as separate
+              quantities so the CDS is not counted twice.
+
+=cut
+
+sub _calculate_3prime_utr_exon_bounds {
+  my ($self, $exon_start, $exon_end, $strand, $translation_end, $utr_length) = @_;
+
+  my $exon_length = $exon_end - $exon_start + 1;
+  return ($exon_start, $exon_end)
+    if $utr_length >= $exon_length - $translation_end;
+
+  if ($strand == 1) {
+    return ($exon_start, $exon_start + $translation_end + $utr_length);
+  }
+  return ($exon_end - $translation_end - $utr_length, $exon_end);
 }
 
 =head2 acceptor_genes
