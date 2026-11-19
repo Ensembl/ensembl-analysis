@@ -1399,8 +1399,6 @@ sub trim_3prime_utr_short_read {
   # Only going to use the most common nuclear PAS signal
   my $pas_signal = 'AATAAA';
   my $cleavage_signal = 'CA'; # Not sure about that one
-  my $new_end = 1000; # If there is no signal/cleavage, the max 3' end is 1000bp
-
   my $three_prime_utr = $transcript->three_prime_utr;
   if ($three_prime_utr) {
     my $exons = $transcript->get_all_Exons;
@@ -1409,41 +1407,32 @@ sub trim_3prime_utr_short_read {
     my $translation_end = $transcript->translation->end;
     my $ises = $transcript->get_all_IntronSupportingEvidence;
     $transcript->flush_Exons;
-    my $polya_pos = index($stop_codon_seq->seq, $pas_signal);
+    my ($new_end, $polya_pos, $cleavage_pos) = $self->_calculate_3prime_utr_end(
+      $stop_codon_seq->seq,
+      $translation_end,
+      $pas_signal,
+      $cleavage_signal,
+    );
     if ($polya_pos == -1 or $polya_pos < $translation_end) {
       $self->say_with_header("Did not found $pas_signal in last coding exon");
     }
     else {
       $self->say_with_header("Found $pas_signal at $polya_pos");
-      my $cleavage_pos = index(substr($stop_codon_seq->seq, $polya_pos+14, 15), $cleavage_signal);
       if ($cleavage_pos == -1) {
         $self->say_with_header("Did not found $cleavage_signal after $polya_pos");
-        $cleavage_pos = 15;
       }
-      my $new_end = $polya_pos+$cleavage_pos;
     }
     foreach my $exon (@$exons) {
       if ($exon == $stop_codon_exon) {
-        if ($exon->length > $new_end) {
-          if ($exon->length-$translation_end > $new_end) {
-            if ($exon->strand == 1) {
-              $exon->end($exon->start+$translation_end+$new_end);
-            }
-            else {
-              $exon->start($exon->end-$translation_end-$new_end);
-            }
-          }
-        }
-        else {
-          if ($new_end < $exon->length) {
-            if ($exon->strand == 1) {
-              $exon->end($exon->start+$new_end);
-            }
-            else {
-              $exon->start($exon->end-$new_end);
-            }
-          }
-        }
+        my ($new_start, $new_exon_end) = $self->_calculate_3prime_utr_exon_bounds(
+          $exon->start,
+          $exon->end,
+          $exon->strand,
+          $translation_end,
+          $new_end,
+        );
+        $exon->start($new_start);
+        $exon->end($new_exon_end);
         $transcript->add_Exon($exon);
         last;
       }
@@ -1463,6 +1452,69 @@ sub trim_3prime_utr_short_read {
   }
 
   return $transcript;
+}
+
+=head2 _calculate_3prime_utr_end
+
+ Arg [1]    : String, the sequence of the last coding exon
+ Arg [2]    : Integer, the translation end within the terminal exon
+ Arg [3]    : String, the polyadenylation signal
+ Arg [4]    : String, the cleavage signal
+ Returntype : List containing the UTR length, PAS position, and cleavage position
+ Description: Calculate the endpoint used when trimming a short-read 3' UTR.
+              The cleavage position is relative to the search window, so the
+              window offset must be included. The returned endpoint is the
+              number of UTR bases beyond the CDS, not an absolute exon position.
+
+=cut
+
+sub _calculate_3prime_utr_end {
+  my ($self, $sequence, $translation_end, $pas_signal, $cleavage_signal) = @_;
+
+  my $default_end = 1000; # If there is no signal/cleavage, the max 3' end is 1000bp
+  my $polya_pos = index($sequence, $pas_signal);
+  return ($default_end, $polya_pos, undef)
+    if $polya_pos == -1 or $polya_pos < $translation_end;
+
+  my $cleavage_window_offset = 14;
+  my $cleavage_window_length = 15;
+  my $cleavage_pos = index(
+    substr($sequence, $polya_pos + $cleavage_window_offset, $cleavage_window_length),
+    $cleavage_signal,
+  );
+  my $cleavage_offset = $cleavage_pos == -1 ? $cleavage_window_length : $cleavage_pos;
+
+  # cleavage_pos is relative to the window, not to the PAS. Convert the
+  # absolute exon position to a UTR length before returning it.
+  my $new_end = $polya_pos + $cleavage_window_offset + $cleavage_offset - $translation_end;
+  return ($new_end, $polya_pos, $cleavage_pos);
+}
+
+=head2 _calculate_3prime_utr_exon_bounds
+
+ Arg [1]    : Integer, exon start
+ Arg [2]    : Integer, exon end
+ Arg [3]    : Integer, exon strand
+ Arg [4]    : Integer, translation end within the exon
+ Arg [5]    : Integer, desired UTR length beyond the CDS
+ Returntype : List containing the trimmed exon start and end
+ Description: Convert a CDS-relative 3' UTR length into exon coordinates.
+              Translation end and UTR length are deliberately kept as separate
+              quantities so the CDS is not counted twice.
+
+=cut
+
+sub _calculate_3prime_utr_exon_bounds {
+  my ($self, $exon_start, $exon_end, $strand, $translation_end, $utr_length) = @_;
+
+  my $exon_length = $exon_end - $exon_start + 1;
+  return ($exon_start, $exon_end)
+    if $utr_length >= $exon_length - $translation_end;
+
+  if ($strand == 1) {
+    return ($exon_start, $exon_start + $translation_end + $utr_length);
+  }
+  return ($exon_end - $translation_end - $utr_length, $exon_end);
 }
 
 =head2 acceptor_genes
