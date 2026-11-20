@@ -84,28 +84,45 @@ sub write_output {
     my $second = '00' . ( substr $srr, -1, 1 );
     my $third  = '0' .  ( substr $srr, -2, 2 );
 
-    my @urls = (
-        "$ftp_base_url/$first/$second/$srr/$fastq",
-        "$ftp_base_url/$first/$srr/$fastq",
-        "$ftp_base_url/$first/$third/$srr/$fastq",
-    );
+    # HTTPS is generally more reliable on compute clusters than passive FTP.
+    # Keep the configured FTP endpoint as a fallback for installations where
+    # HTTPS is not available.
+    my @base_urls = ($ftp_base_url);
+    if ( $ftp_base_url =~ m{^ftp://} ) {
+        ( my $https_base_url = $ftp_base_url ) =~ s{^ftp://}{https://};
+        unshift @base_urls, $https_base_url;
+    }
+    my @urls = $self->ena_fastq_urls( $srr, $fastq, $path );
+    unless (@urls) {
+        for my $base_url (@base_urls) {
+            push @urls,
+              "$base_url/$first/$second/$srr/$fastq",
+              "$base_url/$first/$srr/$fastq",
+              "$base_url/$first/$third/$srr/$fastq";
+        }
+    }
     my $tmp = File::Spec->catfile( $path, ".${fastq}.download.$$." );
     my $res;
+    my $last_url;
 
     # Never let wget write to the final filename.  The rename below is atomic,
     # so we can only see a complete download.
     for my $url (@urls) {
         unlink $tmp if -e $tmp;
+        $last_url = $url;
         $res = $self->run_system_command(
             [
-                'wget',          '-qq',
-                '--tries=3',     '--timeout=60',
-                '--waitretry=5', '-O',
-                $tmp,            $url,
+                'curl', '--fail', '--location', '--silent', '--show-error',
+                '--retry', '10', '--retry-all-errors', '--retry-delay', '30',
+                '--connect-timeout', '60', '--max-time', '0',
+                '--continue-at', '-', '--output', $tmp, $url,
             ]
         );
         my $exit_code = $res >> 8;
-        if ( !$res && -s $tmp && $self->file_is_valid( $path, $fastq, $tmp ) ) {
+        # A resumed transfer can return a non-zero status when the remote
+        # server reports that the requested range is already complete.  The
+        # integrity check is the authority in that case.
+        if ( -s $tmp && $self->file_is_valid( $path, $fastq, $tmp ) ) {
             last;
         }
         unlink $tmp if -e $tmp;
@@ -125,7 +142,8 @@ sub write_output {
         unlink $tmp if -e $tmp;
         $res >>= 8  if $res;
         $self->throw(
-            "Could not download a valid file $fastq; wget exit code is $res");
+"Could not download a valid file $fastq; curl exit code is $res. Last URL: $last_url"
+        );
     }
 
     unless ( -e $path . '/' . $fastq ) {
@@ -142,6 +160,43 @@ sub write_output {
     if ( $self->param('create_faidx') ) {
         $self->create_faidx( $path, $fastq );
     }
+}
+
+sub ena_fastq_urls {
+    my ( $self, $srr, $fastq, $path ) = @_;
+
+    my $metadata = File::Spec->catfile( $path, ".${srr}.filereport.$$." );
+    my $api_url =
+        "https://www.ebi.ac.uk/ena/portal/api/filereport?accession=$srr"
+      . '&result=read_run&fields=run_accession,fastq_ftp&format=tsv';
+    my $res = $self->run_system_command(
+        [
+            'wget', '--quiet', '--tries=3', '--timeout=60',
+            '-O',   $metadata, $api_url
+        ]
+    );
+
+    return () if $res || !-s $metadata;
+
+    open my $fh, '<', $metadata or return ();
+    my $header = <$fh>;
+    my @urls;
+    while ( my $line = <$fh> ) {
+        chomp $line;
+        my @fields = split /\t/, $line, -1;
+        next unless @fields > 1;
+        for my $remote ( split /;/, $fields[1] ) {
+            $remote =~ s/^\s+|\s+$//g;
+            next unless $remote =~ m{/(?:\Q$fastq\E)$};
+            $remote = "ftp://$remote" unless $remote =~ m{^\w+://};
+            ( my $https = $remote ) =~ s{^ftp://}{https://};
+            push @urls, $https, $remote;
+        }
+    }
+    close $fh;
+    unlink $metadata;
+
+    return @urls;
 }
 
 sub file_is_valid {
