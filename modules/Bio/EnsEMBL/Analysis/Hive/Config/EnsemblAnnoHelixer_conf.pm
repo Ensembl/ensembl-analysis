@@ -36,7 +36,8 @@ sub default_options {
     'busco_singularity_image'      => '/nfs/production/flicek/ensembl/shared_data/singularity_images/cache/busco_v6.0.0_cv1.sif',
     'busco_download_path'          => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data_odb12/',
     'helixer_singularity_image'    => '/nfs/production/flicek/ensembl/shared_data/singularity_images/cache/helixer-docker_helixer_v0.3.5_cuda_12.2.2-cudnn8.sif',
-    'gffread_path'                 => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
+    'fastq_dl_sif' 				   => '/nfs/production/flicek/ensembl/shared_data/singularity_images/cache/fastq-dl_4.0.1--f3b78ef117ea8791.sif',
+	'gffread_path'                 => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/bin/gffread',
     'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
@@ -568,14 +569,16 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'download_short_read_fastqs',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        ftp_base_url => $self->o('rnaseq_ftp_base'),
-        input_dir    => $self->o('input_dir'),
+		cmd => 'case "#iid#" in *_2.fastq.gz) exit 0;; esac; ' .
+               'ACC="#iid#"; ACC="${ACC%%_*}"; ACC="${ACC%.fastq.gz}"; ' .
+               'mkdir -p #input_dir#; ' .
+               'singularity exec --bind #input_dir# ' . $self->o('fastq_dl_sif') .
+               ' fastq-dl --accession $ACC --outdir #input_dir# --prefix $ACC',
       },
       -analysis_capacity => 50,
     },
-
 
     {
       -logic_name => 'download_long_read_csv',
