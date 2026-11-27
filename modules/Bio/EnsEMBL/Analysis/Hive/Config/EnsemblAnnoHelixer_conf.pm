@@ -574,12 +574,11 @@ sub pipeline_analyses {
 		cmd => 'case "#iid#" in *_2.fastq.gz) exit 0;; esac; ' .
                'ACC="#iid#"; ACC="${ACC%%_*}"; ACC="${ACC%.fastq.gz}"; ' .
                'mkdir -p #input_dir#; ' .
-               'singularity exec --bind #input_dir# #fastq_dl_sif# ' .
-               'fastq-dl --accession $ACC --outdir #input_dir# --prefix $ACC',
-          },
+               'singularity exec --bind #input_dir# ' . $self->o('fastq_dl_sif') .
+               ' fastq-dl --accession $ACC --outdir #input_dir# --prefix $ACC',
+      },
       -analysis_capacity => 50,
     },
-
 
     {
       -logic_name => 'download_long_read_csv',
