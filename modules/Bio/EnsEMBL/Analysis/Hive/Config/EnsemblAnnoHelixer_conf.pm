@@ -568,11 +568,12 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'download_short_read_fastqs',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        ftp_base_url => $self->o('rnaseq_ftp_base'),
-        input_dir    => $self->o('input_dir'),
-      },
+		cmd => 'case "#iid#" in *_2.fastq.gz) exit 0;; esac; ' .
+               'ACC="#iid#"; ACC="${ACC%%_*}"; ACC="${ACC%.fastq.gz}"; ' .
+               'fastq-dl --accession $ACC --outdir #input_dir# --prefix $ACC',
+          },
       -analysis_capacity => 50,
     },
 
